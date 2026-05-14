@@ -139,7 +139,7 @@ SHIPSTATION_API_SECRET    # recomendada (Basic Auth key:secret)
 SHIPSTATION_BASE_URL      # opcional; default: https://ssapi.shipstation.com
 ```
 
-`SHIPSTATION_WEBHOOK_SECRET` se usara en FASE 5; no configurar todavia.
+`SHIPSTATION_WEBHOOK_SECRET` — requerida para FASE 5 (webhooks). Ver seccion FASE 5 mas abajo.
 
 ### Autenticacion ShipStation
 
@@ -208,6 +208,76 @@ Incluye:
 - Checklist de aprobacion para habilitar produccion.
 
 No conectar a produccion publica hasta completar el checklist.
+
+## FASE 5 — Webhooks ShipStation
+
+Endpoint: `POST /api/webhooks/shipstation`
+
+### Como funciona
+
+ShipStation V1 envia webhooks con payload ligero:
+
+```json
+{
+  "resource_url": "https://ssapi.shipstation.com/shipments?shipmentId=12345",
+  "resource_type": "ITEM_SHIPPED"
+}
+```
+
+El endpoint:
+
+1. Valida el secreto (query `?secret=` o header `x-shipflow-webhook-secret`).
+2. Hace fetch a `resource_url` usando `SHIPSTATION_API_KEY` / `SHIPSTATION_API_SECRET` para obtener datos reales del shipment.
+3. Normaliza el evento y genera un `event_id` (SHA-256 de `provider:resource_type:resource_url`).
+4. Deduplica contra `webhook_events` por `provider + event_id`.
+5. Inserta en `webhook_events` con `status = received`.
+6. Busca el shipment relacionado por `provider_shipment_id`, `tracking_number` o `idempotency_key`.
+7. Actualiza `shipments.status` y `shipments.label_status` segun estado de ShipStation.
+8. Inserta `tracking_event` con `source = "shipstation_webhook"`, `is_real = true`.
+9. Marca webhook como `status = processed`.
+
+### Configuracion en ShipStation Dashboard
+
+ShipStation V1 no soporta HMAC. El secreto va en la URL:
+
+```
+https://TU_DOMINIO/api/webhooks/shipstation?secret=TU_SHIPSTATION_WEBHOOK_SECRET
+```
+
+Eventos configurables:
+- `ITEM_SHIPPED` — label comprada/enviada → tracking "En transito"
+- `ORDER_NOTIFY` — cambio de estado de orden → actualiza status segun SS
+
+### Variables nuevas FASE 5
+
+```text
+SHIPSTATION_WEBHOOK_SECRET   # REQUERIDA; genera con: openssl rand -hex 32
+```
+
+### Archivos nuevos
+
+- `shipflow-web/app/api/webhooks/shipstation/route.ts` — endpoint
+- `shipflow-web/lib/server/webhooks/shipstation.ts` — helpers, tipos, normalizador
+
+### Checklist de prueba
+
+`docs/SHIPSTATION_WEBHOOK_TEST_CHECKLIST.md`
+
+### Mapeo de estados ShipStation → ShipFlow
+
+| ShipStation status      | shipments.status (ES) | shipments.label_status |
+|-------------------------|-----------------------|------------------------|
+| `shipped` / `in_transit` | En transito           | —                      |
+| `delivered`             | Entregado             | —                      |
+| `exception`             | Excepcion             | —                      |
+| `voided` / `cancelled`  | Cancelado             | voided                 |
+| `awaiting_shipment`     | Pendiente             | —                      |
+
+### Deuda pendiente
+
+- Webhooks de tracking de carriers directos (USPS, UPS, FedEx, DHL) siguen pendientes.
+- Mobile (FASE 6) todavia no consume estos webhooks directamente.
+- ShipStation no garantiza delivery/exception webhooks en V1 sin configuracion adicional de tracking.
 
 ## Pirate Ship
 

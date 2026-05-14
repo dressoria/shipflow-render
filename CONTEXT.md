@@ -525,3 +525,50 @@ SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.c
 
 ADVERTENCIA: No usar en produccion publica hasta completar el checklist de FASE 4E completo.
 FASE 5 (webhooks) viene despues del checklist de FASE 4E.
+
+## Estado FASE 5
+
+Objetivo:
+
+- Recibir y procesar webhooks de ShipStation para sincronizar estados de envio y tracking automaticamente.
+
+Cambios preparados:
+
+- Nuevo endpoint `POST /api/webhooks/shipstation`:
+  - Valida secreto en tiempo constante via header `x-shipflow-webhook-secret` o query `?secret=`.
+  - Hace fetch a `resource_url` de ShipStation con Basic Auth para obtener datos reales del shipment.
+  - Deduplica via `event_id` (SHA-256 de `provider:resource_type:resource_url`) contra `webhook_events`.
+  - Inserta en `webhook_events` con `status = received → processed` o `failed`.
+  - Busca shipment por `provider_shipment_id`, `tracking_number` o `idempotency_key (orderKey)`.
+  - Actualiza `shipments.status` y `shipments.label_status` segun estado de ShipStation.
+  - Inserta `tracking_events` con `source = "shipstation_webhook"`, `is_real = true`.
+  - Idempotencia: segundo envio del mismo evento retorna `duplicate: true` sin insertar nada.
+  - Sin usuario Bearer token — autenticacion por secreto compartido.
+  - Service role para todas las operaciones de DB.
+- Nuevo helper `lib/server/webhooks/shipstation.ts`:
+  - `extractWebhookSecret()` — extrae secreto de header o query.
+  - `isValidWebhookSecret()` — comparacion en tiempo constante.
+  - `generateEventId()` — SHA-256 de provider:type:url.
+  - `fetchSSResource()` — fetch a resource_url de ShipStation con timeout 10s.
+  - `normalizeWebhookEvent()` — normaliza payload a estructura tipada.
+  - `mapSSStatusToInternal()` — mapeo de estados SS a español e internos.
+  - `mapEventToTitle()` — titulo legible para tracking_event.
+- Nuevo checklist `docs/SHIPSTATION_WEBHOOK_TEST_CHECKLIST.md`.
+- No se requirio nueva migracion SQL: `webhook_events` ya existia de FASE 1C con todos los campos necesarios.
+
+Variables nuevas FASE 5:
+
+```
+SHIPSTATION_WEBHOOK_SECRET   # REQUERIDA; generar con: openssl rand -hex 32
+```
+
+Variables ya requeridas (de FASE 4D):
+
+```
+SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para operaciones de webhook
+SHIPSTATION_API_KEY              # REQUERIDA para fetch de resource_url
+SHIPSTATION_API_SECRET           # recomendada
+```
+
+ADVERTENCIA: ShipStation requiere HTTPS para enviar webhooks. No registrar la URL del webhook en ShipStation hasta que el servidor tenga SSL configurado.
+FASE 6 (mobile backend seguro) es el siguiente paso.

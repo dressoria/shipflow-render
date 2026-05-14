@@ -203,7 +203,17 @@ Notas:
 - `shipment_id` es `text` porque `shipments.id` existe hoy como `text`.
 - Usuarios normales no leen esta tabla.
 - Admin puede leer via `is_admin()`.
-- Backend/server insertara eventos en fases futuras.
+- `event_id` es SHA-256 de `provider:resource_type:resource_url` (64 chars hex). Opaco e idempotente.
+- El indice unico parcial `webhook_events_provider_event_id_unique_idx` garantiza que el mismo evento de ShipStation no se procese dos veces.
+- `payload` almacena campos clave extraidos del evento (no el payload completo para evitar datos sensibles en la DB).
+- Backend usa `service_role` para insertar; usuarios normales no tienen INSERT ni UPDATE en esta tabla.
+
+Estado FASE 5:
+
+- `POST /api/webhooks/shipstation` ya escribe en esta tabla.
+- Flujo: `status = received` → proceso → `status = processed` o `status = failed`.
+- Si no se encuentra un shipment relacionado: `status = processed`, `shipment_id = null`.
+- Si ocurre un error en procesamiento: `status = failed`, `error` contiene el mensaje (max 500 chars).
 
 ### audit_logs
 

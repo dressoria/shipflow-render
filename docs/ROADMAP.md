@@ -188,20 +188,33 @@ No se ejecutaron migraciones. No se modifico codigo.
 
 ADVERTENCIA: No usar en produccion hasta completar el checklist de FASE 4E.
 
-## FASE 5 - Tracking/webhooks reales
+## FASE 5 - Tracking/webhooks reales (completada)
 
 Objetivo:
 
-- Sincronizar estados reales.
+- Sincronizar estados reales desde ShipStation via webhooks.
 
-Tareas:
+Tareas completadas:
 
-- Crear `/api/webhooks/shipstation`.
-- Validar firma/secreto.
-- Guardar `webhook_events`.
-- Actualizar tracking events.
-- Actualizar label/shipment status.
-- Mantener idempotencia.
+- Endpoint `POST /api/webhooks/shipstation` creado.
+- Validacion de secreto por header `x-shipflow-webhook-secret` o query `?secret=`.
+- Comparacion de secreto en tiempo constante (anti-timing-attack).
+- ShipStation envia payload ligero `{ resource_url, resource_type }`; se hace fetch a `resource_url` con ShipStation credentials para obtener datos reales.
+- Guardado en `webhook_events` con `provider = "shipstation"` y `status` transitando: `received → processed` o `failed`.
+- Deduplicacion via `event_id` (SHA-256 de `provider:resource_type:resource_url`) + indice unico de FASE 1C.
+- Actualizacion de `shipments.status` y `shipments.label_status` segun estado de ShipStation.
+- Insercion de `tracking_events` con `source = "shipstation_webhook"`, `is_real = true`, deduplicados por `shipment_id + source + status`.
+- Idempotencia: segundo envio del mismo evento retorna `duplicate: true` sin insertar nada nuevo.
+- Helper `lib/server/webhooks/shipstation.ts`: tipos, extraccion de secreto, validacion, fetch SS, normalizacion, mapeo de status.
+- Checklist de prueba: `docs/SHIPSTATION_WEBHOOK_TEST_CHECKLIST.md`.
+
+Variables nuevas:
+
+```text
+SHIPSTATION_WEBHOOK_SECRET   # REQUERIDA para validar webhooks entrantes
+```
+
+Nota: La tabla `webhook_events` ya existia desde FASE 1C. No se requirio migracion nueva.
 
 ## FASE 6 - Mobile backend seguro
 

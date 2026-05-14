@@ -45,14 +45,21 @@ NEXT_PUBLIC_APP_URL
 Web privadas:
 
 ```text
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para RPC atomica y webhooks
 INTERNAL_API_SECRET
-SHIPSTATION_API_KEY
-SHIPSTATION_API_SECRET
-SHIPSTATION_BASE_URL
-SHIPSTATION_WEBHOOK_SECRET
+SHIPSTATION_API_KEY              # REQUERIDA para rates/labels/void/webhooks
+SHIPSTATION_API_SECRET           # recomendada (Basic Auth key:secret)
+SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.com
+SHIPSTATION_WEBHOOK_SECRET       # REQUERIDA para autenticar webhooks entrantes; generar con: openssl rand -hex 32
 PAYMENT_PROVIDER_SECRET
 WEBHOOK_PAYMENT_SECRET
+```
+
+Nota sobre webhooks: ShipStation requiere HTTPS para enviar webhooks. El servidor staging/produccion debe tener SSL configurado antes de registrar la URL del webhook en ShipStation Dashboard.
+
+URL del webhook que registrar en ShipStation:
+```
+https://TU_DOMINIO/api/webhooks/shipstation?secret=EL_VALOR_DE_SHIPSTATION_WEBHOOK_SECRET
 ```
 
 Tracking carriers actuales:

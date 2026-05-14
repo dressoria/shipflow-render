@@ -196,7 +196,17 @@ Estado FASE 1C:
 
 - La migracion crea `webhook_events` para guardar payloads y estado de procesamiento.
 - Usuarios normales no leen `webhook_events`; admin puede leer via `is_admin()`.
-- Aun no existe endpoint webhook ni validacion de firma porque ShipStation sigue pendiente.
+
+Estado FASE 5:
+
+- `POST /api/webhooks/shipstation` implementado.
+- Valida secreto en tiempo constante (anti-timing-attack) contra `SHIPSTATION_WEBHOOK_SECRET`.
+- Acepta secreto por header `x-shipflow-webhook-secret` (preferido, no loggeado por Nginx por defecto) o query `?secret=` (compatible con ShipStation V1 que no soporta headers personalizados).
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para todas las operaciones de DB (bypass RLS controlado).
+- Si `SUPABASE_SERVICE_ROLE_KEY` no esta configurado, devuelve 200 sin persistir (evita retries infinitos de ShipStation) y loguea el error en servidor.
+- El payload almacenado en `webhook_events` no incluye `resource_url` (podria contener secretos en query params de SS).
+- No se loguea el payload completo ni el secreto en ningun nivel.
+- El `event_id` es SHA-256 de `provider:resource_type:resource_url` — opaco, no revela datos del proveedor.
 
 ## Que corregir en FASE 1
 
@@ -269,6 +279,17 @@ Prioridad:
 - Incluye verificacion de tipo de `balance_movements.id` antes de aplicar migracion RPC.
 - No usar con dinero real hasta completar el checklist completo y verificar todos los pasos.
 - FASE 5 (webhooks) viene despues del checklist de FASE 4E.
+
+## Notas FASE 5
+
+- `POST /api/webhooks/shipstation` no requiere Bearer token de usuario — es un endpoint publico con secreto compartido.
+- `SHIPSTATION_WEBHOOK_SECRET` debe generarse con `openssl rand -hex 32` y mantenerse solo en el servidor. No commitearlo.
+- La URL del webhook en ShipStation contiene el secreto en query param; tratar como secreto de API.
+- Si se usa un proxy (Nginx, Cloudflare Worker) se puede inyectar el secreto como header en lugar de query param.
+- Todos los writes a `webhook_events`, `shipments` y `tracking_events` desde webhooks usan service_role (no el cliente del usuario).
+- La deduplicacion previene que un mismo evento de ShipStation actualice el shipment y el tracking mas de una vez.
+- El endpoint devuelve 200 para eventos duplicados o sin shipment relacionado — esto es intencional para que ShipStation no reintente innecesariamente.
+- No se insertan `balance_movements` desde webhooks. Los refunds solo ocurren via `POST /api/labels/[id]/void` con confirmacion del operador.
 
 ## Notas FASE 4D
 
