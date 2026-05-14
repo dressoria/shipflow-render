@@ -8,3 +8,4 @@ types/
 .env.*
 !.env.example
 memory/
+memory/
