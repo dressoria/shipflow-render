@@ -7,3 +7,4 @@ types/
 .env
 .env.*
 !.env.example
+memory/
