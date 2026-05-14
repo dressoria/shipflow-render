@@ -85,10 +85,13 @@ shipflow-web/lib/logistics
 └── errors.ts
 ```
 
-Resultado esperado:
+Estado:
 
 - UI desacoplada de proveedores.
-- ShipStation como primer adapter.
+- `MockAdapter`/internal creado y conectado a rates/labels internas.
+- `ShipStationAdapter` creado solo como skeleton sin llamadas reales.
+- `registry.ts`, `pricing.ts`, `types.ts` y `errors.ts` creados.
+- ShipStation real queda para FASE 4.
 - Otros proveedores posibles despues.
 
 ## FASE 4 - ShipStation real

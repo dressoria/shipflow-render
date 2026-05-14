@@ -16,6 +16,7 @@ Uso actual:
 - Solo tracking preparado.
 - Las tarifas son calculadas localmente.
 - Las labels son visuales/imprimibles.
+- FASE 3 agrega una capa Adapter Pattern internal/mock.
 - No hay ShipStation.
 - No hay Shippo.
 - No hay EasyPost.
@@ -48,16 +49,16 @@ ShipStation no debe ser llamado desde web client ni desde mobile. Debe vivir en 
 
 Pirate Ship queda como opcion pendiente/no oficial hasta confirmar disponibilidad de API publica oficial y terminos de uso. No debe asumirse como proveedor integrable sin validacion previa.
 
-## Adapter Pattern futuro
+## Adapter Pattern FASE 3
 
-Propuesta futura:
+Estructura actual:
 
 ```text
 shipflow-web/lib/logistics
 ├── adapters
 │   ├── LogisticsAdapter.ts
+│   ├── MockAdapter.ts
 │   ├── ShipStationAdapter.ts
-│   └── FallbackAdapter.ts
 ├── registry.ts
 ├── pricing.ts
 ├── types.ts
@@ -68,15 +69,19 @@ Contrato conceptual:
 
 ```ts
 type LogisticsAdapter = {
-  provider: string;
   getRates(input: RateInput): Promise<RateResult[]>;
   createLabel(input: CreateLabelInput): Promise<LabelResult>;
-  trackShipment(input: TrackingInput): Promise<TrackingResult>;
-  voidLabel?(input: VoidLabelInput): Promise<VoidLabelResult>;
+  voidLabel(input: VoidLabelInput): Promise<VoidLabelResult>;
+  trackShipment?(input: TrackingInput): Promise<TrackingResult>;
 };
 ```
 
-Este contrato es futuro y no existe todavia en el codigo.
+Estado:
+
+- `MockAdapter`/internal esta activo para rates y labels internas.
+- `pricing.ts` prepara `provider_cost`, `platform_markup`, `customer_price` y `currency`.
+- `registry.ts` permite seleccionar `internal`, `mock` o `shipstation`.
+- `ShipStationAdapter` existe solo como skeleton; no hace llamadas externas reales.
 
 ## Endpoints futuros
 
@@ -94,13 +99,13 @@ Reglas:
 - `/api/webhooks/shipstation` debe validar firma/secreto.
 - Mobile debe consumir estos endpoints, no Supabase directo para operaciones sensibles.
 
-Estado FASE 2:
+Estado FASE 2/3:
 
-- `POST /api/rates` ya existe, pero usa pricing interno/mock desde `couriers`.
-- `POST /api/labels` ya existe, pero crea label interna/mock y no compra label real.
+- `POST /api/rates` ya existe y usa el adapter internal/mock sobre `couriers`.
+- `POST /api/labels` ya existe y crea label interna/mock mediante la capa `lib/logistics`; no compra label real.
 - `POST /api/labels/[id]/void` ya existe como void interno limitado; no llama proveedor ni hace refund real.
 - `POST /api/webhooks/shipstation` sigue pendiente.
-- La capa Adapter Pattern todavia no existe; queda para FASE 3.
+- La integracion real de ShipStation queda para FASE 4.
 
 ## Pricing futuro
 

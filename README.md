@@ -156,10 +156,11 @@ Limitaciones actuales:
 - Crear guia no compra una label real.
 - Crear guia web con Supabase activo usa API backend interna (`POST /api/labels`, con `POST /api/shipments/create` como compatibilidad), pero aun no hay transaccion SQL atomica ni idempotencia persistida si la migracion no esta aplicada.
 - FASE 2 agrega endpoints internos para shipments, rates, labels, void interno, balance y tracking protegido/compatible. Siguen usando logica local/mock.
+- FASE 3 agrega `shipflow-web/lib/logistics` con Adapter Pattern internal/mock. ShipStation queda solo como skeleton sin llamadas reales.
 - FASE 1C agrega una migracion incremental para provider fields, pricing, idempotencia, webhooks y auditoria, pero debe aplicarse manualmente en Supabase.
 - FASE 1D agrega un runbook/checklist para aplicar y validar esa migracion: `docs/MIGRATION_1D_CHECKLIST.md`.
 - No existe ShipStation.
-- No existe adapter pattern formal.
+- No existe integracion real de providers logisticos.
 - No hay Dockerfile ni docker-compose.
 - No hay Nginx config.
 - No hay backend seguro para balance/labels/pagos.
@@ -183,6 +184,7 @@ POST /api/tracking
 Notas:
 
 - `POST /api/rates` usa tarifas internas desde `couriers`; no llama ShipStation.
+- `POST /api/rates` y `POST /api/labels` pasan por la capa `lib/logistics` usando el adapter internal/mock.
 - `POST /api/labels` crea una guia/label interna; no compra label real de carrier.
 - `POST /api/labels/[id]/void` solo prepara void interno si la migracion 1C esta aplicada; no hace refund ni void externo.
 - Mobile aun no usa esta API para crear labels/rates; queda para FASE 6.

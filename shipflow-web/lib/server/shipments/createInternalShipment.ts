@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { calculateShippingRate } from "@/lib/services/courierService";
+import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { isMissingSchemaColumnError } from "@/lib/server/apiResponse";
+import type { CreateLabelInput, RateInput, RateResult } from "@/lib/logistics/types";
 import type { CourierConfig, Envio, ShipmentStatus, TrackingEvent } from "@/lib/types";
 
 export type CreateInternalShipmentInput = {
@@ -28,19 +29,7 @@ export type RateRequestInput = {
   cashAmount?: number;
 };
 
-export type InternalRateOption = {
-  courierId: string;
-  courierName: string;
-  provider: "internal";
-  serviceCode: string;
-  shippingSubtotal: number;
-  cashOnDeliveryCommission: number;
-  total: number;
-  currency: "USD";
-  platformMarkup: number;
-  customerPrice: number;
-  estimatedTime: string;
-};
+export type InternalRateOption = RateResult;
 
 export type InternalLabelResult = {
   shipment: Envio;
@@ -169,12 +158,6 @@ export function fromTrackingEventRow(row: TrackingEventRow): TrackingEvent {
   };
 }
 
-function createTrackingNumber() {
-  const timePart = Date.now().toString(36).toUpperCase();
-  const randomPart = crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
-  return `SF-${timePart}-${randomPart}`;
-}
-
 function normalizeCreateInput(body: CreateInternalShipmentInput) {
   return {
     senderName: requiredText(body.senderName),
@@ -251,19 +234,35 @@ function findCourier(couriers: CourierConfig[], courierName: string) {
   return couriers.find((courier) => courier.id === courierName || courier.nombre === courierName) ?? null;
 }
 
-function toRateOption(rate: ReturnType<typeof calculateShippingRate>): InternalRateOption {
+function toRateInput(input: ReturnType<typeof normalizeCreateInput> | ReturnType<typeof normalizeRateInput>): RateInput {
   return {
-    courierId: rate.courier.id,
-    courierName: rate.courier.nombre,
-    provider: "internal",
-    serviceCode: rate.courier.id,
-    shippingSubtotal: rate.subtotal,
-    cashOnDeliveryCommission: rate.contraEntregaComision,
-    total: rate.total,
-    currency: "USD",
-    platformMarkup: 0,
-    customerPrice: rate.total,
-    estimatedTime: rate.courier.tiempoEstimado,
+    origin: {
+      city: input.originCity,
+    },
+    destination: {
+      city: input.destinationCity,
+      line1: "destinationAddress" in input ? input.destinationAddress : undefined,
+    },
+    parcel: {
+      weight: input.weight,
+      weightUnit: "lb",
+    },
+    courier: input.courier || undefined,
+    cashOnDelivery: input.cashOnDelivery,
+    cashAmount: input.cashAmount,
+  };
+}
+
+function toCreateLabelInput(input: ReturnType<typeof normalizeCreateInput>): CreateLabelInput {
+  return {
+    ...toRateInput(input),
+    idempotencyKey: input.idempotencyKey,
+    senderName: input.senderName,
+    senderPhone: input.senderPhone,
+    recipientName: input.recipientName,
+    recipientPhone: input.recipientPhone,
+    destinationAddress: input.destinationAddress,
+    productType: input.productType,
   };
 }
 
@@ -280,22 +279,8 @@ export async function calculateInternalRates(supabase: SupabaseClient, body: Rat
     throw new Response("Selected carrier is not available.", { status: 400 });
   }
 
-  return selectedCouriers.map((courier) => {
-    if (input.cashOnDelivery && !courier.permiteContraEntrega) {
-      throw new Response(`${courier.nombre} does not support cash on delivery.`, { status: 400 });
-    }
-
-    return toRateOption(
-      calculateShippingRate({
-        courier,
-        peso: input.weight,
-        ciudadOrigen: input.originCity,
-        ciudadDestino: input.destinationCity,
-        contraEntrega: input.cashOnDelivery,
-        valorCobrar: input.cashAmount,
-      }),
-    );
-  });
+  const adapter = getLogisticsAdapter("internal", { couriers: selectedCouriers });
+  return adapter.getRates(toRateInput(input));
 }
 
 export async function getAvailableBalance(supabase: SupabaseClient, userId: string) {
@@ -327,14 +312,9 @@ export async function createInternalShipment(
     throw new Response("Selected carrier does not support cash on delivery.", { status: 400 });
   }
 
-  const rate = calculateShippingRate({
-    courier,
-    peso: input.weight,
-    ciudadOrigen: input.originCity,
-    ciudadDestino: input.destinationCity,
-    contraEntrega: input.cashOnDelivery,
-    valorCobrar: input.cashAmount,
-  });
+  const adapter = getLogisticsAdapter("internal", { couriers: [courier] });
+  const label = await adapter.createLabel(toCreateLabelInput(input));
+  const rate = label.rate;
 
   const availableBalance = await getAvailableBalance(supabase, userId);
   if (availableBalance < rate.total) {
@@ -363,7 +343,7 @@ export async function createInternalShipment(
     };
   }
 
-  const trackingNumber = createTrackingNumber();
+  const trackingNumber = label.trackingNumber;
   const shipmentRow = {
     id: trackingNumber,
     user_id: userId,
@@ -378,8 +358,8 @@ export async function createInternalShipment(
     weight: input.weight,
     product_type: input.productType,
     courier: courier.nombre,
-    shipping_subtotal: rate.subtotal,
-    cash_on_delivery_commission: rate.contraEntregaComision,
+    shipping_subtotal: rate.shippingSubtotal,
+    cash_on_delivery_commission: rate.cashOnDeliveryCommission,
     total: rate.total,
     cash_on_delivery: input.cashOnDelivery,
     cash_amount: input.cashOnDelivery ? input.cashAmount : 0,
@@ -389,15 +369,15 @@ export async function createInternalShipment(
   const logisticsShipmentFields = {
     payment_status: "paid",
     label_status: "internal",
-    provider: "internal",
-    provider_cost: null,
-    platform_markup: 0,
-    customer_price: rate.total,
-    currency: "USD",
+    provider: rate.provider,
+    provider_cost: rate.pricing.providerCost,
+    platform_markup: rate.pricing.platformMarkup,
+    customer_price: rate.pricing.customerPrice,
+    currency: rate.currency,
     idempotency_key: input.idempotencyKey,
     metadata: {
       source: "internal_web",
-      phase: "2",
+      phase: "3",
     },
   };
 
@@ -443,6 +423,7 @@ export async function createInternalShipment(
     metadata: {
       trackingNumber: shipment.tracking_number,
       source: "internal_web",
+      provider: label.provider,
     },
   };
 
@@ -463,6 +444,6 @@ export async function createInternalShipment(
     trackingNumber: createdShipment.trackingNumber,
     labelStatus: "internal",
     labelUrl: null,
-    message: "Internal ShipFlow label created. No carrier label has been purchased yet.",
+    message: label.message,
   };
 }

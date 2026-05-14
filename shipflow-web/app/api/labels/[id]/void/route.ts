@@ -1,4 +1,5 @@
 import { apiError, apiErrorFromUnknown, apiSuccess, isMissingSchemaColumnError } from "@/lib/server/apiResponse";
+import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { fromShipmentRow, type ShipmentRow } from "@/lib/server/shipments/createInternalShipment";
 import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
 
@@ -41,11 +42,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     if (updateError) throw updateError;
 
+    const voidResult = await getLogisticsAdapter("internal").voidLabel({
+      shipmentId: shipment.id,
+      trackingNumber: shipment.tracking_number,
+      provider: "internal",
+    });
+
     return apiSuccess({
       shipment: updatedShipment ? fromShipmentRow(updatedShipment) : fromShipmentRow(shipment),
-      labelStatus: "voided",
-      refunded: false,
-      message: "Internal label marked as voided. No carrier void or refund was performed.",
+      labelStatus: voidResult.labelStatus,
+      refunded: voidResult.refunded,
+      message: voidResult.message,
     });
   } catch (error) {
     return apiErrorFromUnknown(error, "We could not void this label.");

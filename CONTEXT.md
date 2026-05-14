@@ -19,6 +19,8 @@ Ship flow
 │   ├── data
 │   ├── hooks
 │   ├── lib
+│   │   ├── logistics
+│   │   ├── server
 │   │   └── services
 │   ├── public
 │   ├── styles
@@ -96,7 +98,7 @@ Demo/simulado:
 - El PDF mobile es generado localmente, no emitido por ShipStation ni por un carrier.
 - El balance no esta conectado a pagos reales.
 - No existe ShipStation todavia.
-- No existe adapter pattern formal.
+- Existe una primera capa `lib/logistics` con Adapter Pattern internal/mock; ShipStation solo esta preparado como skeleton sin llamadas reales.
 - No existe Dockerfile, docker-compose ni Nginx config.
 
 ## Riesgos criticos actuales
@@ -208,7 +210,7 @@ Cambios preparados en web:
 - Nuevo endpoint `POST /api/shipments/create`.
 - El formulario web sigue mostrando preview local, pero la creacion con Supabase activo llama al endpoint backend.
 - El backend valida token Bearer de Supabase, campos minimos, courier activo, COD y saldo suficiente.
-- El backend recalcula la tarifa local/mock usando `calculateShippingRate`.
+- El backend recalcula la tarifa local/mock usando `MockAdapter`, que envuelve la logica actual de `calculateShippingRate`.
 - El backend crea `shipment`, `tracking_event` inicial y `balance_movement` negativo.
 
 Deuda tecnica pendiente:
@@ -293,3 +295,26 @@ Notas:
 - ShipStation sigue pendiente para FASE 4 y adapters logisticos para FASE 3.
 - Mobile sigue pendiente para FASE 6.
 - Sigue pendiente RPC/transaccion SQL atomica antes de dinero real o labels reales.
+
+## Estado FASE 3
+
+Objetivo:
+
+- Crear una capa logistica extensible para no acoplar ShipFlow directamente a ShipStation.
+
+Cambios preparados:
+
+- Nueva carpeta `shipflow-web/lib/logistics`.
+- Contrato `LogisticsAdapter` para rates, labels, void y tracking opcional.
+- `MockAdapter`/internal activo para tarifas y labels internas usando la logica local de `couriers`.
+- `ShipStationAdapter` queda como skeleton server-side: lee nombres de variables de entorno, pero no llama APIs reales y responde error controlado si se usa.
+- `registry.ts` permite obtener adapters por provider.
+- `pricing.ts` centraliza `provider_cost`, `platform_markup` y `customer_price`.
+- `/api/rates`, `/api/labels` y `/api/shipments/create` usan la capa internal/mock mediante la logica compartida server-side.
+
+Deuda tecnica pendiente:
+
+- Implementar ShipStation real en FASE 4.
+- Migrar tracking real a adapters o webhooks en FASE 5.
+- Mantener mobile pendiente hasta FASE 6.
+- No usar con dinero real hasta aplicar migracion, RPC/transaccion atomica y flujo de pagos.

@@ -265,10 +265,34 @@ Comportamiento:
 Limitaciones:
 
 - No hay ShipStation.
-- No hay adapters logisticos formales.
+- FASE 3 agrega adapters logisticos internal/mock; ShipStation aun no esta implementado real.
 - No hay transaccion SQL atomica/RPC.
 - No hay pagos reales ni refunds reales.
 - Mobile aun no consume estos endpoints para rates/labels.
+
+## Logistics Layer FASE 3
+
+FASE 3 introduce la capa `shipflow-web/lib/logistics`:
+
+```text
+shipflow-web/lib/logistics
+├── adapters
+│   ├── LogisticsAdapter.ts
+│   ├── MockAdapter.ts
+│   └── ShipStationAdapter.ts
+├── errors.ts
+├── pricing.ts
+├── registry.ts
+└── types.ts
+```
+
+Comportamiento actual:
+
+- `MockAdapter`/internal calcula rates desde `couriers`.
+- `MockAdapter` crea labels internas con tracking `SF-...`, `labelStatus = internal` y `labelUrl = null`.
+- `ShipStationAdapter` es solo skeleton server-side; no hace `fetch`, no usa claves reales y devuelve error controlado.
+- `/api/rates`, `/api/labels` y `/api/shipments/create` usan la capa internal/mock mediante `createInternalShipment.ts`.
+- Tracking real/fallback sigue en servicios actuales y se migrara despues.
 
 ## Arquitectura futura deseada
 
@@ -283,7 +307,7 @@ UI web/mobile
 → Supabase transaccional/auditado
 ```
 
-Propuesta futura:
+Base actual:
 
 ```text
 shipflow-web/lib/logistics

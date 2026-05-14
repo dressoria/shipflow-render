@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LogisticsError } from "@/lib/logistics/errors";
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -31,6 +32,10 @@ export function apiError(message: string, status = 400) {
 export async function apiErrorFromUnknown(error: unknown, fallbackMessage: string, status = 500) {
   if (error instanceof Response) {
     return apiError((await error.text()) || fallbackMessage, error.status);
+  }
+
+  if (error instanceof LogisticsError) {
+    return apiError(error.message || fallbackMessage, error.status);
   }
 
   return apiError(error instanceof Error ? error.message : fallbackMessage, status);
