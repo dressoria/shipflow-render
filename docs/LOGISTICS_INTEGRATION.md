@@ -193,6 +193,22 @@ Campos obligatorios:
 
 No se exponen secretos ni claves en los mensajes de error.
 
+## FASE 4E — Validacion real controlada
+
+FASE 4E no modifica codigo. Prepara el proceso de aplicacion y prueba real.
+
+Checklist completo: `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`
+
+Incluye:
+- Orden de migraciones: FASE 1C primero, luego RPC de FASE 4D.
+- Verificacion de tipo de `balance_movements.id` antes de aplicar (debe ser `text`).
+- Verificaciones SQL de columnas, funciones, permisos y RLS.
+- Curls de ejemplo para rates, labels y void.
+- Tabla de errores esperados.
+- Checklist de aprobacion para habilitar produccion.
+
+No conectar a produccion publica hasta completar el checklist.
+
 ## Pirate Ship
 
 Pirate Ship queda como opcion pendiente/no oficial hasta confirmar disponibilidad de API publica oficial y terminos de uso. No debe asumirse como proveedor integrable sin validacion previa.
@@ -254,7 +270,7 @@ Estado FASE 2/3/4A/4B/4D:
 - `POST /api/labels/[id]/void` actualizado en FASE 4D: para provider shipstation, llama void real en ShipStation y refund atomico via RPC. Para labels internas, sigue siendo void local limitado.
 - `POST /api/webhooks/shipstation` sigue pendiente (FASE 5).
 
-ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada, `SUPABASE_SERVICE_ROLE_KEY` configurado y migration `20260514_create_label_transaction_rpc.sql` aplicada. No usar en produccion sin todas las condiciones verificadas y pruebas manuales completas.
+ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada, `SUPABASE_SERVICE_ROLE_KEY` configurado y migration `20260514_create_label_transaction_rpc.sql` aplicada. Seguir `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md` antes de usar en produccion.
 
 ## Pricing futuro
 

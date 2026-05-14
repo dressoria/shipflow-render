@@ -261,6 +261,15 @@ Prioridad:
 - La validacion de saldo se hace antes de llamar a ShipStation. Si el saldo es insuficiente, se devuelve error 402 sin comprar.
 - Los inserts de shipment, tracking_event y balance_movement eran secuenciales en FASE 4B. Reemplazados por RPC atomica en FASE 4D.
 
+## Notas FASE 4E
+
+- FASE 4E no modifica codigo ni RLS. Prepara el proceso seguro de aplicacion y prueba.
+- Checklist de prueba real: `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`.
+- Incluye verificacion de permisos de RPCs (solo `service_role` debe tener EXECUTE).
+- Incluye verificacion de tipo de `balance_movements.id` antes de aplicar migracion RPC.
+- No usar con dinero real hasta completar el checklist completo y verificar todos los pasos.
+- FASE 5 (webhooks) viene despues del checklist de FASE 4E.
+
 ## Notas FASE 4D
 
 - `createShipStationShipment.ts` ahora verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label. Si no esta configurado, retorna 503 sin comprar nada.

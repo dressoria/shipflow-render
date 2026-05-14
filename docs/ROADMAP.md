@@ -165,6 +165,29 @@ Pendiente antes de produccion:
 - Probar flujo completo con cuenta ShipStation de prueba.
 - Supabase Storage para label PDFs permanentes (futuro).
 
+### FASE 4E — Validacion real controlada (completada)
+
+Objetivo:
+
+- Preparar proceso seguro de aplicacion de migraciones y prueba real controlada con ShipStation.
+
+Tareas completadas:
+
+- Revision de migraciones (orden, dependencias, seguridad, permisos RPC).
+- Identificado requisito: `balance_movements.id` debe ser tipo `text` para la RPC.
+- Nuevo checklist: `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`.
+  - Pre-checks: backup, entorno, variables, tipo de columna, cuenta de prueba ShipStation.
+  - Orden de aplicacion: FASE 1C primero, luego FASE 4D RPC.
+  - Verificaciones SQL post-migracion: columnas, funciones, permisos, RLS, policies.
+  - Pruebas API paso a paso: balance, rates, saldo insuficiente, label real, idempotencia, void, idempotencia de void.
+  - Curls de ejemplo con placeholders (sin secretos reales).
+  - Tabla de errores esperados.
+  - Checklist de aprobacion antes de produccion.
+
+No se ejecutaron migraciones. No se modifico codigo.
+
+ADVERTENCIA: No usar en produccion hasta completar el checklist de FASE 4E.
+
 ## FASE 5 - Tracking/webhooks reales
 
 Objetivo:

@@ -178,13 +178,14 @@ cp shipflow-mobile/.env.example shipflow-mobile/.env
 
 ## Que NO hacer todavia
 
-- No conectar ShipStation todavia.
 - No ejecutar migraciones automaticamente.
 - No cambiar componentes ni servicios durante esta fase.
 - No instalar paquetes.
 - No crear Dockerfile todavia.
 - No mover operaciones reales de dinero sin corregir RLS y backend.
 - No poner API keys reales en el repositorio.
+- No conectar webhooks de ShipStation todavia (FASE 5).
+- No usar en produccion publica hasta completar el checklist de FASE 4E.
 
 ## Estado FASE 1A
 
@@ -486,7 +487,41 @@ Deuda tecnica pendiente antes de produccion:
 
 1. Aplicar migration `20260514_create_label_transaction_rpc.sql` manualmente en Supabase (ya requiere FASE 1C aplicada primero).
 2. Configurar `SUPABASE_SERVICE_ROLE_KEY` en el servidor.
-3. Probar flujo completo con cuenta ShipStation de prueba.
+3. Probar flujo completo con cuenta ShipStation de prueba siguiendo `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`.
 4. Implementar Supabase Storage para guardar label PDFs permanentemente (opcional pero recomendado).
 5. Webhooks ShipStation (FASE 5).
 6. Mobile al backend seguro (FASE 6).
+
+## Estado FASE 4E
+
+Objetivo:
+
+- Preparar guia exacta de aplicacion y prueba real controlada para migraciones y flujo ShipStation.
+
+Cambios preparados:
+
+- Nuevo checklist `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`:
+  - Pre-checks: backup, entorno, variables, tipo de `balance_movements.id`, ShipStation test account.
+  - Aplicacion manual de las dos migraciones en orden correcto.
+  - Verificaciones SQL post-migracion: columnas, funciones RPC, permisos, RLS, policies.
+  - Pruebas API locales paso a paso: balance, rates, saldo insuficiente, label real, idempotencia, void, idempotencia de void.
+  - Curls de ejemplo con placeholders para `/api/rates`, `/api/labels`, `/api/labels/[id]/void`.
+  - Tabla de errores esperados con codigo HTTP y causa.
+  - Lista de lo que NO hacer.
+  - Checklist de aprobacion para produccion.
+
+No se ejecutaron migraciones. No se hicieron cambios de codigo.
+
+Variables requeridas para el flujo completo:
+
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para RPC atomica
+SHIPSTATION_API_KEY              # REQUERIDA para rates/labels/void
+SHIPSTATION_API_SECRET           # recomendada
+SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.com
+```
+
+ADVERTENCIA: No usar en produccion publica hasta completar el checklist de FASE 4E completo.
+FASE 5 (webhooks) viene despues del checklist de FASE 4E.
