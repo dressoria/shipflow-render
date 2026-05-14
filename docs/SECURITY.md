@@ -254,3 +254,15 @@ Prioridad:
 - No se uso `SUPABASE_SERVICE_ROLE_KEY`; las rutas usan anon key server-side mas Bearer token para respetar RLS.
 - Riesgo pendiente: `POST /api/labels` todavia no es transaccional por RPC.
 - Riesgo pendiente: mobile sigue con operaciones sensibles directas hasta FASE 6.
+
+## Notas FASE 4B
+
+- `POST /api/labels` con `provider: "shipstation"` compra labels reales en ShipStation si las credenciales estan configuradas. No usar en produccion hasta aplicar la RPC atomica.
+- La validacion de saldo se hace antes de llamar a ShipStation. Si el saldo es insuficiente, se devuelve error 402 sin comprar.
+- Si ShipStation compra el label pero la persistencia falla, se devuelve un error 500 critico con el tracking number y provider IDs para recuperacion manual. Esto es una deuda tecnica hasta activar la RPC.
+- Los inserts de shipment, tracking_event y balance_movement son secuenciales. Una falla en el balance_movement insert significa que el usuario tiene un label sin cobro (error critico).
+- La idempotencia funciona a dos niveles: (1) Supabase: si existe shipment con mismo user_id+idempotency_key y label_status=purchased, se devuelve el existente. (2) ShipStation: el orderKey = idempotencyKey, por lo que ShipStation actualiza la orden existente si se repite.
+- El `serviceCode` debe venir de una llamada previa a `/api/rates` con ShipStation. No se puede crear una label sin el serviceCode.
+- `labelUrl` siempre es null para ShipStation V1 (devuelve base64 `labelData`, no URL).
+- NO usar con dinero real hasta activar la RPC `create_label_shipment_transaction` y verificar con pruebas manuales.
+- La RPC preparada en `migrations/20260514_create_label_transaction_rpc.sql` solo puede ser ejecutada por `service_role`. Requiere `SUPABASE_SERVICE_ROLE_KEY` en el backend para activarla.

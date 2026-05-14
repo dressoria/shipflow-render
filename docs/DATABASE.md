@@ -365,10 +365,18 @@ La migracion sigue sin ejecutarse automaticamente. Debe aplicarse manualmente en
 
 ## Transaccion atomica
 
-No se creo RPC transaccional en FASE 1C/1D. La recomendacion es crear en FASE 1D posterior o FASE 2 una funcion SQL que haga en una sola transaccion:
+No se ejecuto RPC transaccional en FASE 1C/1D. En FASE 4B se preparo el archivo:
 
-- validar idempotencia,
-- crear shipment,
-- crear tracking_event inicial,
-- insertar balance_movement,
-- escribir audit_log.
+- `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql`
+
+La funcion `create_label_shipment_transaction` hace en una sola transaccion:
+
+- validar idempotencia (devuelve existente si ya esta purchased),
+- validar balance,
+- crear shipment con todos los campos de provider,
+- crear tracking_event inicial (source=shipstation, is_real=true),
+- insertar balance_movement de tipo debit.
+
+Estado: preparada pero NO ejecutada. Debe aplicarse manualmente en Supabase despues de aplicar la FASE 1C, hacer backup/snapshot y verificar.
+
+Mientras no este activada, `createShipStationShipment.ts` usa inserts secuenciales con manejo de errores criticos (devuelve tracking number y provider IDs para recuperacion manual si falla la persistencia post-compra).

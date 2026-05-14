@@ -58,6 +58,10 @@ export type RateResult = {
 
 export type CreateLabelInput = RateInput & {
   idempotencyKey: string;
+  provider?: LogisticsProvider;
+  serviceCode?: string;
+  carrierCode?: string;
+  labelFormat?: "pdf" | "zpl" | "png";
   senderName?: string;
   senderPhone?: string;
   recipientName?: string;
@@ -73,6 +77,9 @@ export type LabelResult = {
   labelUrl: string | null;
   rate: RateResult;
   message: string;
+  providerShipmentId?: string | null;
+  providerLabelId?: string | null;
+  providerServiceCode?: string | null;
 };
 
 export type VoidLabelInput = {

@@ -41,16 +41,65 @@ Soporte actual:
 
 ## ShipStation
 
-### Estado FASE 4A
+### Estado FASE 4A / 4B
 
-`getRates()` real esta implementado en `ShipStationAdapter`. Solo rates. Sin labels reales.
+FASE 4A implemento rates reales. FASE 4B implementa labels reales.
 
-- `getRates()`: implementado. Llama a `POST /shipments/getrates` en la API V1 de ShipStation.
-- `createLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). Labels reales son FASE 4B.
-- `voidLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 4C.
+- `getRates()`: implementado. Llama a `POST /shipments/getrates` en ShipStation V1 API.
+- `createLabel()`: implementado. Flujo V1: `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `trackingNumber`, `providerShipmentId`, `providerLabelId`, `providerServiceCode`. `labelUrl = null` (V1 devuelve base64, no URL).
+- `voidLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 4D.
 - `trackShipment()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 5.
 
 ShipStation no debe ser llamado desde web client ni desde mobile. Vive en backend.
+
+### Campos requeridos para labels ShipStation
+
+El endpoint `POST /api/labels` con `provider: "shipstation"` requiere:
+
+```json
+{
+  "provider": "shipstation",
+  "origin": {
+    "city": "Austin",
+    "state": "TX",
+    "postalCode": "78756",
+    "country": "US"
+  },
+  "destination": {
+    "city": "Miami",
+    "state": "FL",
+    "postalCode": "33101",
+    "country": "US"
+  },
+  "parcel": {
+    "weight": 1.5,
+    "weightUnit": "lb"
+  },
+  "carrierCode": "stamps_com",
+  "serviceCode": "usps_priority_mail",
+  "expectedCost": 7.50,
+  "idempotencyKey": "<uuid-generado-por-cliente>",
+  "senderName": "John Doe",
+  "senderPhone": "5551234567",
+  "recipientName": "Jane Doe",
+  "recipientPhone": "5559876543",
+  "productType": "Package"
+}
+```
+
+Campos obligatorios:
+- `origin.postalCode` y `destination.postalCode`
+- `parcel.weight > 0`
+- `carrierCode` (carrier code de ShipStation: `stamps_com`, `ups`, `fedex`, `dhl_express`, etc.)
+- `serviceCode` (obtenido de una llamada previa a `POST /api/rates` con `provider: "shipstation"`)
+
+Campos opcionales:
+- `expectedCost`: costo esperado del rate seleccionado; usado para validar saldo antes de comprar
+- `idempotencyKey`: UUID generado por el cliente; si no se envia, el servidor genera uno
+- `labelFormat`: `pdf`, `zpl`, o `png` (por ahora se pasa a ShipStation pero V1 puede ignorarlo)
+- Datos del remitente/destinatario: usados en la orden de ShipStation
+
+ADVERTENCIA: Esta llamada compra un label REAL en ShipStation si las credenciales estan configuradas. Requiere que la migracion FASE 1C este aplicada. No usar en produccion hasta activar la RPC atomica.
 
 ### Variables requeridas FASE 4A
 
@@ -177,7 +226,7 @@ Estado FASE 2/3/4A:
 - Labels reales ShipStation quedan para FASE 4B.
 - Void/refund real queda para FASE 4C.
 
-ADVERTENCIA: No crear labels reales con ShipStation hasta FASE 4B. El `POST /api/rates` con `provider: "shipstation"` solo consulta tarifas; no compra ni descuenta balance.
+ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada. No usar en produccion hasta activar la RPC atomica y validar con pruebas manuales completas.
 
 ## Pricing futuro
 

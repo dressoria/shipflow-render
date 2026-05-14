@@ -344,10 +344,83 @@ SHIPSTATION_API_SECRET    # recomendada
 SHIPSTATION_BASE_URL      # opcional; default https://ssapi.shipstation.com
 ```
 
+Deuda tecnica pendiente (cerrada en FASE 4B):
+
+- `createLabel()` real implementado en FASE 4B.
+- `voidLabel()` real queda para FASE 4D.
+- Webhooks ShipStation en FASE 5.
+- Mobile pendiente hasta FASE 6.
+
+## Estado FASE 4B
+
+Objetivo:
+
+- Implementar `createLabel()` real en `ShipStationAdapter` y conectar `/api/labels` con provider shipstation.
+
+Cambios preparados:
+
+- `ShipStationAdapter.createLabel()` implementado usando ShipStation V1 API (mismo base URL y auth que FASE 4A).
+  - Paso 1: `POST /orders/createorder` con `orderKey = idempotencyKey` para idempotencia a nivel ShipStation.
+  - Paso 2: `POST /orders/createlabelfororder` para comprar el label real.
+  - Normaliza respuesta a `LabelResult` con `providerShipmentId`, `providerLabelId`, `providerServiceCode`.
+  - `labelUrl = null` porque ShipStation V1 devuelve `labelData` en base64, no una URL directa.
+- Nuevos tipos en `CreateLabelInput`: `provider?`, `serviceCode?`, `carrierCode?`, `labelFormat?`.
+- Nuevos campos opcionales en `LabelResult`: `providerShipmentId?`, `providerLabelId?`, `providerServiceCode?`.
+- `ShipmentRow` en `createInternalShipment.ts` ampliado con todos los campos de provider FASE 1C.
+- Nuevo archivo `shipflow-web/lib/server/shipments/createShipStationShipment.ts`:
+  - Valida input (campos requeridos, postal codes, serviceCode, carrierCode).
+  - Verifica que la migracion 1C este aplicada (probe via columna `idempotency_key`).
+  - Chequeo de idempotencia: si existe shipment con `label_status = purchased` y mismo idempotencyKey, devuelve el existente.
+  - Valida saldo antes de comprar (usa `expectedCost` si el cliente lo envia, o valida que balance > 0).
+  - Llama `ShipStationAdapter.createLabel()`.
+  - Persiste `shipments` con todos los campos de provider.
+  - Persiste `tracking_events` inicial (source = shipstation, is_real = true).
+  - Persiste `balance_movements` negativo de tipo `debit`.
+  - Si ShipStation compra pero persistencia falla: devuelve error critico con tracking number y provider IDs para recuperacion manual.
+- `/api/labels/route.ts` actualizado: si `provider: "shipstation"` llama `createShipStationShipment`; de lo contrario sigue el flujo interno.
+- Nuevo archivo migration `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql`:
+  - Funcion SQL `create_label_shipment_transaction` que hace todo en una sola transaccion.
+  - NO ejecutada todavia; es la deuda para reemplazar los inserts secuenciales.
+  - Solo accesible por `service_role`, no por el cliente.
+
+Variables necesarias FASE 4B (mismas que 4A):
+
+```
+SHIPSTATION_API_KEY       # requerida
+SHIPSTATION_API_SECRET    # recomendada
+SHIPSTATION_BASE_URL      # opcional; default https://ssapi.shipstation.com
+```
+
+Flujo de labels reales (POST /api/labels con provider: "shipstation"):
+
+```json
+{
+  "provider": "shipstation",
+  "origin": { "city": "Austin", "state": "TX", "postalCode": "78756", "country": "US" },
+  "destination": { "city": "Miami", "state": "FL", "postalCode": "33101", "country": "US" },
+  "parcel": { "weight": 1.5, "weightUnit": "lb" },
+  "carrierCode": "stamps_com",
+  "serviceCode": "usps_priority_mail",
+  "expectedCost": 7.50,
+  "idempotencyKey": "<uuid>",
+  "senderName": "John Doe",
+  "senderPhone": "5551234567",
+  "recipientName": "Jane Doe",
+  "recipientPhone": "5559876543",
+  "productType": "Package"
+}
+```
+
+- `serviceCode` debe venir de una llamada previa a `POST /api/rates` con `provider: "shipstation"`.
+- `expectedCost` es opcional pero recomendado para validacion de saldo.
+- `idempotencyKey` es opcional; si no se envia, se genera uno automaticamente.
+
 Deuda tecnica pendiente:
 
-- Implementar `createLabel()` real en FASE 4B.
-- Implementar `voidLabel()` real en FASE 4C.
+- Inserts son secuenciales (no atomicos); riesgo de label comprada sin balance descontado si falla step 6.
+- Activar la RPC `create_label_shipment_transaction` para atomicidad real.
+- `voidLabel()` real queda para FASE 4D.
 - Webhooks ShipStation en FASE 5.
-- No usar con cobros reales hasta completar FASE 4B y transaccion SQL atomica.
 - Mobile pendiente hasta FASE 6.
+- `labelUrl` es siempre null para ShipStation V1 (solo devuelve base64 `labelData`).
+- NO usar en produccion con cobros reales hasta activar la RPC atomica y validar con pruebas manuales.

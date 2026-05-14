@@ -76,12 +76,19 @@ export type ShipmentRow = {
   value: number;
   payment_status?: string;
   label_status?: string;
+  provider?: string | null;
+  provider_shipment_id?: string | null;
+  provider_label_id?: string | null;
+  provider_rate_id?: string | null;
+  provider_service_code?: string | null;
   provider_cost?: number | null;
   platform_markup?: number;
   customer_price?: number | null;
   currency?: string;
   idempotency_key?: string | null;
   label_url?: string | null;
+  label_format?: string | null;
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 };
 

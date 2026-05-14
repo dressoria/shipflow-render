@@ -290,11 +290,17 @@ Comportamiento actual:
 
 - `MockAdapter`/internal calcula rates desde `couriers`.
 - `MockAdapter` crea labels internas con tracking `SF-...`, `labelStatus = internal` y `labelUrl = null`.
-- `ShipStationAdapter` tiene `getRates()` real (FASE 4A): llama a ShipStation V1 API, autenticado con Basic Auth, normaliza respuesta a `RateResult[]`.
-- `ShipStationAdapter.createLabel()`, `voidLabel()` y `trackShipment()` devuelven error controlado `NOT_IMPLEMENTED` (501) — labels reales son FASE 4B.
-- `/api/rates` soporta `provider: "shipstation"` en el body para rates reales, o default internal/mock.
-- `/api/labels` y `/api/shipments/create` siguen usando internal/mock; no llaman ShipStation.
-- Tracking real/fallback sigue en servicios actuales y se migrara despues.
+- `ShipStationAdapter.getRates()` implementado (FASE 4A): llama a `POST /shipments/getrates` en ShipStation V1 API.
+- `ShipStationAdapter.createLabel()` implementado (FASE 4B): flujo V1 `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `LabelResult` con `providerShipmentId`, `providerLabelId`, `providerServiceCode`. `labelUrl = null` (V1 devuelve base64).
+- `ShipStationAdapter.voidLabel()` y `trackShipment()` devuelven error `NOT_IMPLEMENTED` (501).
+- `/api/rates` soporta `provider: "shipstation"` para rates reales, o default internal/mock.
+- `/api/labels` soporta `provider: "shipstation"` para labels reales (FASE 4B); default internal/mock.
+- `/api/shipments/create` sigue usando internal/mock.
+- Tracking real/fallback sigue en servicios actuales.
+
+Nuevo archivo de servidor FASE 4B:
+
+- `shipflow-web/lib/server/shipments/createShipStationShipment.ts` — orquesta validacion, idempotencia, balance check, llamada ShipStation y persistencia secuencial.
 
 ## Logistics Layer FASE 4A
 
@@ -303,6 +309,21 @@ Nuevas clases de error en `errors.ts`:
 - `ProviderAuthError` (401): credenciales invalidas o faltantes.
 - `ProviderRateLimitError` (429): rate limit del proveedor.
 - `InvalidPayloadError` (400): payload invalido para el proveedor.
+
+## Logistics Layer FASE 4B
+
+Cambios en `types.ts`:
+
+- `CreateLabelInput` ampliado con `provider?`, `serviceCode?`, `carrierCode?`, `labelFormat?`.
+- `LabelResult` ampliado con `providerShipmentId?`, `providerLabelId?`, `providerServiceCode?`.
+
+Nuevo archivo servidor:
+
+- `shipflow-web/lib/server/shipments/createShipStationShipment.ts` — funcion `createShipStationShipment()` que orquesta el flujo completo: validacion de input → probe de migracion → idempotencia → balance check → compra label ShipStation → persistencia secuencial (shipment + tracking_event + balance_movement) → respuesta.
+
+RPC preparada (no activada):
+
+- `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql` — funcion SQL `create_label_shipment_transaction` que reemplazara los inserts secuenciales con una sola transaccion atomica.
 
 ## Arquitectura futura deseada
 

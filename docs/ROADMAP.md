@@ -115,23 +115,41 @@ Tareas completadas:
 
 ADVERTENCIA: No usar en produccion con cobros hasta completar FASE 4B (labels reales, balance transaccional).
 
-### FASE 4B - Labels reales (pendiente)
+### FASE 4B - Labels reales (completada)
 
-Tareas pendientes:
+Tareas completadas:
 
-- Implementar `ShipStationAdapter.createLabel()` real.
-- Guardar `provider_label_id` y `label_url` en `shipments`.
-- Descontar balance de forma transaccional (RPC SQL atomica).
-- Idempotencia persistida.
-- Validar saldo antes de comprar.
+- `ShipStationAdapter.createLabel()` implementado usando ShipStation V1 API.
+  - Flujo: `POST /orders/createorder` (idempotente via orderKey) → `POST /orders/createlabelfororder`.
+  - Mismo base URL y auth que FASE 4A (V1 legacy: ssapi.shipstation.com, Basic Auth).
+  - Normaliza respuesta a `LabelResult` con `providerShipmentId`, `providerLabelId`, `providerServiceCode`.
+  - `labelUrl = null`: ShipStation V1 no devuelve URL directa, solo `labelData` en base64.
+- `LabelResult` y `CreateLabelInput` ampliados con campos de provider.
+- `ShipmentRow` ampliado con todos los campos de provider de FASE 1C.
+- Nuevo `createShipStationShipment.ts` con validacion, idempotencia, balance check, persistencia secuencial y manejo de errores criticos.
+- `/api/labels` acepta `provider: "shipstation"` y ejecuta el flujo real.
+- Nuevo migration SQL `20260514_create_label_transaction_rpc.sql` con RPC atomica preparada (no ejecutada).
+
+Deuda tecnica:
+
+- Inserts secuenciales (no atomicos); activar la RPC para atomicidad real.
+- `labelUrl` siempre null para ShipStation V1.
+- NO usar con cobros reales hasta activar la RPC y verificar con pruebas manuales.
+
+ADVERTENCIA: Esta fase puede comprar labels reales en ShipStation si `SHIPSTATION_API_KEY` esta configurada. Probar solo con cuentas de prueba hasta completar la RPC atomica.
 
 ### FASE 4C - Void/cancel real (pendiente)
+
+Renombrada de 4C a 4D para dar espacio a la RPC atomica.
+
+### FASE 4D - Void/cancel real (pendiente)
 
 Tareas pendientes:
 
 - Implementar `ShipStationAdapter.voidLabel()` real.
 - Refund a balance si aplica.
 - Actualizar `label_status` en DB.
+- Activar RPC atomica `create_label_shipment_transaction`.
 
 ## FASE 5 - Tracking/webhooks reales
 
