@@ -26,31 +26,6 @@ type ShipmentRow = {
   created_at: string;
 };
 
-function toRow(shipment: Envio): Omit<ShipmentRow, "created_at"> {
-  return {
-    id: shipment.id,
-    user_id: shipment.userId,
-    tracking_number: shipment.trackingNumber,
-    sender_name: shipment.senderName,
-    sender_phone: shipment.senderPhone,
-    origin_city: shipment.originCity,
-    recipient_name: shipment.recipientName,
-    recipient_phone: shipment.recipientPhone,
-    destination_city: shipment.destinationCity,
-    destination_address: shipment.destinationAddress,
-    weight: shipment.weight,
-    product_type: shipment.productType,
-    courier: shipment.courier,
-    shipping_subtotal: shipment.shippingSubtotal,
-    cash_on_delivery_commission: shipment.cashOnDeliveryCommission,
-    total: shipment.total,
-    cash_on_delivery: shipment.cashOnDelivery,
-    cash_amount: shipment.cashAmount,
-    status: shipment.status,
-    value: shipment.value,
-  };
-}
-
 function fromRow(row: ShipmentRow): Envio {
   return {
     id: row.id,
@@ -79,26 +54,49 @@ function fromRow(row: ShipmentRow): Envio {
 
 export async function createShipment(shipment: Envio): Promise<Envio> {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from("shipments")
-      .insert(toRow(shipment))
-      .select()
-      .single<ShipmentRow>();
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    if (error) throw error;
-    await supabase.from("tracking_events").insert({
-      shipment_id: data.id,
-      tracking_number: data.tracking_number,
-      title: "Guía creada",
-      description: "The shipment was created in ShipFlow.",
-      status: data.status,
+    if (sessionError || !session?.access_token) {
+      throw new Error("Your session expired. Please sign in again.");
+    }
+
+    const response = await fetch("/api/shipments/create", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        senderName: shipment.senderName,
+        senderPhone: shipment.senderPhone,
+        originCity: shipment.originCity,
+        recipientName: shipment.recipientName,
+        recipientPhone: shipment.recipientPhone,
+        destinationCity: shipment.destinationCity,
+        destinationAddress: shipment.destinationAddress,
+        weight: shipment.weight,
+        productType: shipment.productType,
+        courier: shipment.courier,
+        cashOnDelivery: shipment.cashOnDelivery,
+        cashAmount: shipment.cashAmount,
+        idempotencyKey: crypto.randomUUID(),
+      }),
     });
-    await supabase.from("balance_movements").insert({
-      id: `MOV-${Date.now()}`,
-      concept: `Guía ${shipment.trackingNumber}`,
-      amount: -shipment.value,
-    });
-    return fromRow(data);
+
+    const payload = (await response.json()) as {
+      success: boolean;
+      data: Envio | null;
+      error: string | null;
+    };
+
+    if (!response.ok || !payload.success || !payload.data) {
+      throw new Error(payload.error ?? "We could not create this label.");
+    }
+
+    return payload.data;
   }
 
   saveShipment(shipment);

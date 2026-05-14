@@ -98,6 +98,7 @@ export function CreateGuideForm() {
     if (!selectedRate || !validate()) return;
 
     setSaving(true);
+    setErrors({});
     const trackingNumber = `SF-${Date.now().toString().slice(-6)}`;
     const guide: Envio = {
       id: trackingNumber,
@@ -122,10 +123,15 @@ export function CreateGuideForm() {
       value: selectedRate.total,
     };
 
-    window.setTimeout(async () => {
+    try {
       setSummary(await createShipment(guide));
+    } catch (error) {
+      setErrors({
+        form: error instanceof Error ? error.message : "We could not create this label.",
+      });
+    } finally {
       setSaving(false);
-    }, 350);
+    }
   }
 
   return (
@@ -157,6 +163,7 @@ export function CreateGuideForm() {
           <Save className="mr-2 h-4 w-4" />
           {saving ? "Generating..." : "Generate label"}
         </button>
+        {errors.form ? <span className="text-sm font-semibold text-red-600">{errors.form}</span> : null}
       </form>
 
       <aside className="grid gap-5">
