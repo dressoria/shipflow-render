@@ -41,13 +41,13 @@ Soporte actual:
 
 ## ShipStation
 
-### Estado FASE 4A / 4B
+### Estado FASE 4A / 4B / 4D
 
-FASE 4A implemento rates reales. FASE 4B implementa labels reales.
+FASE 4A implemento rates reales. FASE 4B implemento labels reales. FASE 4D completa la atomicidad y el void real.
 
 - `getRates()`: implementado. Llama a `POST /shipments/getrates` en ShipStation V1 API.
-- `createLabel()`: implementado. Flujo V1: `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `trackingNumber`, `providerShipmentId`, `providerLabelId`, `providerServiceCode`. `labelUrl = null` (V1 devuelve base64, no URL).
-- `voidLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 4D.
+- `createLabel()`: implementado. Flujo V1: `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `trackingNumber`, `providerShipmentId`, `providerLabelId`, `providerServiceCode`, `labelData` (base64 PDF). `labelUrl = null` (V1 no devuelve URL directa).
+- `voidLabel()`: implementado (FASE 4D). Llama `POST /shipments/{shipmentId}/voidlabel`. Requiere `providerShipmentId` en `VoidLabelInput`. Devuelve `{ approved: true, message }`.
 - `trackShipment()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 5.
 
 ShipStation no debe ser llamado desde web client ni desde mobile. Vive en backend.
@@ -99,7 +99,37 @@ Campos opcionales:
 - `labelFormat`: `pdf`, `zpl`, o `png` (por ahora se pasa a ShipStation pero V1 puede ignorarlo)
 - Datos del remitente/destinatario: usados en la orden de ShipStation
 
-ADVERTENCIA: Esta llamada compra un label REAL en ShipStation si las credenciales estan configuradas. Requiere que la migracion FASE 1C este aplicada. No usar en produccion hasta activar la RPC atomica.
+ADVERTENCIA: Esta llamada compra un label REAL en ShipStation si las credenciales estan configuradas. Requiere que la migracion FASE 1C este aplicada y que `SUPABASE_SERVICE_ROLE_KEY` este configurado (para la RPC atomica). No usar en produccion hasta aplicar la migration `20260514_create_label_transaction_rpc.sql` y verificar con pruebas manuales.
+
+`labelData` en la respuesta:
+
+- La respuesta incluye `labelData` (base64 PDF) devuelto por ShipStation V1.
+- Este campo NO se guarda en la DB. El cliente debe guardarlo inmediatamente para impresion.
+- No es recuperable en reintentos idempotentes (re-entry devuelve `labelData: null`).
+- Para almacenarlo permanentemente, configurar Supabase Storage con `SHIPFLOW_LABELS_BUCKET` (futuro).
+
+### Void de labels ShipStation
+
+`POST /api/labels/{id}/void` con `provider = shipstation`:
+
+Requiere:
+- `SUPABASE_SERVICE_ROLE_KEY` configurado en el servidor.
+- Migration `20260514_create_label_transaction_rpc.sql` aplicada (incluye `void_label_refund_transaction` RPC).
+- Label con `label_status = purchased`.
+
+Flujo:
+1. Verifica propiedad del usuario.
+2. Verifica idempotencia (refund ya existe → retorna 409 con estado actual).
+3. Llama `ShipStationAdapter.voidLabel({ providerShipmentId })`.
+4. Si ShipStation aprueba (`approved: true`), llama RPC `void_label_refund_transaction` via service_role.
+5. RPC atomicamente: `label_status → voided`, `payment_status → refunded`, insert `balance_movement` tipo `refund`.
+
+Respuesta exitosa:
+```json
+{ "labelStatus": "voided", "refunded": true, "message": "ShipStation label voided successfully." }
+```
+
+Si ShipStation void falla (label ya enviada, plazo vencido, etc.): el endpoint no modifica el balance. Solo retorna el error.
 
 ### Variables requeridas FASE 4A
 
@@ -217,16 +247,14 @@ Reglas:
 - `/api/webhooks/shipstation` debe validar firma/secreto.
 - Mobile debe consumir estos endpoints, no Supabase directo para operaciones sensibles.
 
-Estado FASE 2/3/4A:
+Estado FASE 2/3/4A/4B/4D:
 
 - `POST /api/rates` ya existe. Default usa el adapter internal/mock sobre `couriers`. Si el body trae `provider: "shipstation"`, llama a ShipStation real (FASE 4A).
-- `POST /api/labels` ya existe y crea label interna/mock; no compra label real. ShipStation labels son FASE 4B.
-- `POST /api/labels/[id]/void` ya existe como void interno limitado; no llama proveedor ni hace refund real.
+- `POST /api/labels` ya existe y crea label interna/mock (default) o label real ShipStation (FASE 4B). Persistencia atomica via RPC (FASE 4D). Requiere `SUPABASE_SERVICE_ROLE_KEY` para provider shipstation.
+- `POST /api/labels/[id]/void` actualizado en FASE 4D: para provider shipstation, llama void real en ShipStation y refund atomico via RPC. Para labels internas, sigue siendo void local limitado.
 - `POST /api/webhooks/shipstation` sigue pendiente (FASE 5).
-- Labels reales ShipStation quedan para FASE 4B.
-- Void/refund real queda para FASE 4C.
 
-ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada. No usar en produccion hasta activar la RPC atomica y validar con pruebas manuales completas.
+ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada, `SUPABASE_SERVICE_ROLE_KEY` configurado y migration `20260514_create_label_transaction_rpc.sql` aplicada. No usar en produccion sin todas las condiciones verificadas y pruebas manuales completas.
 
 ## Pricing futuro
 

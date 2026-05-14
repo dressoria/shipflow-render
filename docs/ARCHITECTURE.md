@@ -319,11 +319,49 @@ Cambios en `types.ts`:
 
 Nuevo archivo servidor:
 
-- `shipflow-web/lib/server/shipments/createShipStationShipment.ts` — funcion `createShipStationShipment()` que orquesta el flujo completo: validacion de input → probe de migracion → idempotencia → balance check → compra label ShipStation → persistencia secuencial (shipment + tracking_event + balance_movement) → respuesta.
+- `shipflow-web/lib/server/shipments/createShipStationShipment.ts` — funcion `createShipStationShipment()` que orquesta el flujo completo.
 
-RPC preparada (no activada):
+RPC preparada (no activada en FASE 4B):
 
-- `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql` — funcion SQL `create_label_shipment_transaction` que reemplazara los inserts secuenciales con una sola transaccion atomica.
+- `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql` — funcion SQL `create_label_shipment_transaction`.
+
+## Logistics Layer FASE 4D
+
+Cambios en `types.ts`:
+
+- `LabelResult` ampliado con `labelData?: string | null` (base64 PDF de ShipStation V1).
+- `VoidLabelInput` ampliado con `providerShipmentId?: string` para void sin ambiguedad.
+
+Nuevos helpers server-side:
+
+- `createServiceSupabaseClient()` en `supabaseServer.ts` — cliente Supabase con `service_role` para llamadas RPC.
+- `isServiceRoleConfigured` en `supabaseServer.ts` — verifica que `SUPABASE_SERVICE_ROLE_KEY` este configurado.
+- `isRpcNotFoundError()` en `apiResponse.ts` — detecta errores PGRST202/42883 cuando la funcion RPC no existe.
+
+Cambios en `createShipStationShipment.ts`:
+
+- Verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label.
+- Usa `create_label_shipment_transaction` RPC via service_role para persistencia atomica.
+- No vuelve a inserts secuenciales para provider shipstation.
+- Retorna `labelData` (base64 PDF) en la respuesta inmediata.
+
+`ShipStationAdapter.voidLabel()` implementado:
+
+- Endpoint ShipStation V1: `POST /shipments/{shipmentId}/voidlabel`.
+- Requiere `providerShipmentId` en `VoidLabelInput`.
+- Maneja 401/403/404/429/5xx.
+
+Migration `20260514_create_label_transaction_rpc.sql` mejorada:
+
+- `create_label_shipment_transaction`: agrega `p_label_format`, validacion `p_customer_price > 0`.
+- Nueva funcion `void_label_refund_transaction`: update atomico `label_status = voided` + refund movement.
+- Ambas funciones `SECURITY DEFINER`, solo accesibles por `service_role`.
+- NO ejecutadas. Aplicar manualmente en Supabase.
+
+`/api/labels/[id]/void` actualizado:
+
+- Provider shipstation: llama void SS → RPC `void_label_refund_transaction` → respuesta.
+- Labels internas: void local limitado (sin cambios).
 
 ## Arquitectura futura deseada
 

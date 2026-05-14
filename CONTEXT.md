@@ -424,3 +424,69 @@ Deuda tecnica pendiente:
 - Mobile pendiente hasta FASE 6.
 - `labelUrl` es siempre null para ShipStation V1 (solo devuelve base64 `labelData`).
 - NO usar en produccion con cobros reales hasta activar la RPC atomica y validar con pruebas manuales.
+
+## Estado FASE 4D
+
+Objetivo:
+
+- Activar persistencia atomica via RPC (requiere `SUPABASE_SERVICE_ROLE_KEY`).
+- Implementar `voidLabel()` real en ShipStation.
+- Manejar `labelData` base64 correctamente.
+- Endpoint `/api/labels/[id]/void` completo para provider shipstation.
+
+Cambios preparados:
+
+- `ShipStationAdapter.voidLabel()` implementado usando ShipStation V1 API: `POST /shipments/{shipmentId}/voidlabel`. Devuelve `{ approved: boolean, message }`. Errores 401/403/404/429/5xx manejados.
+- `VoidLabelInput` ampliado con `providerShipmentId?: string` para pasar el numeric ID de ShipStation sin ambiguedad.
+- `LabelResult` ampliado con `labelData?: string | null` (base64 PDF de ShipStation V1; no se guarda en DB; se devuelve solo en la respuesta inmediata).
+- `createShipStationShipment.ts` completamente reescrito para usar la RPC `create_label_shipment_transaction` via cliente de servicio role:
+  - Verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label (evita comprar sin poder persistir).
+  - No vuelve a inserts secuenciales; para provider shipstation, si la RPC no existe, devuelve error critico con recovery info.
+  - Retorna `labelData` (base64 PDF) en la respuesta inmediata para que el cliente pueda imprimir.
+- `ShipStationShipmentResult` ampliado con `labelData: string | null`.
+- Migration SQL `20260514_create_label_transaction_rpc.sql` mejorada:
+  - `create_label_shipment_transaction`: agrega parametro `p_label_format`, validacion `p_customer_price > 0`.
+  - Nueva funcion `void_label_refund_transaction`: update atomico de `label_status = 'voided'` + insert de `balance_movement` tipo `refund` + idempotencia.
+  - Ambas funciones: `SECURITY DEFINER`, `REVOKE ALL FROM public`, `GRANT EXECUTE TO service_role`.
+  - SQL NO ejecutado; aplicar manualmente en Supabase.
+- `createServiceSupabaseClient()` y `isServiceRoleConfigured` agregados a `supabaseServer.ts`.
+- `isRpcNotFoundError()` agregado a `apiResponse.ts` para detectar errores PGRST202/42883.
+- `/api/labels/[id]/void` actualizado: si provider shipstation, llama SS void, luego `void_label_refund_transaction` RPC para atomicamente actualizar estado y crear refund. Idempotencia: verifica si refund ya existe antes de llamar SS.
+- `.env.example` actualizado: agrega `SHIPFLOW_LABELS_BUCKET` y `SHIPFLOW_LABELS_PUBLIC_BASE_URL` como placeholders para futura integracion de Supabase Storage.
+
+Variables necesarias FASE 4D:
+
+```
+SHIPSTATION_API_KEY              # requerida para rates/labels/void
+SHIPSTATION_API_SECRET           # recomendada
+SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.com
+SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para RPC atomica (nueva en 4D)
+```
+
+Flujo de void real (POST /api/labels/{id}/void con provider shipstation):
+
+1. Valida usuario y busca shipment.
+2. Si `label_status = voided` ya, retorna 409.
+3. Si `label_status != purchased`, retorna 409.
+4. Verifica que ya exista refund en `balance_movements` (idempotencia).
+5. Llama `ShipStationAdapter.voidLabel()` — SS confirma `approved: true`.
+6. Llama RPC `void_label_refund_transaction` via service_role.
+7. RPC atomicamente: update `label_status = voided`, `payment_status = refunded`, insert `balance_movement` tipo `refund`.
+8. Retorna resultado.
+
+labelData / base64:
+
+- ShipStation V1 devuelve `labelData` en base64 en la respuesta de crear label.
+- No se guarda en la DB (puede ser muy grande y crece con cada label).
+- Se devuelve en la respuesta inmediata de `POST /api/labels` para que el cliente pueda descargar/imprimir.
+- El cliente debe guardar el base64 inmediatamente; no es recuperable via idempotency re-entry.
+- `label_url` sigue siendo null en la DB. Para almacenarlo permanentemente, se debe configurar Supabase Storage con `SHIPFLOW_LABELS_BUCKET` (pendiente FASE futura).
+
+Deuda tecnica pendiente antes de produccion:
+
+1. Aplicar migration `20260514_create_label_transaction_rpc.sql` manualmente en Supabase (ya requiere FASE 1C aplicada primero).
+2. Configurar `SUPABASE_SERVICE_ROLE_KEY` en el servidor.
+3. Probar flujo completo con cuenta ShipStation de prueba.
+4. Implementar Supabase Storage para guardar label PDFs permanentemente (opcional pero recomendado).
+5. Webhooks ShipStation (FASE 5).
+6. Mobile al backend seguro (FASE 6).

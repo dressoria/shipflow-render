@@ -573,6 +573,8 @@ export class ShipStationAdapter implements LogisticsAdapter {
       trackingNumber: labelResponse.trackingNumber,
       labelStatus: "purchased",
       labelUrl: null,
+      // V1 returns base64 PDF in labelData; not stored in DB, passed back in the immediate response only.
+      labelData: labelResponse.labelData ?? null,
       rate,
       message: "ShipStation label purchased successfully via V1 API.",
       providerShipmentId: String(labelResponse.shipmentId),
@@ -581,12 +583,76 @@ export class ShipStationAdapter implements LogisticsAdapter {
     };
   }
 
-  async voidLabel(_input: VoidLabelInput): Promise<VoidLabelResult> {
-    throw new LogisticsError(
-      "ShipStation void is not implemented yet.",
-      "NOT_IMPLEMENTED",
-      501,
-    );
+  async voidLabel(input: VoidLabelInput): Promise<VoidLabelResult> {
+    const config = readConfig();
+
+    const ssShipmentId = input.providerShipmentId?.trim();
+    if (!ssShipmentId) {
+      throw new InvalidPayloadError(
+        "providerShipmentId is required for ShipStation void. " +
+          "Provide the ShipStation numeric shipmentId stored as provider_shipment_id in the DB.",
+      );
+    }
+
+    const authHeader = buildAuthHeader(config);
+    let voidHttpResponse: Response;
+
+    try {
+      voidHttpResponse = await fetch(
+        `${config.baseUrl}/shipments/${encodeURIComponent(ssShipmentId)}/voidlabel`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: authHeader,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        },
+      );
+    } catch (err) {
+      if (err instanceof LogisticsError) throw err;
+      if (err instanceof Error && err.name === "AbortError") throw new ProviderTimeoutError();
+      throw new ProviderUnavailableError(
+        "Could not reach ShipStation to void the label. Check network and SHIPSTATION_BASE_URL.",
+      );
+    }
+
+    if (!voidHttpResponse.ok) {
+      if (voidHttpResponse.status === 401 || voidHttpResponse.status === 403) {
+        throw new ProviderAuthError(
+          "ShipStation rejected the void request: check SHIPSTATION_API_KEY and SHIPSTATION_API_SECRET.",
+        );
+      }
+      if (voidHttpResponse.status === 429) throw new ProviderRateLimitError();
+      if (voidHttpResponse.status === 404) {
+        throw new InvalidPayloadError(
+          "ShipStation could not find the shipment to void. Verify the providerShipmentId.",
+        );
+      }
+      throw new ProviderUnavailableError(
+        `ShipStation returned an unexpected error voiding the label (HTTP ${voidHttpResponse.status}).`,
+      );
+    }
+
+    let voidData: { approved: boolean; message?: string };
+    try {
+      voidData = (await voidHttpResponse.json()) as { approved: boolean; message?: string };
+    } catch {
+      throw new ProviderUnavailableError("ShipStation returned an unreadable void response.");
+    }
+
+    if (!voidData.approved) {
+      throw new ProviderUnavailableError(
+        `ShipStation could not void the label: ${voidData.message ?? "Unknown reason."}`,
+      );
+    }
+
+    return {
+      provider: "shipstation",
+      labelStatus: "voided",
+      refunded: true,
+      message: voidData.message ?? "ShipStation label voided successfully.",
+    };
   }
 
   async trackShipment(_input: TrackingInput): Promise<TrackingResult> {

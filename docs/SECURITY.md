@@ -257,12 +257,21 @@ Prioridad:
 
 ## Notas FASE 4B
 
-- `POST /api/labels` con `provider: "shipstation"` compra labels reales en ShipStation si las credenciales estan configuradas. No usar en produccion hasta aplicar la RPC atomica.
+- `POST /api/labels` con `provider: "shipstation"` compra labels reales en ShipStation si las credenciales estan configuradas.
 - La validacion de saldo se hace antes de llamar a ShipStation. Si el saldo es insuficiente, se devuelve error 402 sin comprar.
-- Si ShipStation compra el label pero la persistencia falla, se devuelve un error 500 critico con el tracking number y provider IDs para recuperacion manual. Esto es una deuda tecnica hasta activar la RPC.
-- Los inserts de shipment, tracking_event y balance_movement son secuenciales. Una falla en el balance_movement insert significa que el usuario tiene un label sin cobro (error critico).
-- La idempotencia funciona a dos niveles: (1) Supabase: si existe shipment con mismo user_id+idempotency_key y label_status=purchased, se devuelve el existente. (2) ShipStation: el orderKey = idempotencyKey, por lo que ShipStation actualiza la orden existente si se repite.
-- El `serviceCode` debe venir de una llamada previa a `/api/rates` con ShipStation. No se puede crear una label sin el serviceCode.
-- `labelUrl` siempre es null para ShipStation V1 (devuelve base64 `labelData`, no URL).
-- NO usar con dinero real hasta activar la RPC `create_label_shipment_transaction` y verificar con pruebas manuales.
-- La RPC preparada en `migrations/20260514_create_label_transaction_rpc.sql` solo puede ser ejecutada por `service_role`. Requiere `SUPABASE_SERVICE_ROLE_KEY` en el backend para activarla.
+- Los inserts de shipment, tracking_event y balance_movement eran secuenciales en FASE 4B. Reemplazados por RPC atomica en FASE 4D.
+
+## Notas FASE 4D
+
+- `createShipStationShipment.ts` ahora verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label. Si no esta configurado, retorna 503 sin comprar nada.
+- La persistencia usa `create_label_shipment_transaction` RPC via cliente service_role. No hay fallback a inserts secuenciales para provider shipstation.
+- Si la RPC no existe (migration no aplicada) y el label ya fue comprado: se devuelve error 500 critico con recovery info (trackingNumber, providerShipmentId, actualCost). Operador debe resolver manualmente y aplicar la migration.
+- `labelData` (base64 PDF de ShipStation V1) se devuelve en la respuesta inmediata. No se guarda en la DB. El cliente debe guardarlo de inmediato para impresion; no es recuperable en reintentos idempotentes.
+- La idempotencia funciona a dos niveles: (1) Supabase pre-check via `idempotency_key`; (2) ShipStation `orderKey = idempotencyKey`. Si la RPC retorna `existing`, se devuelve el shipment guardado con `labelData: null`.
+- Void de labels ShipStation: se llama SS void PRIMERO, luego RPC `void_label_refund_transaction` para atomicamente actualizar `label_status = voided` y crear `balance_movement` tipo `refund` con amount positivo.
+- Si SS void falla: no se modifica el balance.
+- Si SS void tiene exito pero la RPC falla: se actualiza `label_status = voided` via cliente de usuario como fallback minimo, pero se retorna error 500 para que el operador investigue.
+- `void_label_refund_transaction` es idempotente: si ya existe un movement de tipo `refund` para el shipment, no duplica.
+- `SUPABASE_SERVICE_ROLE_KEY` es una clave muy sensible. Solo debe existir en el entorno del servidor. Nunca en variables `NEXT_PUBLIC_*` ni en el cliente.
+- Las dos RPCs (`create_label_shipment_transaction`, `void_label_refund_transaction`) son `SECURITY DEFINER` y solo ejecutables por `service_role`. Nunca desde el cliente.
+- NO usar con dinero real hasta aplicar la migration `20260514_create_label_transaction_rpc.sql` y verificar con pruebas manuales completas.

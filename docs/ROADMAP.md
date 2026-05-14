@@ -138,18 +138,32 @@ Deuda tecnica:
 
 ADVERTENCIA: Esta fase puede comprar labels reales en ShipStation si `SHIPSTATION_API_KEY` esta configurada. Probar solo con cuentas de prueba hasta completar la RPC atomica.
 
-### FASE 4C - Void/cancel real (pendiente)
+### FASE 4C - Void/cancel real
 
-Renombrada de 4C a 4D para dar espacio a la RPC atomica.
+Renombrada a FASE 4D.
 
-### FASE 4D - Void/cancel real (pendiente)
+### FASE 4D - Transaccion atomica, labelData y void/refund real (completada)
 
-Tareas pendientes:
+Tareas completadas:
 
-- Implementar `ShipStationAdapter.voidLabel()` real.
-- Refund a balance si aplica.
-- Actualizar `label_status` en DB.
-- Activar RPC atomica `create_label_shipment_transaction`.
+- `createShipStationShipment.ts` reescrito para usar la RPC `create_label_shipment_transaction` via `service_role`. No vuelve a inserts secuenciales para provider shipstation.
+- `SUPABASE_SERVICE_ROLE_KEY` ahora requerida en backend; se verifica ANTES de comprar el label.
+- `createServiceSupabaseClient()` e `isServiceRoleConfigured` agregados a `supabaseServer.ts`.
+- `isRpcNotFoundError()` agregado a `apiResponse.ts`.
+- `ShipStationAdapter.voidLabel()` implementado: `POST /shipments/{shipmentId}/voidlabel` en ShipStation V1. Maneja 401/403/404/429/5xx.
+- `VoidLabelInput` ampliado con `providerShipmentId?` para void sin ambiguedad.
+- `LabelResult` ampliado con `labelData?` (base64 PDF de V1; no almacenado en DB).
+- `ShipStationShipmentResult` ampliado con `labelData`.
+- Migration `20260514_create_label_transaction_rpc.sql` mejorada: agrega `p_label_format`, validacion `p_customer_price > 0`, y nueva funcion `void_label_refund_transaction`.
+- `/api/labels/[id]/void` actualizado: maneja provider shipstation via void SS + RPC refund atomico.
+- `.env.example` actualizado con `SHIPFLOW_LABELS_BUCKET` y `SHIPFLOW_LABELS_PUBLIC_BASE_URL`.
+
+Pendiente antes de produccion:
+
+- Aplicar migration SQL manualmente en Supabase.
+- Configurar `SUPABASE_SERVICE_ROLE_KEY` en servidor.
+- Probar flujo completo con cuenta ShipStation de prueba.
+- Supabase Storage para label PDFs permanentes (futuro).
 
 ## FASE 5 - Tracking/webhooks reales
 

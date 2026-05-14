@@ -51,3 +51,16 @@ export function isMissingSchemaColumnError(error: unknown) {
     false
   );
 }
+
+export function isRpcNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string };
+  // PGRST202: PostgREST "function not found in schema cache"
+  // 42883: PostgreSQL "undefined_function"
+  return (
+    candidate.code === "PGRST202" ||
+    candidate.code === "42883" ||
+    (candidate.message?.toLowerCase().includes("could not find the function") ?? false) ||
+    (candidate.message?.toLowerCase().includes("does not exist") ?? false)
+  );
+}

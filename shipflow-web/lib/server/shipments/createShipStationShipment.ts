@@ -1,12 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { InsufficientFundsError } from "@/lib/logistics/errors";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
-import { isMissingSchemaColumnError } from "@/lib/server/apiResponse";
+import { isMissingSchemaColumnError, isRpcNotFoundError } from "@/lib/server/apiResponse";
 import {
   fromShipmentRow,
   getAvailableBalance,
   type ShipmentRow,
 } from "@/lib/server/shipments/createInternalShipment";
+import {
+  createServiceSupabaseClient,
+  isServiceRoleConfigured,
+} from "@/lib/server/supabaseServer";
 import type { Address, CreateLabelInput, LabelResult, Parcel } from "@/lib/logistics/types";
 import type { Envio } from "@/lib/types";
 
@@ -32,6 +36,7 @@ export type ShipStationShipmentResult = {
   trackingNumber: string;
   labelStatus: "purchased";
   labelUrl: string | null;
+  labelData: string | null; // base64 PDF for immediate client use; not stored in DB
   providerShipmentId: string | null;
   providerLabelId: string | null;
   providerServiceCode: string | null;
@@ -117,7 +122,7 @@ function buildCreateLabelInput(body: ShipStationLabelBody, idempotencyKey: strin
   };
 }
 
-function buildShipStationShipmentRow(
+function buildRpcParams(
   shipmentId: string,
   userId: string,
   body: ShipStationLabelBody,
@@ -126,46 +131,55 @@ function buildShipStationShipmentRow(
 ): Record<string, unknown> {
   const rate = labelResult.rate;
   return {
-    id: shipmentId,
-    user_id: userId,
-    tracking_number: labelResult.trackingNumber,
-    sender_name: body.senderName?.trim() || "Sender",
-    sender_phone: body.senderPhone?.trim() || "",
-    origin_city: body.origin.city,
-    recipient_name: body.recipientName?.trim() || "Recipient",
-    recipient_phone: body.recipientPhone?.trim() || "",
-    destination_city: body.destination.city,
-    destination_address: body.destination.line1?.trim() || "",
-    weight: Number(body.parcel.weight),
-    product_type: body.productType?.trim() || "Package",
-    courier: body.carrierCode,
-    shipping_subtotal: rate.shippingSubtotal,
-    cash_on_delivery_commission: 0,
-    total: rate.customerPrice,
-    cash_on_delivery: false,
-    cash_amount: 0,
-    status: "Pendiente",
-    value: rate.customerPrice,
-    provider: "shipstation",
-    provider_shipment_id: labelResult.providerShipmentId ?? null,
-    provider_label_id: labelResult.providerLabelId ?? null,
-    provider_rate_id: null,
-    provider_service_code: labelResult.providerServiceCode ?? null,
-    label_url: null,
-    label_format: body.labelFormat ?? null,
-    payment_status: "paid",
-    label_status: "purchased",
-    provider_cost: rate.pricing.providerCost,
-    platform_markup: rate.pricing.platformMarkup,
-    customer_price: rate.pricing.customerPrice,
-    currency: "USD",
-    idempotency_key: idempotencyKey,
-    metadata: {
+    p_user_id: userId,
+    p_idempotency_key: idempotencyKey,
+    p_shipment_id: shipmentId,
+    p_tracking_number: labelResult.trackingNumber,
+    p_sender_name: body.senderName?.trim() || "Sender",
+    p_sender_phone: body.senderPhone?.trim() || "",
+    p_origin_city: body.origin.city,
+    p_recipient_name: body.recipientName?.trim() || "Recipient",
+    p_recipient_phone: body.recipientPhone?.trim() || "",
+    p_destination_city: body.destination.city,
+    p_destination_addr: body.destination.line1?.trim() || "",
+    p_weight: Number(body.parcel.weight),
+    p_product_type: body.productType?.trim() || "Package",
+    p_carrier_code: body.carrierCode,
+    p_shipping_subtotal: rate.shippingSubtotal,
+    p_total: rate.customerPrice,
+    p_provider: "shipstation",
+    p_provider_shipment_id: labelResult.providerShipmentId ?? null,
+    p_provider_label_id: labelResult.providerLabelId ?? null,
+    p_provider_service_code: labelResult.providerServiceCode ?? null,
+    p_provider_cost: rate.pricing.providerCost,
+    p_platform_markup: rate.pricing.platformMarkup,
+    p_customer_price: rate.pricing.customerPrice,
+    p_currency: "USD",
+    p_label_format: body.labelFormat ?? null,
+    p_metadata: {
       source: "shipstation_web",
-      phase: "4b",
+      phase: "4d",
       carrierCode: body.carrierCode,
       serviceCode: body.serviceCode,
     },
+  };
+}
+
+function buildExistingResult(existing: ShipmentRow): ShipStationShipmentResult {
+  return {
+    shipment: fromShipmentRow(existing),
+    trackingNumber: existing.tracking_number,
+    labelStatus: "purchased",
+    labelUrl: existing.label_url ?? null,
+    labelData: null, // Not stored in DB; not recoverable from idempotent re-entry
+    providerShipmentId: existing.provider_shipment_id ?? null,
+    providerLabelId: existing.provider_label_id ?? null,
+    providerServiceCode: existing.provider_service_code ?? null,
+    providerCost: Number(existing.provider_cost ?? 0),
+    platformMarkup: Number(existing.platform_markup ?? 0),
+    customerPrice: Number(existing.customer_price ?? existing.total ?? 0),
+    currency: "USD",
+    message: "Existing ShipStation label returned for this idempotency key.",
   };
 }
 
@@ -176,27 +190,24 @@ export async function createShipStationShipment(
 ): Promise<ShipStationShipmentResult> {
   validateBody(body);
 
+  // Pre-flight: require service_role for atomic RPC persistence.
+  // This check happens BEFORE buying the label to avoid purchasing without being able to persist.
+  if (!isServiceRoleConfigured) {
+    throw new Response(
+      "ShipStation labels require SUPABASE_SERVICE_ROLE_KEY to be configured on the server " +
+        "for atomic persistence via create_label_shipment_transaction RPC. " +
+        "See docs/SECURITY.md for setup instructions.",
+      { status: 503 },
+    );
+  }
+
   const idempotencyKey = body.idempotencyKey?.trim() || crypto.randomUUID();
 
   // 1. Check migration is applied + idempotency (combined — migration fails if idempotency_key col missing).
   const existingShipment = await checkMigrationAndIdempotency(supabase, userId, idempotencyKey);
 
   if (existingShipment?.label_status === "purchased" && existingShipment.provider_label_id) {
-    const shipment = fromShipmentRow(existingShipment);
-    return {
-      shipment,
-      trackingNumber: shipment.trackingNumber,
-      labelStatus: "purchased",
-      labelUrl: existingShipment.label_url ?? null,
-      providerShipmentId: existingShipment.provider_shipment_id ?? null,
-      providerLabelId: existingShipment.provider_label_id ?? null,
-      providerServiceCode: existingShipment.provider_service_code ?? null,
-      providerCost: Number(existingShipment.provider_cost ?? 0),
-      platformMarkup: Number(existingShipment.platform_markup ?? 0),
-      customerPrice: Number(existingShipment.customer_price ?? existingShipment.total ?? 0),
-      currency: "USD",
-      message: "Existing ShipStation label returned for this idempotency key.",
-    };
+    return buildExistingResult(existingShipment);
   }
 
   // 2. Balance check before calling ShipStation.
@@ -222,95 +233,107 @@ export async function createShipStationShipment(
   const labelResult = await adapter.createLabel(createLabelInput);
 
   // LABEL IS NOW PURCHASED IN SHIPSTATION.
-  // All failures below must return enough information for manual recovery.
+  // All failures below MUST return enough information for manual recovery.
 
-  const actualCost = labelResult.rate.pricing.customerPrice;
   const shipmentId = crypto.randomUUID();
+  const rpcParams = buildRpcParams(shipmentId, userId, body, labelResult, idempotencyKey);
 
-  // 4. Persist shipment record.
-  const shipmentRow = buildShipStationShipmentRow(shipmentId, userId, body, labelResult, idempotencyKey);
-  const { data: savedShipment, error: shipmentError } = await supabase
+  // 4. Persist atomically via service_role RPC. No silent fallback to sequential inserts.
+  let serviceClient: ReturnType<typeof createServiceSupabaseClient>;
+  try {
+    serviceClient = createServiceSupabaseClient();
+  } catch {
+    const recoveryInfo = buildRecoveryInfo(labelResult, body);
+    throw new Response(
+      `CRITICAL: ShipStation label purchased but service role client could not be created. ` +
+        `Contact support immediately. Recovery info: ${recoveryInfo}`,
+      { status: 500 },
+    );
+  }
+
+  const { data: rpcData, error: rpcError } = await serviceClient.rpc(
+    "create_label_shipment_transaction",
+    rpcParams,
+  );
+
+  if (rpcError || !rpcData) {
+    const recoveryInfo = buildRecoveryInfo(labelResult, body);
+    if (isRpcNotFoundError(rpcError)) {
+      throw new Response(
+        `CRITICAL: ShipStation label purchased but the persistence RPC is not available. ` +
+          `Apply migration 20260514_create_label_transaction_rpc.sql to Supabase first. ` +
+          `Recovery info: ${recoveryInfo}`,
+        { status: 500 },
+      );
+    }
+    throw new Response(
+      `CRITICAL: ShipStation label purchased but atomic persistence failed. ` +
+        `Contact support immediately. Recovery info: ${recoveryInfo}`,
+      { status: 500 },
+    );
+  }
+
+  const result = rpcData as { status: "created" | "existing"; shipment_id: string };
+  const fetchId = result.shipment_id ?? shipmentId;
+
+  // 5. Fetch the persisted shipment to build the response.
+  const { data: savedShipment, error: fetchError } = await supabase
     .from("shipments")
-    .insert(shipmentRow)
-    .select()
+    .select("*")
+    .eq("id", fetchId)
+    .eq("user_id", userId)
     .single<ShipmentRow>();
 
-  if (shipmentError || !savedShipment) {
-    // CRITICAL: Label purchased in ShipStation but shipment record failed to save.
-    // The tracking number and provider IDs must be returned for manual recovery.
-    const recoveryInfo = JSON.stringify({
+  if (fetchError || !savedShipment) {
+    // RPC succeeded but read failed (e.g., RLS timing). Return minimal result.
+    console.error("[createShipStationShipment] Could not read saved shipment after RPC success:", fetchId);
+    return {
+      shipment: {
+        id: fetchId,
+        trackingNumber: labelResult.trackingNumber,
+        userId,
+        senderName: body.senderName ?? "",
+        senderPhone: body.senderPhone ?? "",
+        originCity: body.origin.city,
+        recipientName: body.recipientName ?? "",
+        recipientPhone: body.recipientPhone ?? "",
+        destinationCity: body.destination.city,
+        destinationAddress: body.destination.line1 ?? "",
+        weight: Number(body.parcel.weight),
+        productType: body.productType ?? "Package",
+        courier: body.carrierCode,
+        shippingSubtotal: labelResult.rate.shippingSubtotal,
+        cashOnDeliveryCommission: 0,
+        total: labelResult.rate.customerPrice,
+        cashOnDelivery: false,
+        cashAmount: 0,
+        status: "Pendiente",
+        value: labelResult.rate.customerPrice,
+        date: new Date().toISOString(),
+      },
       trackingNumber: labelResult.trackingNumber,
-      providerShipmentId: labelResult.providerShipmentId,
-      providerLabelId: labelResult.providerLabelId,
-      serviceCode: labelResult.providerServiceCode,
-      carrierCode: body.carrierCode,
-      actualCost,
-    });
-    throw new Response(
-      `CRITICAL: ShipStation label was purchased but the shipment record failed to save. ` +
-        `Contact support with this recovery info: ${recoveryInfo}`,
-      { status: 500 },
-    );
+      labelStatus: "purchased",
+      labelUrl: null,
+      labelData: labelResult.labelData ?? null,
+      providerShipmentId: labelResult.providerShipmentId ?? null,
+      providerLabelId: labelResult.providerLabelId ?? null,
+      providerServiceCode: labelResult.providerServiceCode ?? null,
+      providerCost: labelResult.rate.pricing.providerCost,
+      platformMarkup: labelResult.rate.pricing.platformMarkup,
+      customerPrice: labelResult.rate.pricing.customerPrice,
+      currency: "USD",
+      message: labelResult.message,
+    };
   }
-
-  // 5. Persist initial tracking event (non-critical — failure is logged, request still succeeds).
-  const { error: trackingError } = await supabase.from("tracking_events").insert({
-    shipment_id: shipmentId,
-    user_id: userId,
-    tracking_number: labelResult.trackingNumber,
-    title: "Label purchased",
-    description: `ShipStation label purchased. Carrier: ${body.carrierCode}, Service: ${body.serviceCode}.`,
-    status: "Pendiente",
-    source: "shipstation",
-    is_real: true,
-  });
-
-  if (trackingError) {
-    console.error("[createShipStationShipment] tracking_event insert failed:", trackingError.message);
-  }
-
-  // 6. Persist balance deduction (negative movement).
-  const balanceMovementRow = {
-    id: `MOV-${crypto.randomUUID()}`,
-    user_id: userId,
-    concept: `ShipStation label ${labelResult.trackingNumber}`,
-    amount: -actualCost,
-    type: "debit",
-    reference_type: "shipment",
-    reference_id: shipmentId,
-    shipment_id: shipmentId,
-    idempotency_key: idempotencyKey,
-    created_by: userId,
-    metadata: {
-      trackingNumber: labelResult.trackingNumber,
-      providerShipmentId: labelResult.providerShipmentId,
-      source: "shipstation_web",
-      provider: "shipstation",
-      carrierCode: body.carrierCode,
-      serviceCode: body.serviceCode,
-    },
-  };
-
-  const { error: movementError } = await supabase.from("balance_movements").insert(balanceMovementRow);
-
-  if (movementError) {
-    // CRITICAL: Label purchased and shipment saved, but balance deduction failed.
-    // User has a label without a debit. Must be resolved manually.
-    console.error("[createShipStationShipment] CRITICAL: balance_movement insert failed:", movementError.message);
-    throw new Response(
-      `CRITICAL: ShipStation label purchased and shipment saved, but the balance deduction failed. ` +
-        `Contact support. Tracking number: ${labelResult.trackingNumber}`,
-      { status: 500 },
-    );
-  }
-
-  const createdShipment = fromShipmentRow(savedShipment);
 
   return {
-    shipment: createdShipment,
+    shipment: fromShipmentRow(savedShipment),
     trackingNumber: labelResult.trackingNumber,
     labelStatus: "purchased",
     labelUrl: null,
+    // labelData: base64 PDF from ShipStation V1. Not stored in DB.
+    // Client should save it immediately for printing; it will not be recoverable later.
+    labelData: labelResult.labelData ?? null,
     providerShipmentId: labelResult.providerShipmentId ?? null,
     providerLabelId: labelResult.providerLabelId ?? null,
     providerServiceCode: labelResult.providerServiceCode ?? null,
@@ -320,4 +343,15 @@ export async function createShipStationShipment(
     currency: "USD",
     message: labelResult.message,
   };
+}
+
+function buildRecoveryInfo(labelResult: LabelResult, body: ShipStationLabelBody): string {
+  return JSON.stringify({
+    trackingNumber: labelResult.trackingNumber,
+    providerShipmentId: labelResult.providerShipmentId,
+    providerLabelId: labelResult.providerLabelId,
+    serviceCode: labelResult.providerServiceCode,
+    carrierCode: body.carrierCode,
+    actualCost: labelResult.rate.pricing.customerPrice,
+  });
 }

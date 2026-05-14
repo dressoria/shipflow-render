@@ -10,6 +10,21 @@ export const isServerSupabaseConfigured = Boolean(
     supabaseAnonKey.length > 20,
 );
 
+export const isServiceRoleConfigured = Boolean(
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()?.length,
+);
+
+export function createServiceSupabaseClient(): SupabaseClient {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!isServerSupabaseConfigured || !supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase service role is not configured on the server.");
+  }
+  // Service role client: bypasses RLS. Only for server-side atomic RPC calls.
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 export function readBearerToken(request: Request) {
   const authHeader = request.headers.get("authorization") ?? "";
   const [scheme, token] = authHeader.split(" ");

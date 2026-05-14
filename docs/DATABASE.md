@@ -365,18 +365,39 @@ La migracion sigue sin ejecutarse automaticamente. Debe aplicarse manualmente en
 
 ## Transaccion atomica
 
-No se ejecuto RPC transaccional en FASE 1C/1D. En FASE 4B se preparo el archivo:
+No se ejecuto RPC transaccional en FASE 1C/1D. En FASE 4B se preparo y en FASE 4D se mejoro el archivo:
 
 - `shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql`
 
-La funcion `create_label_shipment_transaction` hace en una sola transaccion:
+Contiene dos funciones SQL:
+
+### create_label_shipment_transaction
+
+Crea en una sola transaccion atomica:
 
 - validar idempotencia (devuelve existente si ya esta purchased),
-- validar balance,
-- crear shipment con todos los campos de provider,
+- validar balance (`p_customer_price > 0` requerido),
+- crear shipment con todos los campos de provider, incluyendo `label_format`,
 - crear tracking_event inicial (source=shipstation, is_real=true),
 - insertar balance_movement de tipo debit.
 
-Estado: preparada pero NO ejecutada. Debe aplicarse manualmente en Supabase despues de aplicar la FASE 1C, hacer backup/snapshot y verificar.
+Parametros nuevos en FASE 4D: `p_label_format text DEFAULT null`.
 
-Mientras no este activada, `createShipStationShipment.ts` usa inserts secuenciales con manejo de errores criticos (devuelve tracking number y provider IDs para recuperacion manual si falla la persistencia post-compra).
+### void_label_refund_transaction
+
+Procesa void/refund en una sola transaccion atomica:
+
+- validar que shipment pertenece al usuario,
+- validar que `label_status = purchased`,
+- idempotencia: si ya existe movement de tipo `refund`, no duplica,
+- update `label_status = voided`, `payment_status = refunded`,
+- insertar balance_movement positivo de tipo `refund`.
+
+Ambas funciones:
+
+- `SECURITY DEFINER` — corre con privilegios del owner, bypassa RLS.
+- `REVOKE ALL FROM public` + `GRANT EXECUTE TO service_role` — solo callable desde el backend con service_role key.
+
+Estado: preparadas pero NO ejecutadas. Deben aplicarse manualmente en Supabase despues de aplicar FASE 1C, hacer backup/snapshot y verificar con pruebas manuales.
+
+`createShipStationShipment.ts` (FASE 4D): verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label, luego usa `create_label_shipment_transaction` via cliente service_role. No vuelve a inserts secuenciales.

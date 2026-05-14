@@ -75,6 +75,7 @@ export type LabelResult = {
   trackingNumber: string;
   labelStatus: "internal" | "pending" | "processing" | "purchased" | "failed" | "voided" | "refunded";
   labelUrl: string | null;
+  labelData?: string | null; // base64 PDF from ShipStation V1; not stored in DB, only in immediate response
   rate: RateResult;
   message: string;
   providerShipmentId?: string | null;
@@ -84,6 +85,7 @@ export type LabelResult = {
 
 export type VoidLabelInput = {
   shipmentId: string;
+  providerShipmentId?: string; // Provider-specific numeric ID; required for ShipStation void API
   trackingNumber?: string;
   provider?: LogisticsProvider;
 };
