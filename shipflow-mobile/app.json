@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "ShipFlow",
+    "slug": "shipflow-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "shipflow",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FF1493"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

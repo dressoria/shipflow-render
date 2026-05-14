@@ -1,0 +1,63 @@
+:root {
+  --background: #f8f9fc;
+  --foreground: #12182b;
+  --pink: #ff1493;
+  --pink-mid: #ff4fb3;
+  --pink-soft: #ff73c6;
+  --ink: #12182b;
+  --muted: #6b7280;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Sora, "Plus Jakarta Sans", Outfit, Poppins, Inter, ui-sans-serif,
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.premium-grid {
+  background-image:
+    linear-gradient(rgba(255, 20, 147, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 115, 198, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 24px 80px rgba(255, 20, 147, 0.14);
+}
+
+.brand-glow {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 18px 70px rgba(255, 20, 147, 0.34),
+    0 0 48px rgba(255, 79, 179, 0.24);
+}
+
+.dark-glass {
+  background: rgba(18, 24, 43, 0.88);
+  backdrop-filter: blur(22px);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.hero-flag-wave {
+  animation: hero-flag-wave 6s ease-in-out infinite;
+  filter: saturate(1.08) contrast(1.02);
+  transform-origin: 12% 50%;
+}
+
+@keyframes hero-flag-wave {
+  0%,
+  100% {
+    transform: perspective(900px) rotateY(-10deg) rotateZ(-4deg) translateY(0);
+  }
+
+  50% {
+    transform: perspective(900px) rotateY(-4deg) rotateZ(-2deg) translateY(-8px);
+  }
+}

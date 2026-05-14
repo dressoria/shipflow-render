@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@700;800&display=swap");
+@import "tailwindcss";
+@import "../styles/theme.css";
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: #ff73c6;
+  color: #12182b;
+}
+
+.guide-wrap {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.barcode-block,
+.barcode-block * {
+  text-align: center;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-label {
+    width: 100%;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-label,
+  .print-label * {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+    text-align: left;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .print-label section,
+  .print-label aside,
+  .print-label footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-label .barcode-block,
+  .print-label .barcode-block * {
+    text-align: center !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+}

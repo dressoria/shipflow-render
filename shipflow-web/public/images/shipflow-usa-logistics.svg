@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Modern U.S. logistics skyline with warehouses, routes, and delivery trucks">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.48" stop-color="#164e63"/>
+      <stop offset="1" stop-color="#022c22"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" x2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="1260" cy="160" r="120" fill="#22c55e" opacity=".12"/>
+  <circle cx="1090" cy="240" r="210" fill="#06b6d4" opacity=".16"/>
+  <g opacity=".35" fill="#e2e8f0">
+    <rect x="810" y="250" width="68" height="300"/>
+    <rect x="900" y="180" width="88" height="370"/>
+    <rect x="1018" y="280" width="76" height="270"/>
+    <rect x="1124" y="220" width="112" height="330"/>
+    <rect x="1268" y="310" width="64" height="240"/>
+    <rect x="1360" y="260" width="96" height="290"/>
+  </g>
+  <g opacity=".38" fill="#94a3b8">
+    <rect x="830" y="280" width="12" height="36"/>
+    <rect x="858" y="280" width="12" height="36"/>
+    <rect x="930" y="220" width="14" height="42"/>
+    <rect x="962" y="220" width="14" height="42"/>
+    <rect x="1150" y="260" width="16" height="44"/>
+    <rect x="1190" y="260" width="16" height="44"/>
+    <rect x="1390" y="300" width="16" height="44"/>
+    <rect x="1430" y="300" width="16" height="44"/>
+  </g>
+  <path d="M0 600h1600v300H0z" fill="url(#road)"/>
+  <path d="M0 675h1600" stroke="#334155" stroke-width="6"/>
+  <path d="M120 760h1360" stroke="#e2e8f0" stroke-width="10" stroke-dasharray="80 60" opacity=".75"/>
+  <g>
+    <rect x="170" y="480" width="520" height="135" rx="10" fill="#e2e8f0" opacity=".92"/>
+    <path d="M170 480h520l-72-74H240z" fill="#cbd5e1"/>
+    <rect x="225" y="525" width="90" height="90" fill="#0f172a" opacity=".75"/>
+    <rect x="345" y="525" width="90" height="90" fill="#0f172a" opacity=".75"/>
+    <rect x="465" y="525" width="170" height="90" fill="#0f172a" opacity=".75"/>
+    <path d="M205 460h430" stroke="#06b6d4" stroke-width="7" opacity=".9"/>
+  </g>
+  <g transform="translate(860 620)">
+    <rect x="0" y="0" width="245" height="82" rx="10" fill="#f8fafc"/>
+    <rect x="245" y="24" width="90" height="58" rx="8" fill="#06b6d4"/>
+    <rect x="265" y="34" width="42" height="22" rx="3" fill="#0f172a" opacity=".65"/>
+    <rect x="28" y="22" width="120" height="18" rx="4" fill="#0f172a" opacity=".22"/>
+    <circle cx="70" cy="90" r="24" fill="#020617"/>
+    <circle cx="275" cy="90" r="24" fill="#020617"/>
+    <circle cx="70" cy="90" r="10" fill="#94a3b8"/>
+    <circle cx="275" cy="90" r="10" fill="#94a3b8"/>
+  </g>
+  <g fill="none" stroke="#22c55e" stroke-width="5" opacity=".72">
+    <path d="M230 260C390 130 590 170 720 300S1040 480 1320 350" stroke-dasharray="18 16"/>
+    <circle cx="230" cy="260" r="12" fill="#22c55e"/>
+    <circle cx="720" cy="300" r="12" fill="#22c55e"/>
+    <circle cx="1320" cy="350" r="12" fill="#22c55e"/>
+  </g>
+</svg>
