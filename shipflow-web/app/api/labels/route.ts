@@ -12,8 +12,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as CreateInternalShipmentInput;
     const result = await createInternalShipment(supabase, user.id, body);
 
-    return apiSuccess(result.shipment);
+    return apiSuccess(result, 201);
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not create this label.");
+    return apiErrorFromUnknown(error, "We could not create this internal label.");
   }
 }

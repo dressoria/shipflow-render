@@ -94,6 +94,14 @@ Reglas:
 - `/api/webhooks/shipstation` debe validar firma/secreto.
 - Mobile debe consumir estos endpoints, no Supabase directo para operaciones sensibles.
 
+Estado FASE 2:
+
+- `POST /api/rates` ya existe, pero usa pricing interno/mock desde `couriers`.
+- `POST /api/labels` ya existe, pero crea label interna/mock y no compra label real.
+- `POST /api/labels/[id]/void` ya existe como void interno limitado; no llama proveedor ni hace refund real.
+- `POST /api/webhooks/shipstation` sigue pendiente.
+- La capa Adapter Pattern todavia no existe; queda para FASE 3.
+
 ## Pricing futuro
 
 Campos necesarios:

@@ -89,6 +89,13 @@ Riesgo:
 - Consumo de cuotas de carriers.
 - Exposicion indirecta de integraciones externas.
 
+Estado FASE 2:
+
+- Si `POST /api/tracking` recibe Bearer token, valida la sesion con Supabase.
+- Para no romper web/mobile actuales, sigue permitiendo llamadas sin token.
+- Ahora valida carrier contra lista permitida: USPS, UPS, FedEx y DHL.
+- Sigue pendiente rate limiting real.
+
 ## Reglas de secretos
 
 - Nada sensible en `NEXT_PUBLIC_*`.
@@ -140,7 +147,7 @@ Acciones futuras para FASE 1:
 
 Antes de conectar ShipStation:
 
-- Crear label interna web ya empieza a ocurrir en backend con `POST /api/shipments/create`.
+- Crear label interna web ya empieza a ocurrir en backend con `POST /api/labels`; `POST /api/shipments/create` queda como compatibilidad.
 - El backend debe validar sesion.
 - El backend debe calcular precio final.
 - El backend debe validar saldo o pago.
@@ -236,3 +243,14 @@ Prioridad:
 - Las policies `shipments_insert_own`, `shipments_update_own` y `tracking_events_insert_own` siguen siendo temporales por compatibilidad, especialmente hasta migrar mobile al backend seguro.
 - La migracion no fue ejecutada por Codex. Debe aplicarse manualmente en Supabase despues de backup/snapshot.
 - La RPC transaccional sigue pendiente; no usar dinero real ni labels reales hasta completarla.
+
+## Notas FASE 2
+
+- Se agregaron endpoints backend autenticados para shipments, rates, labels y balance.
+- `POST /api/rates` y `POST /api/labels` recalculan precios server-side con logica interna/mock.
+- `GET /api/balance` solo lee balance; no existe endpoint de recarga.
+- `POST /api/labels/[id]/void` no hace refund real ni void externo.
+- La logica compartida vive en `lib/server/shipments/createInternalShipment.ts`.
+- No se uso `SUPABASE_SERVICE_ROLE_KEY`; las rutas usan anon key server-side mas Bearer token para respetar RLS.
+- Riesgo pendiente: `POST /api/labels` todavia no es transaccional por RPC.
+- Riesgo pendiente: mobile sigue con operaciones sensibles directas hasta FASE 6.

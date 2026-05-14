@@ -63,7 +63,7 @@ export async function createShipment(shipment: Envio): Promise<Envio> {
       throw new Error("Your session expired. Please sign in again.");
     }
 
-    const response = await fetch("/api/shipments/create", {
+    const response = await fetch("/api/labels", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -88,15 +88,15 @@ export async function createShipment(shipment: Envio): Promise<Envio> {
 
     const payload = (await response.json()) as {
       success: boolean;
-      data: Envio | null;
+      data: { shipment: Envio } | null;
       error: string | null;
     };
 
-    if (!response.ok || !payload.success || !payload.data) {
+    if (!response.ok || !payload.success || !payload.data?.shipment) {
       throw new Error(payload.error ?? "We could not create this label.");
     }
 
-    return payload.data;
+    return payload.data.shipment;
   }
 
   saveShipment(shipment);

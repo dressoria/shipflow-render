@@ -46,10 +46,13 @@ Objetivo:
 
 Endpoints esperados:
 
+- `GET /api/shipments`
+- `GET /api/shipments/[id]`
 - `POST /api/rates`
 - `POST /api/labels`
 - `POST /api/labels/[id]/void`
-- Endpoints seguros de balance/pagos si aplica.
+- `GET /api/balance`
+- Endpoints seguros de pagos/recargas si aplica.
 
 Reglas:
 
@@ -58,6 +61,12 @@ Reglas:
 - Calcular precios server-side.
 - Usar transacciones.
 - Usar idempotencia.
+
+Estado:
+
+- Endpoints internos de shipments, rates, labels, void interno y balance preparados con logica local/mock.
+- `POST /api/tracking` endurecido con carrier allowlist y auth opcional compatible.
+- Pendiente: RPC transaccional, pagos/recargas reales y migracion mobile.
 
 ## FASE 3 - Logistics adapters
 

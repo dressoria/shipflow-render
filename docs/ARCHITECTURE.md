@@ -37,6 +37,12 @@ La app web usa Next.js App Router. Las rutas principales son:
 - `/admin`: panel admin.
 - `/api/tracking`: endpoint backend actual.
 - `/api/shipments/create`: endpoint backend para crear guia interna web.
+- `/api/shipments`: listado backend autenticado de envios.
+- `/api/shipments/[id]`: detalle backend autenticado de envio.
+- `/api/rates`: cotizacion interna/mock autenticada.
+- `/api/labels`: creacion interna/mock autenticada.
+- `/api/labels/[id]/void`: void interno limitado.
+- `/api/balance`: lectura backend autenticada de balance.
 
 La proteccion de rutas web se hace principalmente con componentes client-side:
 
@@ -89,7 +95,7 @@ CreateGuideForm
 → calculateShippingRate() para preview visual
 → createShipment()
 → obtiene session/access_token
-→ POST /api/shipments/create
+→ POST /api/labels
 → backend valida usuario
 → backend valida datos
 → backend busca courier activo
@@ -182,14 +188,17 @@ Endpoints backend propios actuales:
 
 - `POST /api/tracking`
 - `POST /api/shipments/create`
+- `GET /api/shipments`
+- `GET /api/shipments/[id]`
+- `POST /api/rates`
+- `POST /api/labels`
+- `POST /api/labels/[id]/void`
+- `GET /api/balance`
 
 No existen todavia:
 
-- `/api/rates`
-- `/api/labels`
-- `/api/labels/[id]/void`
 - `/api/webhooks/shipstation`
-- APIs backend para balance/pagos.
+- APIs backend para pagos/recargas reales.
 
 ## Deudas tecnicas FASE 1B
 
@@ -225,6 +234,41 @@ La FASE 1D no cambia la arquitectura funcional ni conecta proveedores. Deja prep
 - El endpoint `/api/shipments/create` debe funcionar con DB antigua y DB nueva, pero produccion debe priorizar DB nueva con migracion aplicada.
 - La operacion sigue sin transaccion SQL atomica; la RPC queda pendiente antes de labels reales.
 - Mobile sigue conectado directo a Supabase para operaciones sensibles hasta FASE 6.
+
+## Backend API FASE 2
+
+FASE 2 introduce una capa API interna en Next.js App Router:
+
+```text
+UI web
+→ API backend autenticada
+→ Supabase con RLS
+→ logica interna/mock de couriers, rates, labels y balance
+```
+
+Archivos server-side relevantes:
+
+- `shipflow-web/lib/server/apiResponse.ts`
+- `shipflow-web/lib/server/supabaseServer.ts`
+- `shipflow-web/lib/server/shipments/createInternalShipment.ts`
+
+Comportamiento:
+
+- `GET /api/shipments` lista envios del usuario autenticado.
+- `GET /api/shipments/[id]` carga envio y tracking events del usuario autenticado.
+- `POST /api/rates` recalcula tarifas internas con `couriers`.
+- `POST /api/labels` crea una guia/label interna; no compra label real.
+- `POST /api/labels/[id]/void` permite void interno limitado si `label_status` existe.
+- `GET /api/balance` calcula balance desde `balance_movements`; no permite recargas.
+- `POST /api/tracking` mantiene compatibilidad sin token, pero valida carrier permitido; si recibe Bearer token, valida sesion.
+
+Limitaciones:
+
+- No hay ShipStation.
+- No hay adapters logisticos formales.
+- No hay transaccion SQL atomica/RPC.
+- No hay pagos reales ni refunds reales.
+- Mobile aun no consume estos endpoints para rates/labels.
 
 ## Arquitectura futura deseada
 

@@ -1,0 +1,468 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { calculateShippingRate } from "@/lib/services/courierService";
+import { isMissingSchemaColumnError } from "@/lib/server/apiResponse";
+import type { CourierConfig, Envio, ShipmentStatus, TrackingEvent } from "@/lib/types";
+
+export type CreateInternalShipmentInput = {
+  senderName?: string;
+  senderPhone?: string;
+  originCity?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  destinationCity?: string;
+  destinationAddress?: string;
+  weight?: number;
+  productType?: string;
+  courier?: string;
+  cashOnDelivery?: boolean;
+  cashAmount?: number;
+  idempotencyKey?: string;
+};
+
+export type RateRequestInput = {
+  originCity?: string;
+  destinationCity?: string;
+  weight?: number;
+  courier?: string;
+  cashOnDelivery?: boolean;
+  cashAmount?: number;
+};
+
+export type InternalRateOption = {
+  courierId: string;
+  courierName: string;
+  provider: "internal";
+  serviceCode: string;
+  shippingSubtotal: number;
+  cashOnDeliveryCommission: number;
+  total: number;
+  currency: "USD";
+  platformMarkup: number;
+  customerPrice: number;
+  estimatedTime: string;
+};
+
+export type InternalLabelResult = {
+  shipment: Envio;
+  trackingNumber: string;
+  labelStatus: "internal";
+  labelUrl: null;
+  message: string;
+};
+
+type CourierRow = {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  logo_url: string | null;
+  cobertura: string;
+  precio_base: number;
+  precio_por_kg: number;
+  permite_contra_entrega: boolean;
+  comision_contra_entrega: number;
+  tiempo_estimado: string;
+  notas: string | null;
+};
+
+export type ShipmentRow = {
+  id: string;
+  user_id?: string;
+  tracking_number: string;
+  sender_name: string;
+  sender_phone: string;
+  origin_city: string;
+  recipient_name: string;
+  recipient_phone: string;
+  destination_city: string;
+  destination_address: string;
+  weight: number;
+  product_type: string;
+  courier: string;
+  shipping_subtotal?: number;
+  cash_on_delivery_commission?: number;
+  total?: number;
+  cash_on_delivery: boolean;
+  cash_amount: number;
+  status: ShipmentStatus;
+  value: number;
+  payment_status?: string;
+  label_status?: string;
+  provider_cost?: number | null;
+  platform_markup?: number;
+  customer_price?: number | null;
+  currency?: string;
+  idempotency_key?: string | null;
+  label_url?: string | null;
+  created_at: string;
+};
+
+export type TrackingEventRow = {
+  id: string;
+  shipment_id: string;
+  tracking_number: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  event_date?: string | null;
+  created_at: string;
+};
+
+type BalanceMovementRow = {
+  amount: number;
+};
+
+function requiredText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function fromCourierRow(row: CourierRow): CourierConfig {
+  return {
+    id: row.id,
+    nombre: row.nombre,
+    activo: row.activo,
+    logoUrl: row.logo_url ?? "",
+    cobertura: row.cobertura,
+    precioBase: Number(row.precio_base),
+    precioPorKg: Number(row.precio_por_kg),
+    permiteContraEntrega: row.permite_contra_entrega,
+    comisionContraEntrega: Number(row.comision_contra_entrega),
+    tiempoEstimado: row.tiempo_estimado,
+    notas: row.notas ?? "",
+  };
+}
+
+export function fromShipmentRow(row: ShipmentRow): Envio {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    trackingNumber: row.tracking_number,
+    senderName: row.sender_name,
+    senderPhone: row.sender_phone,
+    originCity: row.origin_city,
+    recipientName: row.recipient_name,
+    recipientPhone: row.recipient_phone,
+    destinationCity: row.destination_city,
+    destinationAddress: row.destination_address,
+    weight: Number(row.weight),
+    productType: row.product_type,
+    courier: row.courier,
+    shippingSubtotal: Number(row.shipping_subtotal ?? row.value),
+    cashOnDeliveryCommission: Number(row.cash_on_delivery_commission ?? 0),
+    total: Number(row.total ?? row.value),
+    cashOnDelivery: row.cash_on_delivery,
+    cashAmount: Number(row.cash_amount),
+    status: row.status,
+    value: Number(row.value),
+    date: row.created_at,
+  };
+}
+
+export function fromTrackingEventRow(row: TrackingEventRow): TrackingEvent {
+  return {
+    id: row.id,
+    shipmentId: row.shipment_id,
+    trackingNumber: row.tracking_number,
+    title: row.title,
+    description: row.description ?? undefined,
+    status: row.status === "Entregado" || row.status === "En tránsito" || row.status === "Pendiente" ? row.status : "Pendiente",
+    date: row.event_date ?? row.created_at,
+  };
+}
+
+function createTrackingNumber() {
+  const timePart = Date.now().toString(36).toUpperCase();
+  const randomPart = crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+  return `SF-${timePart}-${randomPart}`;
+}
+
+function normalizeCreateInput(body: CreateInternalShipmentInput) {
+  return {
+    senderName: requiredText(body.senderName),
+    senderPhone: requiredText(body.senderPhone),
+    originCity: requiredText(body.originCity),
+    recipientName: requiredText(body.recipientName),
+    recipientPhone: requiredText(body.recipientPhone),
+    destinationCity: requiredText(body.destinationCity),
+    destinationAddress: requiredText(body.destinationAddress),
+    weight: Number(body.weight),
+    productType: requiredText(body.productType),
+    courier: requiredText(body.courier),
+    cashOnDelivery: Boolean(body.cashOnDelivery),
+    cashAmount: Number(body.cashAmount ?? 0),
+    idempotencyKey: requiredText(body.idempotencyKey) || crypto.randomUUID(),
+  };
+}
+
+function validateCreateInput(input: ReturnType<typeof normalizeCreateInput>) {
+  if (
+    !input.senderName ||
+    !input.senderPhone ||
+    !input.originCity ||
+    !input.recipientName ||
+    !input.recipientPhone ||
+    !input.destinationCity ||
+    !input.destinationAddress ||
+    !input.productType ||
+    !input.courier
+  ) {
+    throw new Response("Complete all required shipment fields.", { status: 400 });
+  }
+
+  validateRateFields(input);
+}
+
+function validateRateFields(input: ReturnType<typeof normalizeCreateInput> | ReturnType<typeof normalizeRateInput>) {
+  if (!input.originCity || !input.destinationCity) {
+    throw new Response("Enter origin and destination.", { status: 400 });
+  }
+
+  if (!Number.isFinite(input.weight) || input.weight <= 0) {
+    throw new Response("Enter a valid package weight.", { status: 400 });
+  }
+
+  if (input.cashOnDelivery && (!Number.isFinite(input.cashAmount) || input.cashAmount <= 0)) {
+    throw new Response("Enter a valid cash on delivery amount.", { status: 400 });
+  }
+}
+
+function normalizeRateInput(body: RateRequestInput) {
+  return {
+    originCity: requiredText(body.originCity),
+    destinationCity: requiredText(body.destinationCity),
+    weight: Number(body.weight),
+    courier: requiredText(body.courier),
+    cashOnDelivery: Boolean(body.cashOnDelivery),
+    cashAmount: Number(body.cashAmount ?? 0),
+  };
+}
+
+async function getActiveCouriers(supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from("couriers")
+    .select("*")
+    .eq("activo", true)
+    .returns<CourierRow[]>();
+
+  if (error) throw error;
+  return (data ?? []).map(fromCourierRow);
+}
+
+function findCourier(couriers: CourierConfig[], courierName: string) {
+  return couriers.find((courier) => courier.id === courierName || courier.nombre === courierName) ?? null;
+}
+
+function toRateOption(rate: ReturnType<typeof calculateShippingRate>): InternalRateOption {
+  return {
+    courierId: rate.courier.id,
+    courierName: rate.courier.nombre,
+    provider: "internal",
+    serviceCode: rate.courier.id,
+    shippingSubtotal: rate.subtotal,
+    cashOnDeliveryCommission: rate.contraEntregaComision,
+    total: rate.total,
+    currency: "USD",
+    platformMarkup: 0,
+    customerPrice: rate.total,
+    estimatedTime: rate.courier.tiempoEstimado,
+  };
+}
+
+export async function calculateInternalRates(supabase: SupabaseClient, body: RateRequestInput) {
+  const input = normalizeRateInput(body);
+  validateRateFields(input);
+
+  const couriers = await getActiveCouriers(supabase);
+  const selectedCouriers = input.courier
+    ? couriers.filter((courier) => courier.id === input.courier || courier.nombre === input.courier)
+    : couriers;
+
+  if (selectedCouriers.length === 0) {
+    throw new Response("Selected carrier is not available.", { status: 400 });
+  }
+
+  return selectedCouriers.map((courier) => {
+    if (input.cashOnDelivery && !courier.permiteContraEntrega) {
+      throw new Response(`${courier.nombre} does not support cash on delivery.`, { status: 400 });
+    }
+
+    return toRateOption(
+      calculateShippingRate({
+        courier,
+        peso: input.weight,
+        ciudadOrigen: input.originCity,
+        ciudadDestino: input.destinationCity,
+        contraEntrega: input.cashOnDelivery,
+        valorCobrar: input.cashAmount,
+      }),
+    );
+  });
+}
+
+export async function getAvailableBalance(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase
+    .from("balance_movements")
+    .select("amount")
+    .eq("user_id", userId)
+    .returns<BalanceMovementRow[]>();
+
+  if (error) throw error;
+  return Number((data ?? []).reduce((sum, movement) => sum + Number(movement.amount), 0).toFixed(2));
+}
+
+export async function createInternalShipment(
+  supabase: SupabaseClient,
+  userId: string,
+  body: CreateInternalShipmentInput,
+): Promise<InternalLabelResult> {
+  const input = normalizeCreateInput(body);
+  validateCreateInput(input);
+
+  const couriers = await getActiveCouriers(supabase);
+  const courier = findCourier(couriers, input.courier);
+  if (!courier) {
+    throw new Response("Selected carrier is not available.", { status: 400 });
+  }
+
+  if (input.cashOnDelivery && !courier.permiteContraEntrega) {
+    throw new Response("Selected carrier does not support cash on delivery.", { status: 400 });
+  }
+
+  const rate = calculateShippingRate({
+    courier,
+    peso: input.weight,
+    ciudadOrigen: input.originCity,
+    ciudadDestino: input.destinationCity,
+    contraEntrega: input.cashOnDelivery,
+    valorCobrar: input.cashAmount,
+  });
+
+  const availableBalance = await getAvailableBalance(supabase, userId);
+  if (availableBalance < rate.total) {
+    throw new Response("Insufficient balance to create this label.", { status: 402 });
+  }
+
+  const { data: existingShipment, error: idempotencyError } = await supabase
+    .from("shipments")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("idempotency_key", input.idempotencyKey)
+    .maybeSingle<ShipmentRow>();
+
+  if (idempotencyError && !isMissingSchemaColumnError(idempotencyError)) {
+    throw idempotencyError;
+  }
+
+  if (existingShipment) {
+    const shipment = fromShipmentRow(existingShipment);
+    return {
+      shipment,
+      trackingNumber: shipment.trackingNumber,
+      labelStatus: "internal",
+      labelUrl: null,
+      message: "Existing internal label returned for this idempotency key.",
+    };
+  }
+
+  const trackingNumber = createTrackingNumber();
+  const shipmentRow = {
+    id: trackingNumber,
+    user_id: userId,
+    tracking_number: trackingNumber,
+    sender_name: input.senderName,
+    sender_phone: input.senderPhone,
+    origin_city: input.originCity,
+    recipient_name: input.recipientName,
+    recipient_phone: input.recipientPhone,
+    destination_city: input.destinationCity,
+    destination_address: input.destinationAddress,
+    weight: input.weight,
+    product_type: input.productType,
+    courier: courier.nombre,
+    shipping_subtotal: rate.subtotal,
+    cash_on_delivery_commission: rate.contraEntregaComision,
+    total: rate.total,
+    cash_on_delivery: input.cashOnDelivery,
+    cash_amount: input.cashOnDelivery ? input.cashAmount : 0,
+    status: "Pendiente" as const,
+    value: rate.total,
+  };
+  const logisticsShipmentFields = {
+    payment_status: "paid",
+    label_status: "internal",
+    provider: "internal",
+    provider_cost: null,
+    platform_markup: 0,
+    customer_price: rate.total,
+    currency: "USD",
+    idempotency_key: input.idempotencyKey,
+    metadata: {
+      source: "internal_web",
+      phase: "2",
+    },
+  };
+
+  let { data: shipment, error: shipmentError } = await supabase
+    .from("shipments")
+    .insert({ ...shipmentRow, ...logisticsShipmentFields })
+    .select()
+    .single<ShipmentRow>();
+
+  if (shipmentError && isMissingSchemaColumnError(shipmentError)) {
+    const legacyResult = await supabase.from("shipments").insert(shipmentRow).select().single<ShipmentRow>();
+    shipment = legacyResult.data;
+    shipmentError = legacyResult.error;
+  }
+
+  if (shipmentError) throw shipmentError;
+  if (!shipment) throw new Error("Shipment was not created.");
+
+  const { error: trackingError } = await supabase.from("tracking_events").insert({
+    shipment_id: shipment.id,
+    user_id: userId,
+    tracking_number: shipment.tracking_number,
+    title: "Guía creada",
+    description: "The shipment was created in ShipFlow.",
+    status: shipment.status,
+  });
+
+  if (trackingError) throw trackingError;
+
+  const balanceMovementRow = {
+    id: `MOV-${crypto.randomUUID()}`,
+    user_id: userId,
+    concept: `Guía ${shipment.tracking_number}`,
+    amount: -rate.total,
+  };
+  const logisticsBalanceFields = {
+    type: "debit",
+    reference_type: "shipment",
+    reference_id: shipment.id,
+    shipment_id: shipment.id,
+    idempotency_key: input.idempotencyKey,
+    created_by: userId,
+    metadata: {
+      trackingNumber: shipment.tracking_number,
+      source: "internal_web",
+    },
+  };
+
+  let { error: movementError } = await supabase
+    .from("balance_movements")
+    .insert({ ...balanceMovementRow, ...logisticsBalanceFields });
+
+  if (movementError && isMissingSchemaColumnError(movementError)) {
+    const legacyMovementResult = await supabase.from("balance_movements").insert(balanceMovementRow);
+    movementError = legacyMovementResult.error;
+  }
+
+  if (movementError) throw movementError;
+
+  const createdShipment = fromShipmentRow(shipment);
+  return {
+    shipment: createdShipment,
+    trackingNumber: createdShipment.trackingNumber,
+    labelStatus: "internal",
+    labelUrl: null,
+    message: "Internal ShipFlow label created. No carrier label has been purchased yet.",
+  };
+}

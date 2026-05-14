@@ -265,3 +265,31 @@ Deuda tecnica pendiente:
 - Crear RPC/transaccion SQL atomica para `shipment + tracking_event + balance_movement`.
 - Endurecer policies temporales de `shipments_insert_own`, `shipments_update_own` y `tracking_events_insert_own` cuando mobile migre al backend.
 - ShipStation y pagos reales siguen bloqueados hasta cerrar seguridad/base/API.
+
+## Estado FASE 2
+
+Objetivo:
+
+- Crear una capa API backend interna para ShipFlow antes de conectar proveedores reales.
+
+Endpoints preparados en web:
+
+- `GET /api/shipments`
+- `GET /api/shipments/[id]`
+- `POST /api/shipments/create` como compatibilidad para creacion interna existente.
+- `POST /api/rates`
+- `POST /api/labels`
+- `POST /api/labels/[id]/void`
+- `GET /api/balance`
+- `POST /api/tracking` mejorado con validacion estricta de carrier y auth opcional compatible.
+
+Notas:
+
+- Todos los endpoints nuevos de usuario validan Bearer token de Supabase.
+- `POST /api/rates` calcula tarifas internas/mock con `couriers`.
+- `POST /api/labels` crea label interna/mock; no compra label real.
+- `POST /api/labels/[id]/void` no llama proveedor ni hace refund real; solo puede marcar label interna como `voided` si la migracion 1C esta aplicada.
+- Se extrajo logica compartida a `shipflow-web/lib/server/shipments/createInternalShipment.ts`.
+- ShipStation sigue pendiente para FASE 4 y adapters logisticos para FASE 3.
+- Mobile sigue pendiente para FASE 6.
+- Sigue pendiente RPC/transaccion SQL atomica antes de dinero real o labels reales.
