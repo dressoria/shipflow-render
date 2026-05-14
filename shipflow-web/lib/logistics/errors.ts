@@ -50,3 +50,21 @@ export class UnsupportedProviderError extends LogisticsError {
     super(message, "UNSUPPORTED_PROVIDER", 400);
   }
 }
+
+export class ProviderAuthError extends LogisticsError {
+  constructor(message = "Invalid or missing provider credentials.") {
+    super(message, "PROVIDER_AUTH_ERROR", 401);
+  }
+}
+
+export class ProviderRateLimitError extends LogisticsError {
+  constructor(message = "Provider rate limit exceeded. Try again later.") {
+    super(message, "PROVIDER_RATE_LIMIT", 429);
+  }
+}
+
+export class InvalidPayloadError extends LogisticsError {
+  constructor(message = "Invalid payload sent to logistics provider.") {
+    super(message, "INVALID_PAYLOAD", 400);
+  }
+}

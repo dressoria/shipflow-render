@@ -318,3 +318,36 @@ Deuda tecnica pendiente:
 - Migrar tracking real a adapters o webhooks en FASE 5.
 - Mantener mobile pendiente hasta FASE 6.
 - No usar con dinero real hasta aplicar migracion, RPC/transaccion atomica y flujo de pagos.
+
+## Estado FASE 4A
+
+Objetivo:
+
+- Conectar rates reales de ShipStation sin comprar labels.
+
+Cambios preparados:
+
+- `ShipStationAdapter.getRates()` implementado con llamada real a `POST /shipments/getrates` de ShipStation V1 API.
+- Autenticacion Basic Auth (key:secret) leida solo desde variables de entorno server-side.
+- Normalizacion de respuesta ShipStation a `RateResult[]` con `provider: "shipstation"`, `serviceCode`, `serviceName`, `providerCost`, `platformMarkup` (0 por ahora), `customerPrice`, estimatedTime.
+- Manejo de errores: credenciales faltantes, 401/403, 429, 400, timeout, sin rates.
+- Nuevas clases de error: `ProviderAuthError`, `ProviderRateLimitError`, `InvalidPayloadError`.
+- `ShipStationAdapter.createLabel()`, `voidLabel()` y `trackShipment()` devuelven `LogisticsError` con codigo `NOT_IMPLEMENTED` (501).
+- `/api/rates` acepta `provider: "shipstation"` en el body: usa `ShipStationAdapter` con `RateInput` completo (origin/destination/parcel con postal codes).
+- Default de `/api/rates` sigue siendo internal/mock usando couriers de Supabase.
+
+Variables necesarias FASE 4A:
+
+```
+SHIPSTATION_API_KEY       # requerida
+SHIPSTATION_API_SECRET    # recomendada
+SHIPSTATION_BASE_URL      # opcional; default https://ssapi.shipstation.com
+```
+
+Deuda tecnica pendiente:
+
+- Implementar `createLabel()` real en FASE 4B.
+- Implementar `voidLabel()` real en FASE 4C.
+- Webhooks ShipStation en FASE 5.
+- No usar con cobros reales hasta completar FASE 4B y transaccion SQL atomica.
+- Mobile pendiente hasta FASE 6.

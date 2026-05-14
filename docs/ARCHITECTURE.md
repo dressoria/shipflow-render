@@ -290,9 +290,19 @@ Comportamiento actual:
 
 - `MockAdapter`/internal calcula rates desde `couriers`.
 - `MockAdapter` crea labels internas con tracking `SF-...`, `labelStatus = internal` y `labelUrl = null`.
-- `ShipStationAdapter` es solo skeleton server-side; no hace `fetch`, no usa claves reales y devuelve error controlado.
-- `/api/rates`, `/api/labels` y `/api/shipments/create` usan la capa internal/mock mediante `createInternalShipment.ts`.
+- `ShipStationAdapter` tiene `getRates()` real (FASE 4A): llama a ShipStation V1 API, autenticado con Basic Auth, normaliza respuesta a `RateResult[]`.
+- `ShipStationAdapter.createLabel()`, `voidLabel()` y `trackShipment()` devuelven error controlado `NOT_IMPLEMENTED` (501) — labels reales son FASE 4B.
+- `/api/rates` soporta `provider: "shipstation"` en el body para rates reales, o default internal/mock.
+- `/api/labels` y `/api/shipments/create` siguen usando internal/mock; no llaman ShipStation.
 - Tracking real/fallback sigue en servicios actuales y se migrara despues.
+
+## Logistics Layer FASE 4A
+
+Nuevas clases de error en `errors.ts`:
+
+- `ProviderAuthError` (401): credenciales invalidas o faltantes.
+- `ProviderRateLimitError` (429): rate limit del proveedor.
+- `InvalidPayloadError` (400): payload invalido para el proveedor.
 
 ## Arquitectura futura deseada
 

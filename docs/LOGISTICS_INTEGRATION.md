@@ -41,9 +41,78 @@ Soporte actual:
 
 ## ShipStation
 
-ShipStation esta pendiente. Debe integrarse despues de corregir seguridad, RLS, balance y backend transaccional.
+### Estado FASE 4A
 
-ShipStation no debe ser llamado desde web client ni desde mobile. Debe vivir en backend.
+`getRates()` real esta implementado en `ShipStationAdapter`. Solo rates. Sin labels reales.
+
+- `getRates()`: implementado. Llama a `POST /shipments/getrates` en la API V1 de ShipStation.
+- `createLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). Labels reales son FASE 4B.
+- `voidLabel()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 4C.
+- `trackShipment()`: devuelve error controlado `NOT_IMPLEMENTED` (501). FASE 5.
+
+ShipStation no debe ser llamado desde web client ni desde mobile. Vive en backend.
+
+### Variables requeridas FASE 4A
+
+```text
+SHIPSTATION_API_KEY       # requerida
+SHIPSTATION_API_SECRET    # recomendada (Basic Auth key:secret)
+SHIPSTATION_BASE_URL      # opcional; default: https://ssapi.shipstation.com
+```
+
+`SHIPSTATION_WEBHOOK_SECRET` se usara en FASE 5; no configurar todavia.
+
+### Autenticacion ShipStation
+
+ShipStation V1 usa Basic Auth: `Authorization: Basic base64(apiKey:apiSecret)`.
+Si solo se configura `SHIPSTATION_API_KEY`, se usa `base64(apiKey:)` (password vacio).
+
+### Campos requeridos para rates ShipStation
+
+El endpoint `POST /api/rates` con `provider: "shipstation"` requiere:
+
+```json
+{
+  "provider": "shipstation",
+  "origin": {
+    "city": "Austin",
+    "state": "TX",
+    "postalCode": "78756",
+    "country": "US"
+  },
+  "destination": {
+    "city": "Miami",
+    "state": "FL",
+    "postalCode": "33101",
+    "country": "US"
+  },
+  "parcel": {
+    "weight": 1.5,
+    "weightUnit": "lb"
+  },
+  "courier": "stamps_com"
+}
+```
+
+Campos obligatorios:
+- `origin.postalCode` y `destination.postalCode`
+- `parcel.weight > 0`
+- `courier` (carrier code de ShipStation: `stamps_com`, `ups`, `fedex`, `dhl_express`, etc.)
+
+### Errores manejados FASE 4A
+
+| Situacion | Clase de error | HTTP |
+|---|---|---|
+| API key faltante | `ProviderUnavailableError` | 503 |
+| 401/403 de ShipStation | `ProviderAuthError` | 401 |
+| 429 rate limit | `ProviderRateLimitError` | 429 |
+| 400 payload invalido | `InvalidPayloadError` | 400 |
+| Postal code faltante | `InvalidAddressError` | 400 |
+| Sin carrier code | `InvalidPayloadError` | 400 |
+| Timeout/network | `ProviderUnavailableError` / `ProviderTimeoutError` | 503/504 |
+| Sin rates devueltos | `ProviderUnavailableError` | 503 |
+
+No se exponen secretos ni claves en los mensajes de error.
 
 ## Pirate Ship
 
@@ -99,13 +168,16 @@ Reglas:
 - `/api/webhooks/shipstation` debe validar firma/secreto.
 - Mobile debe consumir estos endpoints, no Supabase directo para operaciones sensibles.
 
-Estado FASE 2/3:
+Estado FASE 2/3/4A:
 
-- `POST /api/rates` ya existe y usa el adapter internal/mock sobre `couriers`.
-- `POST /api/labels` ya existe y crea label interna/mock mediante la capa `lib/logistics`; no compra label real.
+- `POST /api/rates` ya existe. Default usa el adapter internal/mock sobre `couriers`. Si el body trae `provider: "shipstation"`, llama a ShipStation real (FASE 4A).
+- `POST /api/labels` ya existe y crea label interna/mock; no compra label real. ShipStation labels son FASE 4B.
 - `POST /api/labels/[id]/void` ya existe como void interno limitado; no llama proveedor ni hace refund real.
-- `POST /api/webhooks/shipstation` sigue pendiente.
-- La integracion real de ShipStation queda para FASE 4.
+- `POST /api/webhooks/shipstation` sigue pendiente (FASE 5).
+- Labels reales ShipStation quedan para FASE 4B.
+- Void/refund real queda para FASE 4C.
+
+ADVERTENCIA: No crear labels reales con ShipStation hasta FASE 4B. El `POST /api/rates` con `provider: "shipstation"` solo consulta tarifas; no compra ni descuenta balance.
 
 ## Pricing futuro
 

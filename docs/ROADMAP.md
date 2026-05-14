@@ -100,16 +100,38 @@ Objetivo:
 
 - Integrar ShipStation para rates y labels reales.
 
-Tareas:
+### FASE 4A - Rates reales (completada)
 
-- Configurar secretos server-side.
-- Implementar adapter ShipStation.
-- Obtener rates.
-- Crear labels.
-- Guardar provider IDs.
-- Guardar label URL.
-- Calcular markup.
-- Descontar balance de forma segura.
+Tareas completadas:
+
+- `ShipStationAdapter.getRates()` implementado con llamada real a ShipStation V1 API.
+- Autenticacion Basic Auth server-side desde `SHIPSTATION_API_KEY` y `SHIPSTATION_API_SECRET`.
+- Normalizacion de respuesta a `RateResult[]` con pricing breakdown.
+- Manejo de errores: auth, rate limit, payload invalido, timeout, sin rates.
+- `/api/rates` acepta `provider: "shipstation"` en el body para usar rates reales.
+- Default sigue siendo internal/mock.
+- `createLabel`, `voidLabel`, `trackShipment` devuelven `NOT_IMPLEMENTED` (501).
+- Nuevas clases de error: `ProviderAuthError`, `ProviderRateLimitError`, `InvalidPayloadError`.
+
+ADVERTENCIA: No usar en produccion con cobros hasta completar FASE 4B (labels reales, balance transaccional).
+
+### FASE 4B - Labels reales (pendiente)
+
+Tareas pendientes:
+
+- Implementar `ShipStationAdapter.createLabel()` real.
+- Guardar `provider_label_id` y `label_url` en `shipments`.
+- Descontar balance de forma transaccional (RPC SQL atomica).
+- Idempotencia persistida.
+- Validar saldo antes de comprar.
+
+### FASE 4C - Void/cancel real (pendiente)
+
+Tareas pendientes:
+
+- Implementar `ShipStationAdapter.voidLabel()` real.
+- Refund a balance si aplica.
+- Actualizar `label_status` en DB.
 
 ## FASE 5 - Tracking/webhooks reales
 
