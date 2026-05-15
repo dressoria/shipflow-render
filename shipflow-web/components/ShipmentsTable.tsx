@@ -124,8 +124,8 @@ export function ShipmentsTable() {
           <div className="grid min-w-[1100px] grid-cols-[1.2fr_1.2fr_1fr_0.8fr_0.8fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
             <span>Guía / Estado</span>
             <span>Destinatario</span>
-            <span>Carrier / Provider</span>
-            <span>Label</span>
+            <span>Carrier</span>
+            <span>Guía</span>
             <span>Precio</span>
             <span>Fecha</span>
             <span>Acciones</span>
@@ -146,17 +146,9 @@ export function ShipmentsTable() {
                 <p className="text-xs text-slate-400">{shipment.destinationCity}</p>
               </div>
 
-              {/* Carrier / Provider */}
+              {/* Carrier */}
               <div>
                 <span className="text-slate-700">{shipment.courier}</span>
-                {shipment.provider ? (
-                  <Badge
-                    tone={shipment.provider === "shipstation" ? "blue" : "slate"}
-                    className="mt-1"
-                  >
-                    {shipment.provider}
-                  </Badge>
-                ) : null}
               </div>
 
               {/* Label status */}

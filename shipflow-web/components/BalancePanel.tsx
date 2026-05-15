@@ -41,7 +41,7 @@ export function BalancePanel() {
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
             <CreditCard className="h-6 w-6 text-[#22C55E]" />
           </span>
-          <Badge tone="green">{isSupabaseConfigured ? "Backend activo" : "Demo local"}</Badge>
+          <Badge tone="green">{isSupabaseConfigured ? "Backend activo" : "Modo local"}</Badge>
         </div>
         <p className="mt-8 text-sm text-slate-300">Saldo disponible</p>
         <p className="mt-2 text-5xl font-black">
@@ -61,7 +61,7 @@ export function BalancePanel() {
             className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
-            Recargar saldo (demo)
+            Recargar saldo
           </button>
         )}
       </div>

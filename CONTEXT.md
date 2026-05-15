@@ -619,4 +619,51 @@ Cambios preparados:
 7. Supabase Storage para guardar label PDFs permanentemente (pendiente FASE futura).
 
 ADVERTENCIA: No usar el flujo ShipStation desde la UI sin tener `SUPABASE_SERVICE_ROLE_KEY` configurado y la migracion de RPC aplicada. El backend ya devuelve error 503 si faltan, pero el balance podria quedar sin descontar si la RPC no existe.
+
+## Estado FASE 5.6 — Quitar demo visible, ocultar providers, mejorar diagnóstico Supabase
+
+Objetivo:
+
+- Eliminar cualquier texto que revele implementación interna ("demo", "ShipStation", "internal", "provider") en la interfaz de usuario.
+- Proveedores son secretos internos del negocio.
+- Mejorar diagnóstico de error de Supabase para facilitar debugging.
+
+Cambios:
+
+**CreateGuideForm.tsx** (reescrito completo):
+- Selector de modo: "Cotización estándar" / "Mejor tarifa disponible" (reemplaza "Internal / demo" / "ShipStation (real)").
+- Tipo de cotización en lugar de "Shipping provider".
+- Rates con etiquetas "Más económico" / "Más rápido" según posición.
+- Modal de confirmación sin referencias a ShipStation.
+- Descarga de guía como `guia-{tracking}.pdf` (sin nombre de proveedor).
+- Secciones del formulario: Remitente, Destinatario, Paquete.
+- Placeholders descriptivos en español.
+
+**ShipmentsTable.tsx**:
+- Columna "Carrier / Provider" renombrada a "Carrier". Columna "Label" renombrada a "Guía".
+- Badge de provider eliminado (ya no se muestra "shipstation" o "internal" al usuario).
+- Solo se muestra el nombre del carrier/courier.
+
+**BalancePanel.tsx**:
+- "Demo local" → "Modo local".
+- "Recargar saldo (demo)" → "Recargar saldo".
+
+**PrintableGuide.tsx**:
+- Filas "Provider" y "Provider ID" eliminadas del bloque "Package and carrier".
+- "Label status" también eliminado (datos técnicos internos).
+
+**supabaseServer.ts**:
+- Nueva función `getSupabaseConfigDiagnostic()` que identifica cuál variable de entorno específica falta o es inválida.
+- `createUserSupabaseClient()` y `createServiceSupabaseClient()` usan diagnóstico en el mensaje de error.
+
+**No cambiado:**
+- Lógica interna de providers (backend sigue usando "internal"/"shipstation" como valores técnicos).
+- Flujo mock/internal del backend sigue activo como fallback.
+- Mobile no fue tocado.
+- No se instalaron paquetes.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Validaciones:** lint 0 errores / 7 warnings (pre-existentes), typecheck limpio, build exitoso (24 rutas).
+
 FASE 6 (mobile al backend seguro) es el siguiente paso.

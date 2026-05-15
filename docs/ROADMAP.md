@@ -244,6 +244,25 @@ Pendiente antes de usar SS desde UI:
 - Checklist de prueba real.
 - Supabase Storage para PDFs permanentes (futuro).
 
+## FASE 5.6 - Quitar demo visible, ocultar providers y corregir diagnóstico Supabase (completada)
+
+Objetivo:
+
+- Eliminar toda referencia visible a implementación interna ("demo", "ShipStation", "internal", "provider") en la UI.
+- Los proveedores son secretos internos del negocio; el usuario solo ve etiquetas comerciales.
+- Mejorar el mensaje de error cuando Supabase no está configurado.
+
+Tareas completadas:
+
+- `CreateGuideForm.tsx`: reescrito con `QuoteMode = "standard" | "online"`. Selector muestra "Cotización estándar" / "Mejor tarifa disponible". Rates con tags "Más económico" / "Más rápido". Modal y descarga sin referencias a ShipStation. Secciones: Remitente, Destinatario, Paquete. Placeholders en español.
+- `ShipmentsTable.tsx`: columna "Carrier / Provider" → "Carrier". Badge de provider eliminado. Columna "Label" → "Guía".
+- `BalancePanel.tsx`: "Demo local" → "Modo local". "Recargar saldo (demo)" → "Recargar saldo".
+- `PrintableGuide.tsx`: filas "Provider", "Provider ID" y "Label status" eliminadas.
+- `supabaseServer.ts`: `getSupabaseConfigDiagnostic()` identifica variable faltante específica; mensajes de error mejorados.
+- Documentación: CONTEXT.md y ROADMAP.md actualizados.
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso (24 rutas).
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

@@ -17,7 +17,8 @@ export const isServiceRoleConfigured = Boolean(
 export function createServiceSupabaseClient(): SupabaseClient {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!isServerSupabaseConfigured || !supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase service role is not configured on the server.");
+    const base = !isServerSupabaseConfigured ? `${getSupabaseConfigDiagnostic()}` : "Missing: SUPABASE_SERVICE_ROLE_KEY";
+    throw new Error(`Supabase service role is not configured on the server. ${base}`);
   }
   // Service role client: bypasses RLS. Only for server-side atomic RPC calls.
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -32,9 +33,20 @@ export function readBearerToken(request: Request) {
   return token.trim();
 }
 
+function getSupabaseConfigDiagnostic(): string {
+  const missing: string[] = [];
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  else if (!url.startsWith("https://")) missing.push("NEXT_PUBLIC_SUPABASE_URL (must start with https://)");
+  if (!key) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  else if (key.length <= 20) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY (value too short)");
+  return missing.length > 0 ? `Missing or invalid: ${missing.join(", ")}` : "Check .env.local";
+}
+
 export function createUserSupabaseClient(token: string): SupabaseClient {
   if (!isServerSupabaseConfigured || !supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase is not configured on the server.");
+    throw new Error(`Supabase is not configured on the server. ${getSupabaseConfigDiagnostic()}`);
   }
 
   return createClient(supabaseUrl, supabaseAnonKey, {

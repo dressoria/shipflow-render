@@ -6,10 +6,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Package,
+  MapPin,
+  User,
   Printer,
   Save,
   Sparkles,
   X,
+  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { isPhone, required } from "@/lib/forms";
@@ -24,7 +28,8 @@ import type { CourierConfig, Envio, ShippingRate } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
 import { formatCurrency } from "@/lib/utils";
 
-type Provider = "internal" | "shipstation";
+// "standard" = internal/mock | "online" = shipstation
+type QuoteMode = "standard" | "online";
 
 type FormState = {
   senderName: string;
@@ -36,11 +41,11 @@ type FormState = {
   destinationAddress: string;
   weight: string;
   productType: string;
-  // Internal only
+  // Standard-only
   courier: string;
   cashOnDelivery: "no" | "si";
   cashAmount: string;
-  // ShipStation extra address fields
+  // Online quotation extra address fields
   originPostalCode: string;
   originState: string;
   destinationPostalCode: string;
@@ -88,26 +93,26 @@ const productTypes = [
 ];
 
 export function CreateGuideForm() {
-  const [provider, setProvider] = useState<Provider>("internal");
+  const [mode, setMode] = useState<QuoteMode>("standard");
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Internal-only
+  // Standard couriers
   const [couriers, setCouriers] = useState<CourierConfig[]>([]);
 
-  // ShipStation-only
+  // Online quotation state
   const [apiRates, setApiRates] = useState<RateResult[]>([]);
   const [selectedApiRate, setSelectedApiRate] = useState<RateResult | null>(null);
   const [fetchingRates, setFetchingRates] = useState(false);
   const [ratesError, setRatesError] = useState<string | null>(null);
-  const [showSSConfirm, setShowSSConfirm] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Common result state
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<Envio | null>(null);
   const [labelData, setLabelData] = useState<string | null>(null);
 
-  // Stable per-intent idempotency key; reset when label is confirmed
+  // Stable idempotency key per purchase intent
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
@@ -122,9 +127,8 @@ export function CreateGuideForm() {
     }, 0);
   }, []);
 
-  // Reset SS rates whenever provider changes or form fields change
-  function handleProviderChange(next: Provider) {
-    setProvider(next);
+  function handleModeChange(next: QuoteMode) {
+    setMode(next);
     setApiRates([]);
     setSelectedApiRate(null);
     setRatesError(null);
@@ -133,7 +137,7 @@ export function CreateGuideForm() {
     setLabelData(null);
   }
 
-  const internalRates = useMemo(() => {
+  const standardRates = useMemo(() => {
     return couriers.map((c) =>
       calculateShippingRate({
         courier: c,
@@ -146,12 +150,12 @@ export function CreateGuideForm() {
     );
   }, [couriers, form.cashAmount, form.cashOnDelivery, form.destinationCity, form.originCity, form.weight]);
 
-  const selectedInternalRate =
-    internalRates.find((r) => r.courier.nombre === form.courier) ?? internalRates[0];
+  const selectedStandardRate =
+    standardRates.find((r) => r.courier.nombre === form.courier) ?? standardRates[0];
 
   function update(name: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
-    if (name === "weight" || name === "originCity" || name === "destinationCity") {
+    if (["weight", "originCity", "destinationCity"].includes(name)) {
       setApiRates([]);
       setSelectedApiRate(null);
     }
@@ -161,63 +165,49 @@ export function CreateGuideForm() {
 
   function validateCommon() {
     const next: Record<string, string> = {};
-    const commonFields: Array<keyof FormState> = [
-      "senderName",
-      "senderPhone",
-      "originCity",
-      "recipientName",
-      "recipientPhone",
-      "destinationCity",
-      "destinationAddress",
-      "weight",
-      "productType",
+    const fields: Array<keyof FormState> = [
+      "senderName", "senderPhone", "originCity",
+      "recipientName", "recipientPhone", "destinationCity",
+      "destinationAddress", "weight", "productType",
     ];
-    commonFields.forEach((f) => {
-      if (!required(form[f])) next[f] = "Required field.";
+    fields.forEach((f) => {
+      if (!required(form[f])) next[f] = "Campo requerido.";
     });
-    if (form.senderPhone && !isPhone(form.senderPhone)) next.senderPhone = "Invalid phone number.";
-    if (form.recipientPhone && !isPhone(form.recipientPhone)) next.recipientPhone = "Invalid phone number.";
-    if (Number(form.weight) <= 0) next.weight = "Enter a valid weight.";
+    if (form.senderPhone && !isPhone(form.senderPhone)) next.senderPhone = "Teléfono inválido.";
+    if (form.recipientPhone && !isPhone(form.recipientPhone)) next.recipientPhone = "Teléfono inválido.";
+    if (Number(form.weight) <= 0) next.weight = "Ingresa un peso válido.";
     return next;
   }
 
-  function validateInternal() {
+  function validateStandard() {
     const next = validateCommon();
-    if (!required(form.courier)) next.courier = "Required field.";
+    if (!required(form.courier)) next.courier = "Campo requerido.";
     if (form.cashOnDelivery === "si" && Number(form.cashAmount) <= 0)
-      next.cashAmount = "Enter the collection amount.";
+      next.cashAmount = "Ingresa el monto a cobrar.";
     if (
       form.cashOnDelivery === "si" &&
-      selectedInternalRate &&
-      !selectedInternalRate.courier.permiteContraEntrega
+      selectedStandardRate &&
+      !selectedStandardRate.courier.permiteContraEntrega
     )
-      next.courier = "This carrier does not support COD.";
+      next.courier = "El carrier seleccionado no soporta contra entrega.";
     return next;
   }
 
-  function validateSSCommon() {
+  function validateOnlineLabel() {
     const next = validateCommon();
+    if (!required(form.originPostalCode)) next.originPostalCode = "Requerido para generar guía.";
+    if (!required(form.destinationPostalCode)) next.destinationPostalCode = "Requerido para generar guía.";
+    if (!selectedApiRate) next.form = "Selecciona una tarifa antes de generar la guía.";
     return next;
   }
 
-  function validateSSLabel() {
-    const next = validateSSCommon();
-    if (!required(form.originPostalCode)) next.originPostalCode = "Required for ShipStation labels.";
-    if (!required(form.destinationPostalCode)) next.destinationPostalCode = "Required for ShipStation labels.";
-    if (!selectedApiRate) next.form = "Select a rate before generating the label.";
-    return next;
-  }
+  // ── Standard submit ─────────────────────────────────────────────────────────
 
-  // ── Internal submit ─────────────────────────────────────────────────────────
-
-  async function handleInternalSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleStandardSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const errs = validateInternal();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-    if (!selectedInternalRate) return;
+    const errs = validateStandard();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (!selectedStandardRate) return;
 
     setSaving(true);
     setErrors({});
@@ -234,35 +224,32 @@ export function CreateGuideForm() {
       destinationAddress: form.destinationAddress.trim(),
       weight: Number(form.weight),
       productType: form.productType,
-      courier: selectedInternalRate.courier.nombre,
-      shippingSubtotal: selectedInternalRate.subtotal,
-      cashOnDeliveryCommission: selectedInternalRate.contraEntregaComision,
-      total: selectedInternalRate.total,
+      courier: selectedStandardRate.courier.nombre,
+      shippingSubtotal: selectedStandardRate.subtotal,
+      cashOnDeliveryCommission: selectedStandardRate.contraEntregaComision,
+      total: selectedStandardRate.total,
       cashOnDelivery: form.cashOnDelivery === "si",
       cashAmount: form.cashOnDelivery === "si" ? Number(form.cashAmount) : 0,
       status: "Pendiente",
       date: new Date().toISOString(),
-      value: selectedInternalRate.total,
+      value: selectedStandardRate.total,
     };
 
     try {
       setSummary(await createShipment(guide));
     } catch (error) {
-      setErrors({ form: error instanceof Error ? error.message : "We could not create this label." });
+      setErrors({ form: error instanceof Error ? error.message : "No se pudo crear la guía." });
     } finally {
       setSaving(false);
     }
   }
 
-  // ── ShipStation: fetch rates ────────────────────────────────────────────────
+  // ── Online: fetch rates ─────────────────────────────────────────────────────
 
   async function handleFetchRates(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const errs = validateSSCommon();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
+    const errs = validateCommon();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     setFetchingRates(true);
     setRatesError(null);
@@ -278,36 +265,33 @@ export function CreateGuideForm() {
         parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },
       });
       if (!result.rates.length) {
-        setRatesError("No rates available for this route. Check credentials or try another route.");
+        setRatesError("No hay tarifas disponibles para esta ruta. Verifica los datos o intenta otra ruta.");
       } else {
         setApiRates(result.rates);
         setSelectedApiRate(result.rates[0]);
       }
     } catch (err) {
-      setRatesError(err instanceof Error ? err.message : "Could not fetch ShipStation rates.");
+      setRatesError(err instanceof Error ? err.message : "No se pudieron obtener tarifas. Verifica tu conexión.");
     } finally {
       setFetchingRates(false);
     }
   }
 
-  // ── ShipStation: open confirmation ─────────────────────────────────────────
+  // ── Online: request confirmation ────────────────────────────────────────────
 
-  function handleRequestSSLabel(event: FormEvent<HTMLFormElement>) {
+  function handleRequestOnlineLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const errs = validateSSLabel();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
+    const errs = validateOnlineLabel();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setErrors({});
-    setShowSSConfirm(true);
+    setShowConfirm(true);
   }
 
-  // ── ShipStation: confirmed create ──────────────────────────────────────────
+  // ── Online: confirmed ───────────────────────────────────────────────────────
 
-  async function handleSSConfirmed() {
+  async function handleConfirmed() {
     if (!selectedApiRate) return;
-    setShowSSConfirm(false);
+    setShowConfirm(false);
     setSaving(true);
     setErrors({});
 
@@ -341,10 +325,9 @@ export function CreateGuideForm() {
 
       setSummary(result.shipment);
       setLabelData(result.labelData);
-      // New key for next label attempt
       idempotencyKeyRef.current = crypto.randomUUID();
     } catch (err) {
-      setErrors({ form: err instanceof Error ? err.message : "We could not create this label." });
+      setErrors({ form: err instanceof Error ? err.message : "No se pudo crear la guía." });
     } finally {
       setSaving(false);
     }
@@ -359,7 +342,7 @@ export function CreateGuideForm() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `label-${summary?.trackingNumber ?? "shipstation"}.pdf`;
+    a.download = `guia-${summary?.trackingNumber ?? Date.now()}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -368,89 +351,115 @@ export function CreateGuideForm() {
 
   return (
     <div className="grid gap-6">
-      {/* Provider selector */}
-      <ProviderSelector provider={provider} onChange={handleProviderChange} />
+      <ModeSelector mode={mode} onChange={handleModeChange} />
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-        {/* ── Internal flow ── */}
-        {provider === "internal" && (
+      <div className="grid gap-6 xl:grid-cols-[1fr_400px]">
+        {/* ── Cotización estándar ── */}
+        {mode === "standard" && (
           <form
-            onSubmit={handleInternalSubmit}
-            className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5"
+            onSubmit={handleStandardSubmit}
+            className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5"
             noValidate
           >
-            <div>
-              <h2 className="text-xl font-black text-slate-950">Shipping label details</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Complete shipment information and select the best rate.
-              </p>
-            </div>
-            <CommonFields form={form} errors={errors} onChange={update} />
+            <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
             <div className="grid gap-4 md:grid-cols-2">
-              <Select
-                label="Cash on delivery?"
-                name="cashOnDelivery"
-                value={form.cashOnDelivery}
-                options={["no", "si"]}
-                onChange={update}
-              />
+              <Field label="Nombre del remitente" name="senderName" value={form.senderName} error={errors.senderName} onChange={update} placeholder="Ej. Juan García" />
+              <Field label="Teléfono del remitente" name="senderPhone" value={form.senderPhone} error={errors.senderPhone} onChange={update} placeholder="+1 555 000 0000" />
+              <div className="md:col-span-2">
+                <Select label="Ciudad de origen" name="originCity" value={form.originCity} options={cities} error={errors.originCity} onChange={update} />
+              </div>
+            </div>
+
+            <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Nombre del destinatario" name="recipientName" value={form.recipientName} error={errors.recipientName} onChange={update} placeholder="Ej. María López" />
+              <Field label="Teléfono del destinatario" name="recipientPhone" value={form.recipientPhone} error={errors.recipientPhone} onChange={update} placeholder="+1 555 000 0001" />
+              <div className="md:col-span-2">
+                <Select label="Ciudad de destino" name="destinationCity" value={form.destinationCity} options={cities} error={errors.destinationCity} onChange={update} />
+              </div>
+              <div className="md:col-span-2">
+                <Field label="Dirección completa de entrega" name="destinationAddress" value={form.destinationAddress} error={errors.destinationAddress} onChange={update} placeholder="Calle, número, apartamento..." />
+              </div>
+            </div>
+
+            <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Peso del paquete" name="weight" value={form.weight} type="number" error={errors.weight} onChange={update} placeholder="1" />
+              <Select label="Tipo de producto" name="productType" value={form.productType} options={productTypes} error={errors.productType} onChange={update} />
+              <Select label="Carrier" name="courier" value={form.courier} options={couriers.map((c) => c.nombre)} error={errors.courier} onChange={update} />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select label="¿Contra entrega?" name="cashOnDelivery" value={form.cashOnDelivery} options={["no", "si"]} onChange={update} />
               {form.cashOnDelivery === "si" ? (
-                <Field
-                  label="Amount to collect"
-                  name="cashAmount"
-                  value={form.cashAmount}
-                  type="number"
-                  error={errors.cashAmount}
-                  onChange={update}
-                />
+                <Field label="Monto a cobrar" name="cashAmount" value={form.cashAmount} type="number" error={errors.cashAmount} onChange={update} placeholder="0.00" />
               ) : null}
             </div>
-            <Select
-              label="Selected carrier"
-              name="courier"
-              value={form.courier}
-              options={couriers.map((c) => c.nombre)}
-              error={errors.courier}
-              onChange={update}
-            />
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70 sm:w-fit"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? "Generating..." : "Generate label"}
-            </button>
-            {errors.form ? (
-              <span className="text-sm font-semibold text-red-600">{errors.form}</span>
-            ) : null}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-6 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Generando..." : "Generar guía"}
+              </button>
+              <p className="text-xs text-slate-400">Cotizamos con la mejor opción disponible para tu envío.</p>
+            </div>
+            {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
           </form>
         )}
 
-        {/* ── ShipStation flow ── */}
-        {provider === "shipstation" && (
+        {/* ── Cotización en línea ── */}
+        {mode === "online" && (
           <div className="grid gap-5">
-            {/* Step 1: quote */}
             <form
               onSubmit={handleFetchRates}
-              className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5"
+              className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5"
               noValidate
             >
               <div>
-                <h2 className="text-xl font-black text-slate-950">ShipStation — real label</h2>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">Cotización en línea</p>
                 <p className="mt-1 text-sm text-slate-500">
-                  Fill in the details and click <strong>Get rates</strong> to see real carrier prices.
+                  Completa los datos y cotiza con las tarifas disponibles. El proveedor técnico se selecciona automáticamente.
                 </p>
               </div>
-              <CommonFields form={form} errors={errors} onChange={update} />
-              <SSAddressFields form={form} errors={errors} onChange={update} />
+
+              <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Nombre del remitente" name="senderName" value={form.senderName} error={errors.senderName} onChange={update} placeholder="Ej. Juan García" />
+                <Field label="Teléfono del remitente" name="senderPhone" value={form.senderPhone} error={errors.senderPhone} onChange={update} placeholder="+1 555 000 0000" />
+                <Select label="Ciudad de origen" name="originCity" value={form.originCity} options={cities} error={errors.originCity} onChange={update} />
+                <Field label="Estado (opcional)" name="originState" value={form.originState} error={errors.originState} onChange={update} placeholder="Ej. NY" />
+              </div>
+
+              <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Nombre del destinatario" name="recipientName" value={form.recipientName} error={errors.recipientName} onChange={update} placeholder="Ej. María López" />
+                <Field label="Teléfono del destinatario" name="recipientPhone" value={form.recipientPhone} error={errors.recipientPhone} onChange={update} placeholder="+1 555 000 0001" />
+                <Select label="Ciudad de destino" name="destinationCity" value={form.destinationCity} options={cities} error={errors.destinationCity} onChange={update} />
+                <Field label="Estado (opcional)" name="destinationState" value={form.destinationState} error={errors.destinationState} onChange={update} placeholder="Ej. IL" />
+                <div className="md:col-span-2">
+                  <Field label="Dirección completa de entrega" name="destinationAddress" value={form.destinationAddress} error={errors.destinationAddress} onChange={update} placeholder="Calle, número, apartamento..." />
+                </div>
+              </div>
+
+              <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="Peso" name="weight" value={form.weight} type="number" error={errors.weight} onChange={update} placeholder="1" />
+                <Select label="Unidad de peso" name="weightUnit" value={form.weightUnit} options={["lb", "oz"]} onChange={update} />
+                <Select label="Tipo de producto" name="productType" value={form.productType} options={productTypes} error={errors.productType} onChange={update} />
+              </div>
+
               <button
                 type="submit"
                 disabled={fetchingRates}
                 className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-70 sm:w-fit"
               >
-                {fetchingRates ? "Fetching rates..." : "Get ShipStation rates"}
+                <Zap className="mr-2 h-4 w-4" />
+                {fetchingRates ? "Buscando tarifas..." : "Buscar tarifas"}
               </button>
+
               {ratesError ? (
                 <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -459,34 +468,35 @@ export function CreateGuideForm() {
               ) : null}
             </form>
 
-            {/* Step 2: confirm + create (only after rates fetched) */}
+            {/* Paso 2: seleccionar tarifa y generar */}
             {apiRates.length > 0 && (
               <form
-                onSubmit={handleRequestSSLabel}
+                onSubmit={handleRequestOnlineLabel}
                 className="grid gap-4 rounded-3xl border border-cyan-200 bg-cyan-50/40 p-5 shadow-sm"
                 noValidate
               >
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                   <p className="text-sm font-semibold text-slate-700">
-                    <strong>Real label:</strong> This will purchase a real label in ShipStation and
-                    deduct your balance.
+                    <strong>Guía real:</strong> Al confirmar se generará una guía de envío real y se descontará de tu saldo.
                   </p>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
                   <Field
-                    label="Origin postal code *"
+                    label="ZIP / Código postal de origen *"
                     name="originPostalCode"
                     value={form.originPostalCode}
                     error={errors.originPostalCode}
                     onChange={update}
+                    placeholder="Ej. 10001"
                   />
                   <Field
-                    label="Destination postal code *"
+                    label="ZIP / Código postal de destino *"
                     name="destinationPostalCode"
                     value={form.destinationPostalCode}
                     error={errors.destinationPostalCode}
                     onChange={update}
+                    placeholder="Ej. 60601"
                   />
                 </div>
                 <button
@@ -495,11 +505,9 @@ export function CreateGuideForm() {
                   className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70 sm:w-fit"
                 >
                   <Save className="mr-2 h-4 w-4" />
-                  {saving ? "Generating..." : "Generate real ShipStation label"}
+                  {saving ? "Generando..." : "Generar guía"}
                 </button>
-                {errors.form ? (
-                  <span className="text-sm font-semibold text-red-600">{errors.form}</span>
-                ) : null}
+                {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
               </form>
             )}
           </div>
@@ -507,34 +515,34 @@ export function CreateGuideForm() {
 
         {/* ── Sidebar ── */}
         <aside className="grid gap-5 content-start">
-          {provider === "internal" && (
+          {mode === "standard" && (
             <>
-              <CourierComparator
-                rates={internalRates}
+              <RateComparator
+                rates={standardRates}
                 selected={form.courier}
                 onSelect={(c) => update("courier", c)}
               />
-              {selectedInternalRate ? (
+              {selectedStandardRate ? (
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
                   <div className="flex items-center justify-between gap-4">
-                    <h2 className="font-black text-slate-950">Calculated total</h2>
-                    <Badge tone="green">Active rate</Badge>
+                    <h2 className="font-black text-slate-950">Total calculado</h2>
+                    <Badge tone="green">Tarifa activa</Badge>
                   </div>
-                  <p className="mt-5 text-sm text-slate-500">Total cost</p>
+                  <p className="mt-5 text-sm text-slate-500">Costo total</p>
                   <p className="mt-1 text-4xl font-black text-slate-950">
-                    {formatCurrency(selectedInternalRate.total)}
+                    {formatCurrency(selectedStandardRate.total)}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    Subtotal {formatCurrency(selectedInternalRate.subtotal)} · COD fee{" "}
-                    {formatCurrency(selectedInternalRate.contraEntregaComision)}
+                    Subtotal {formatCurrency(selectedStandardRate.subtotal)} · Comisión C/E{" "}
+                    {formatCurrency(selectedStandardRate.contraEntregaComision)}
                   </p>
                 </div>
               ) : null}
             </>
           )}
 
-          {provider === "shipstation" && apiRates.length > 0 && (
-            <ApiRatesList
+          {mode === "online" && apiRates.length > 0 && (
+            <AvailableRatesList
               rates={apiRates}
               selected={selectedApiRate}
               onSelect={setSelectedApiRate}
@@ -551,12 +559,12 @@ export function CreateGuideForm() {
         </aside>
       </div>
 
-      {/* ShipStation confirmation modal */}
-      {showSSConfirm && selectedApiRate && (
-        <SSConfirmModal
+      {/* Modal de confirmación */}
+      {showConfirm && selectedApiRate && (
+        <ConfirmModal
           rate={selectedApiRate}
-          onConfirm={handleSSConfirmed}
-          onCancel={() => setShowSSConfirm(false)}
+          onConfirm={handleConfirmed}
+          onCancel={() => setShowConfirm(false)}
         />
       )}
     </div>
@@ -565,130 +573,44 @@ export function CreateGuideForm() {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function ProviderSelector({
-  provider,
-  onChange,
-}: {
-  provider: Provider;
-  onChange: (p: Provider) => void;
-}) {
+function ModeSelector({ mode, onChange }: { mode: QuoteMode; onChange: (m: QuoteMode) => void }) {
+  const options: { value: QuoteMode; label: string; desc: string }[] = [
+    { value: "standard", label: "Cotización estándar", desc: "Carriers disponibles en la plataforma" },
+    { value: "online", label: "Mejor tarifa disponible", desc: "Motor de cotización en línea" },
+  ];
+
   return (
-    <div className="flex flex-wrap gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
-      <p className="w-full text-sm font-black text-slate-700">Shipping provider:</p>
-      {(["internal", "shipstation"] as Provider[]).map((p) => (
+    <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:flex sm:flex-wrap sm:items-center">
+      <p className="text-sm font-black text-slate-700 sm:mr-2">Tipo de cotización:</p>
+      {options.map((opt) => (
         <button
-          key={p}
+          key={opt.value}
           type="button"
-          onClick={() => onChange(p)}
+          onClick={() => onChange(opt.value)}
           className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
-            provider === p
+            mode === opt.value
               ? "border-[#06B6D4] bg-cyan-50 text-[#0891B2]"
-              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100"
           }`}
         >
-          {provider === p ? <CheckCircle2 className="h-4 w-4" /> : null}
-          {p === "internal" ? "Internal / demo" : "ShipStation (real)"}
+          {mode === opt.value ? <CheckCircle2 className="h-4 w-4" /> : null}
+          {opt.label}
         </button>
       ))}
     </div>
   );
 }
 
-function CommonFields({
-  form,
-  errors,
-  onChange,
-}: {
-  form: FormState;
-  errors: Record<string, string>;
-  onChange: (name: keyof FormState, value: string) => void;
-}) {
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Sender name" name="senderName" value={form.senderName} error={errors.senderName} onChange={onChange} />
-        <Field label="Sender phone" name="senderPhone" value={form.senderPhone} error={errors.senderPhone} onChange={onChange} />
-        <Select label="Origin city" name="originCity" value={form.originCity} options={cities} error={errors.originCity} onChange={onChange} />
-        <Field label="Recipient name" name="recipientName" value={form.recipientName} error={errors.recipientName} onChange={onChange} />
-        <Field label="Recipient phone" name="recipientPhone" value={form.recipientPhone} error={errors.recipientPhone} onChange={onChange} />
-        <Select label="Destination city" name="destinationCity" value={form.destinationCity} options={cities} error={errors.destinationCity} onChange={onChange} />
-      </div>
-      <Field label="Destination address" name="destinationAddress" value={form.destinationAddress} error={errors.destinationAddress} onChange={onChange} />
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Package weight" name="weight" value={form.weight} type="number" error={errors.weight} onChange={onChange} />
-        <Select label="Product type" name="productType" value={form.productType} options={productTypes} error={errors.productType} onChange={onChange} />
-      </div>
-    </>
-  );
-}
-
-function SSAddressFields({
-  form,
-  errors,
-  onChange,
-}: {
-  form: FormState;
-  errors: Record<string, string>;
-  onChange: (name: keyof FormState, value: string) => void;
-}) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Field label="Origin state (optional)" name="originState" value={form.originState} error={errors.originState} onChange={onChange} />
-      <Field label="Destination state (optional)" name="destinationState" value={form.destinationState} error={errors.destinationState} onChange={onChange} />
-      <Select label="Weight unit" name="weightUnit" value={form.weightUnit} options={["lb", "oz"]} onChange={onChange} />
+    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+      <span className="text-slate-400">{icon}</span>
+      <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">{title}</h3>
     </div>
   );
 }
 
-function ApiRatesList({
-  rates,
-  selected,
-  onSelect,
-}: {
-  rates: RateResult[];
-  selected: RateResult | null;
-  onSelect: (r: RateResult) => void;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <h2 className="font-black text-slate-950">ShipStation rates</h2>
-      <div className="mt-4 grid gap-3">
-        {rates.map((rate) => (
-          <button
-            key={`${rate.courierId}-${rate.serviceCode}`}
-            type="button"
-            onClick={() => onSelect(rate)}
-            className={`rounded-2xl border p-4 text-left transition ${
-              selected?.serviceCode === rate.serviceCode && selected?.courierId === rate.courierId
-                ? "border-[#06B6D4] bg-cyan-50"
-                : "border-slate-200 bg-slate-50 hover:border-cyan-200 hover:bg-cyan-50/40"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-black text-slate-950">{rate.serviceName}</p>
-                <p className="text-xs text-slate-500">{rate.courierName}</p>
-                {rate.estimatedTime ? (
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{rate.estimatedTime}</p>
-                ) : null}
-              </div>
-              <div className="text-right">
-                <p className="font-black text-[#06B6D4]">{formatCurrency(rate.customerPrice)}</p>
-                <p className="text-xs text-slate-400">{rate.currency}</p>
-                {selected?.serviceCode === rate.serviceCode &&
-                  selected?.courierId === rate.courierId ? (
-                  <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-[#16a34a]" />
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CourierComparator({
+function RateComparator({
   rates,
   selected,
   onSelect,
@@ -699,7 +621,7 @@ function CourierComparator({
 }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <h2 className="font-black text-slate-950">Carrier comparison</h2>
+      <h2 className="font-black text-slate-950">Comparar carriers</h2>
       <div className="mt-4 grid gap-3">
         {rates.map((rate) => (
           <button
@@ -715,7 +637,7 @@ function CourierComparator({
                   {rate.courier.tiempoEstimado} · {rate.courier.cobertura}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">
-                  {rate.courier.permiteContraEntrega ? "COD available" : "No COD"}
+                  {rate.courier.permiteContraEntrega ? "Contra entrega disponible" : "Sin contra entrega"}
                 </p>
               </div>
               <div className="text-right">
@@ -732,6 +654,84 @@ function CourierComparator({
   );
 }
 
+function AvailableRatesList({
+  rates,
+  selected,
+  onSelect,
+}: {
+  rates: RateResult[];
+  selected: RateResult | null;
+  onSelect: (r: RateResult) => void;
+}) {
+  // Tag the cheapest and fastest
+  const cheapestIdx = rates.reduce(
+    (best, r, i) => (r.customerPrice < rates[best].customerPrice ? i : best),
+    0,
+  );
+  const fastestIdx = rates.reduce(
+    (best, r, i) =>
+      (r.estimatedTime ?? "z") < (rates[best].estimatedTime ?? "z") ? i : best,
+    0,
+  );
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+      <h2 className="font-black text-slate-950">Tarifas disponibles</h2>
+      <div className="mt-4 grid gap-3">
+        {rates.map((rate, i) => {
+          const isCheapest = i === cheapestIdx;
+          const isFastest = i === fastestIdx && i !== cheapestIdx;
+          const isSelected =
+            selected?.serviceCode === rate.serviceCode &&
+            selected?.courierId === rate.courierId;
+
+          return (
+            <button
+              key={`${rate.courierId}-${rate.serviceCode}`}
+              type="button"
+              onClick={() => onSelect(rate)}
+              className={`rounded-2xl border p-4 text-left transition ${
+                isSelected
+                  ? "border-[#06B6D4] bg-cyan-50"
+                  : "border-slate-200 bg-slate-50 hover:border-cyan-200 hover:bg-cyan-50/40"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="font-black text-slate-950">{rate.serviceName}</p>
+                    {isCheapest && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-black text-green-700">
+                        Más económico
+                      </span>
+                    )}
+                    {isFastest && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-black text-blue-700">
+                        Más rápido
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">{rate.courierName}</p>
+                  {rate.estimatedTime ? (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{rate.estimatedTime}</p>
+                  ) : null}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-black text-[#06B6D4]">{formatCurrency(rate.customerPrice)}</p>
+                  <p className="text-xs text-slate-400">{rate.currency}</p>
+                  {isSelected ? (
+                    <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-[#16a34a]" />
+                  ) : null}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GuideSummary({
   summary,
   labelData,
@@ -741,18 +741,22 @@ function GuideSummary({
   labelData: string | null;
   onDownload: () => void;
 }) {
+  const displayPrice = summary.customerPrice ?? summary.total ?? summary.value;
+
   return (
     <div className="print-guide rounded-3xl border border-cyan-200 bg-cyan-50 p-5 shadow-sm shadow-cyan-950/5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <Badge tone="blue">
             <Sparkles className="mr-2 h-3.5 w-3.5" />
-            Label generated
+            Guía generada
           </Badge>
           <h2 className="mt-4 text-2xl font-black text-slate-950">{summary.trackingNumber}</h2>
-          {summary.provider && (
+          {summary.labelStatus && (
             <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-              {summary.provider}
+              {summary.labelStatus === "purchased" ? "Guía activa" :
+               summary.labelStatus === "internal" ? "Procesada" :
+               summary.labelStatus}
             </p>
           )}
         </div>
@@ -760,28 +764,15 @@ function GuideSummary({
           type="button"
           onClick={() => window.print()}
           className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-[#06B6D4] shadow-sm"
-          aria-label="Print label"
+          aria-label="Imprimir guía"
         >
           <Printer className="h-5 w-5" />
         </button>
       </div>
       <div className="mt-5 grid gap-3 text-sm">
         <SummaryRow label="Carrier" value={summary.courier} />
-        <SummaryRow
-          label="Route"
-          value={`${summary.originCity} → ${summary.destinationCity}`}
-        />
-        {summary.labelStatus ? (
-          <SummaryRow label="Label" value={summary.labelStatus} />
-        ) : null}
-        {summary.customerPrice != null ? (
-          <SummaryRow label="Price" value={formatCurrency(summary.customerPrice)} />
-        ) : (
-          <SummaryRow
-            label="Total"
-            value={formatCurrency(summary.total ?? summary.value)}
-          />
-        )}
+        <SummaryRow label="Ruta" value={`${summary.originCity} → ${summary.destinationCity}`} />
+        <SummaryRow label="Total" value={formatCurrency(displayPrice)} />
       </div>
 
       {labelData ? (
@@ -791,11 +782,11 @@ function GuideSummary({
           className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20"
         >
           <Download className="mr-2 h-4 w-4" />
-          Download label PDF
+          Descargar PDF de guía
         </button>
-      ) : summary.provider === "shipstation" ? (
+      ) : summary.labelStatus === "purchased" ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-          Label PDF not available for retry — download it immediately after first creation.
+          El PDF de esta guía no está disponible en este momento. Descárgalo inmediatamente después de la creación.
         </p>
       ) : null}
 
@@ -803,13 +794,13 @@ function GuideSummary({
         href={`/guia/${summary.trackingNumber}`}
         className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20"
       >
-        View label
+        Ver guía
       </Link>
     </div>
   );
 }
 
-function SSConfirmModal({
+function ConfirmModal({
   rate,
   onConfirm,
   onCancel,
@@ -824,20 +815,20 @@ function SSConfirmModal({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 shrink-0 text-amber-500" />
-            <h2 className="text-lg font-black text-slate-950">Confirm real label</h2>
+            <h2 className="text-lg font-black text-slate-950">Confirmar guía</h2>
           </div>
           <button
             type="button"
             onClick={onCancel}
             className="grid h-8 w-8 place-items-center rounded-xl hover:bg-slate-100"
-            aria-label="Cancel"
+            aria-label="Cancelar"
           >
             <X className="h-4 w-4 text-slate-500" />
           </button>
         </div>
         <p className="mt-4 text-sm text-slate-600">
-          This will purchase a <strong>real label in ShipStation</strong> and deduct your balance.
-          This action cannot be undone without voiding the label.
+          Esto generará una <strong>guía de envío real</strong> y descontará tu saldo. Esta acción no
+          puede deshacerse sin anular la guía.
         </p>
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
           <p className="font-black text-slate-950">{rate.serviceName}</p>
@@ -852,14 +843,14 @@ function SSConfirmModal({
             onClick={onCancel}
             className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
           >
-            Cancel
+            Cancelar
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className="flex-1 rounded-2xl bg-[#FF1493] py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 hover:bg-[#FF4FB3]"
           >
-            Confirm and generate label
+            Confirmar y generar
           </button>
         </div>
       </div>
@@ -873,6 +864,7 @@ function Field({
   value,
   type = "text",
   error,
+  placeholder,
   onChange,
 }: {
   label: string;
@@ -880,6 +872,7 @@ function Field({
   value: string;
   type?: string;
   error?: string;
+  placeholder?: string;
   onChange: (name: keyof FormState, value: string) => void;
 }) {
   return (
@@ -891,6 +884,7 @@ function Field({
         type={type}
         min={type === "number" ? "0" : undefined}
         step={type === "number" ? "0.01" : undefined}
+        placeholder={placeholder}
         onChange={(e) => onChange(name, e.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"
       />
@@ -925,7 +919,7 @@ function Select({
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
-            {opt === "si" ? "Yes" : opt === "no" ? "No" : opt}
+            {opt === "si" ? "Sí" : opt === "no" ? "No" : opt}
           </option>
         ))}
       </select>
