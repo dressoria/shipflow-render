@@ -350,6 +350,31 @@ Pendiente:
 
 Validaciones: lint 0 errores, 16 warnings (mismos de antes), typecheck limpio, build exitoso (24 rutas).
 
+## FASE 5.10 — Persistencia financiera de pricing (completada)
+
+Objetivo:
+
+- Persistir el desglose de pricing en columnas separadas en `shipments` para auditoría y pagos reales.
+- Actualizar la RPC `create_label_shipment_transaction` con los nuevos campos financieros.
+- Mostrar el desglose en la guía imprimible cuando los datos existen.
+- Mantener compatibilidad con instalaciones sin migración aplicada.
+
+Tareas completadas:
+
+- `supabase/migrations/20260515_add_pricing_breakdown_to_shipments.sql` (nueva): Agrega `payment_fee`, `pricing_subtotal`, `pricing_model`, `pricing_breakdown` a `shipments`. Actualiza la RPC con 4 nuevos parámetros opcionales. Documenta que `void_label_refund_transaction` devuelve `customer_price` completo (incluyendo `payment_fee`).
+- `lib/types.ts`: `Envio` += `providerCost?`, `platformMarkup?`, `paymentFee?`, `pricingSubtotal?`, `pricingModel?`, `pricingBreakdown?`.
+- `lib/server/shipments/createInternalShipment.ts`: `ShipmentRow` += nuevas columnas; `fromShipmentRow()` mapea todos los campos; `createInternalShipment()` persiste los campos de pricing en `logisticsShipmentFields`.
+- `lib/server/shipments/createShipStationShipment.ts`: `ShipStationLabelBody` += campos de pricing; `buildRpcParams()` usa valores del body (prioridad) o recalcula con fallback seguro via `calculateCustomerPrice()`; pasa `p_payment_fee`, `p_pricing_subtotal`, `p_pricing_model`, `p_pricing_breakdown` al RPC.
+- `lib/services/apiClient.ts`: `CreateLabelBody` += `pricingSubtotal?`, `pricingModel?`, `pricingBreakdown?`.
+- `components/CreateGuideForm.tsx`: `handleConfirmed()` pasa desglose completo al API.
+- `components/PrintableGuide.tsx`: `PricingBlock` muestra desglose (Shipping + ShipFlow charge + Payment processing + Total) si los datos existen; fallback a total simple.
+
+Pendiente:
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Mover constantes de pricing a configuración DB/admin.
+
+Validaciones: ver reporte final de validaciones.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

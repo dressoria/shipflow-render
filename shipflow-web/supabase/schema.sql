@@ -79,6 +79,11 @@ create table if not exists public.shipments (
   platform_markup numeric(10, 2) not null default 0 check (platform_markup >= 0),
   customer_price numeric(10, 2) check (customer_price is null or customer_price >= 0),
   currency text not null default 'USD',
+  -- FASE 5.10: financial pricing breakdown
+  payment_fee numeric(10, 2) not null default 0 check (payment_fee >= 0),
+  pricing_subtotal numeric(10, 2) check (pricing_subtotal is null or pricing_subtotal >= 0),
+  pricing_model text,
+  pricing_breakdown jsonb not null default '{}'::jsonb,
   idempotency_key text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
@@ -108,6 +113,10 @@ alter table public.shipments
   add column if not exists platform_markup numeric(10, 2) not null default 0,
   add column if not exists customer_price numeric(10, 2),
   add column if not exists currency text not null default 'USD',
+  add column if not exists payment_fee numeric(10, 2) not null default 0,
+  add column if not exists pricing_subtotal numeric(10, 2),
+  add column if not exists pricing_model text,
+  add column if not exists pricing_breakdown jsonb not null default '{}'::jsonb,
   add column if not exists idempotency_key text,
   add column if not exists metadata jsonb not null default '{}'::jsonb;
 

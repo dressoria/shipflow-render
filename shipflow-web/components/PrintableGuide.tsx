@@ -121,14 +121,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
                 ["Date", formatDate(shipment.date)],
               ]}
             />
-            <InfoBlock
-              title="Amounts"
-              rows={[
-                ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
-                ["Amount to collect", formatCurrency(shipment.cashAmount)],
-                ["Total paid", formatCurrency(shipment.total ?? shipment.value)],
-              ]}
-            />
+            <PricingBlock shipment={shipment} />
             <QrCode cells={qrCells} className="md:hidden print:hidden" />
             <Barcode codeBlocks={codeBlocks} trackingNumber={shipment.trackingNumber} />
           </div>
@@ -176,6 +169,36 @@ function Barcode({ codeBlocks, trackingNumber }: { codeBlocks: string[]; trackin
       </div>
       <p className="mt-3 text-lg font-black tracking-[0.16em] text-slate-950">{trackingNumber}</p>
     </section>
+  );
+}
+
+function PricingBlock({ shipment }: { shipment: Envio }) {
+  const hasPricingBreakdown =
+    typeof shipment.paymentFee === "number" &&
+    shipment.paymentFee > 0 &&
+    typeof shipment.providerCost === "number";
+
+  if (hasPricingBreakdown) {
+    const rows: Array<[string, string]> = [
+      ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
+      ["Amount to collect", formatCurrency(shipment.cashAmount)],
+      ["Shipping cost", formatCurrency(shipment.providerCost!)],
+      ["ShipFlow service charge", formatCurrency(shipment.platformMarkup ?? 0)],
+      ["Payment processing", formatCurrency(shipment.paymentFee!)],
+      ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+    ];
+    return <InfoBlock title="Amounts" rows={rows} />;
+  }
+
+  return (
+    <InfoBlock
+      title="Amounts"
+      rows={[
+        ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
+        ["Amount to collect", formatCurrency(shipment.cashAmount)],
+        ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+      ]}
+    />
   );
 }
 

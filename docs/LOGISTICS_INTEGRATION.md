@@ -1,6 +1,6 @@
 # Integracion logistica
 
-## Estado actual de providers (FASE 5.9)
+## Estado actual de providers (FASE 5.10)
 
 ### Arquitectura multi-provider
 
@@ -92,6 +92,38 @@ Los nombres de provider nunca se muestran al usuario. La UI muestra:
 - Si provider es skeleton (shippo/easypost/easyship), la UI muestra error controlado sin llamar al API.
 - `/api/labels` tiene un guard explícito que devuelve 501 para providers skeleton: no hay fallback silencioso a ShipStation.
 - ShipStation sigue siendo el único provider con label creation real activa.
+
+### Persistencia financiera (FASE 5.10)
+
+`shipments` tiene ahora columnas separadas para cada componente del precio:
+
+| Columna | Descripción | Ejemplo |
+|---|---|---|
+| `provider_cost` | Costo real del carrier (crudo) | $8.50 |
+| `platform_markup` | Margen ShipFlow: max(0.99, cost×6%) | $0.99 |
+| `pricing_subtotal` | provider_cost + platform_markup | $9.49 |
+| `payment_fee` | cargo de procesamiento (subtotal×2.9%+$0.30) — no lo absorbe ShipFlow | $0.58 |
+| `customer_price` | Total cobrado al cliente (pricing_subtotal + payment_fee) | $10.07 |
+| `pricing_model` | Identificador de la fórmula usada | `shipflow_v1` |
+| `pricing_breakdown` | Snapshot completo del cálculo al momento de compra (jsonb) | `{...}` |
+
+**Flujo completo de pricing (UI → DB):**
+```
+handleConfirmed() manda: platformMarkup, paymentFee, pricingSubtotal, pricingModel, pricingBreakdown
+POST /api/labels recibe y valida esos campos
+createShipStationShipment / createInternalShipment los incluye en la escritura a DB
+ShipStation path: via RPC create_label_shipment_transaction (atomica)
+Internal path: via insert con fallback isMissingSchemaColumnError para instancias sin migración
+```
+
+**Refund/Void:**
+- `void_label_refund_transaction` recibe `p_refund_amount = customer_price` (precio total incluyendo payment_fee).
+- ShipFlow devuelve al saldo interno el total completo que pagó el cliente.
+- No hay recálculo de pricing en void — se usa el `customer_price` guardado.
+
+**Migración requerida:**
+- `20260515_add_pricing_breakdown_to_shipments.sql` — debe aplicarse en Supabase antes de labels reales en staging.
+- PREREQUISITO: `20260514_shipflow_security_logistics_foundation.sql` y `20260514_create_label_transaction_rpc.sql` deben estar aplicados primero.
 
 ### Pendiente antes de activar providers externos
 

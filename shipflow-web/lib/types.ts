@@ -46,6 +46,13 @@ export type Envio = {
   paymentStatus?: string | null;
   customerPrice?: number | null;
   providerShipmentId?: string | null;
+  // FASE 5.10: pricing breakdown — populated when FASE 5.10 migration is applied
+  providerCost?: number | null;
+  platformMarkup?: number | null;
+  paymentFee?: number | null;
+  pricingSubtotal?: number | null;
+  pricingModel?: string | null;
+  pricingBreakdown?: Record<string, unknown> | null;
 };
 
 export type MovimientoSaldo = {

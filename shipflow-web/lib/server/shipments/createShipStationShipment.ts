@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { InsufficientFundsError } from "@/lib/logistics/errors";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
+import { calculateCustomerPrice } from "@/lib/logistics/pricing";
 import { isMissingSchemaColumnError, isRpcNotFoundError } from "@/lib/server/apiResponse";
 import {
   fromShipmentRow,
@@ -29,6 +30,12 @@ export type ShipStationLabelBody = {
   recipientName?: string;
   recipientPhone?: string;
   productType?: string;
+  // FASE 5.10: pricing breakdown from the frontend (informational → persisted)
+  platformMarkup?: number;
+  paymentFee?: number;
+  pricingSubtotal?: number;
+  pricingModel?: string;
+  pricingBreakdown?: Record<string, unknown>;
 };
 
 export type ShipStationShipmentResult = {
@@ -130,6 +137,35 @@ function buildRpcParams(
   idempotencyKey: string,
 ): Record<string, unknown> {
   const rate = labelResult.rate;
+
+  // Prefer pricing data from body (set by the frontend from the selected rate).
+  // If absent, recalculate from providerCost using the current pricing engine.
+  // This guards against stale adapter pricing that lacks payment_fee (e.g. applyMarkup path).
+  const fallback = calculateCustomerPrice(rate.pricing.providerCost);
+  const paymentFee = typeof body.paymentFee === "number" && body.paymentFee >= 0
+    ? body.paymentFee
+    : fallback.paymentFee;
+  const platformMarkup = typeof body.platformMarkup === "number" && body.platformMarkup >= 0
+    ? body.platformMarkup
+    : rate.pricing.platformMarkup;
+  const pricingSubtotal = typeof body.pricingSubtotal === "number" && body.pricingSubtotal >= 0
+    ? body.pricingSubtotal
+    : fallback.subtotal;
+  const pricingModel = body.pricingModel ?? "shipflow_v1";
+
+  // pricing_breakdown: prefer explicit snapshot from body; otherwise build from rate.
+  const pricingBreakdown: Record<string, unknown> = body.pricingBreakdown ?? {
+    providerCost: rate.pricing.providerCost,
+    platformMarkup,
+    subtotal: pricingSubtotal,
+    paymentFee,
+    customerPrice: rate.pricing.customerPrice,
+    markupPercentage: rate.pricing.markupPercentage ?? fallback.markupPercentage,
+    markupMinimum: rate.pricing.markupMinimum ?? fallback.markupMinimum,
+    paymentFeePercentage: rate.pricing.paymentFeePercentage ?? fallback.paymentFeePercentage,
+    paymentFeeFixed: rate.pricing.paymentFeeFixed ?? fallback.paymentFeeFixed,
+  };
+
   return {
     p_user_id: userId,
     p_idempotency_key: idempotencyKey,
@@ -146,22 +182,27 @@ function buildRpcParams(
     p_product_type: body.productType?.trim() || "Package",
     p_carrier_code: body.carrierCode,
     p_shipping_subtotal: rate.shippingSubtotal,
-    p_total: rate.customerPrice,
+    p_total: rate.pricing.customerPrice,
     p_provider: "shipstation",
     p_provider_shipment_id: labelResult.providerShipmentId ?? null,
     p_provider_label_id: labelResult.providerLabelId ?? null,
     p_provider_service_code: labelResult.providerServiceCode ?? null,
     p_provider_cost: rate.pricing.providerCost,
-    p_platform_markup: rate.pricing.platformMarkup,
+    p_platform_markup: platformMarkup,
     p_customer_price: rate.pricing.customerPrice,
     p_currency: "USD",
     p_label_format: body.labelFormat ?? null,
     p_metadata: {
       source: "shipstation_web",
-      phase: "4d",
+      phase: "5.10",
       carrierCode: body.carrierCode,
       serviceCode: body.serviceCode,
     },
+    // FASE 5.10: financial pricing breakdown
+    p_payment_fee: paymentFee,
+    p_pricing_subtotal: pricingSubtotal,
+    p_pricing_model: pricingModel,
+    p_pricing_breakdown: pricingBreakdown,
   };
 }
 

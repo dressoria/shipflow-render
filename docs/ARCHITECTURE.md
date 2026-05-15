@@ -363,6 +363,23 @@ Migration `20260514_create_label_transaction_rpc.sql` mejorada:
 - Provider shipstation: llama void SS → RPC `void_label_refund_transaction` → respuesta.
 - Labels internas: void local limitado (sin cambios).
 
+## Persistencia financiera FASE 5.10
+
+La migracion `20260515_add_pricing_breakdown_to_shipments.sql` agrega columnas de pricing granular a `shipments`:
+
+- `payment_fee` — cargo de procesamiento trasladado al cliente; no lo absorbe ShipFlow.
+- `pricing_subtotal` — provider_cost + platform_markup antes del fee de pago.
+- `pricing_model` — identificador de la formula usada (`shipflow_v1`).
+- `pricing_breakdown` — snapshot jsonb del calculo al momento de compra.
+
+La RPC `create_label_shipment_transaction` fue actualizada con 4 nuevos parametros opcionales (defaults backward-compat).
+
+`fromShipmentRow()` mapea todos los campos nuevos a camelCase en el tipo `Envio`.
+
+`PrintableGuide` muestra el desglose si `paymentFee > 0 && providerCost != null`; fallback a total simple para guias anteriores a la migracion.
+
+PREREQUISITO: Aplicar FASE 1C y FASE 4D antes de esta migracion.
+
 ## Arquitectura futura deseada
 
 La arquitectura futura debe mover operaciones sensibles a backend:

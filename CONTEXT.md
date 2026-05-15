@@ -810,6 +810,90 @@ aggregateRates()  → reprice via calculateCustomerPrice (markup + payment_fee)
 
 **Pendiente (fase posterior):**
 - Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
-- Migrar schema para columna `payment_fee` separada.
+- Mover constantes de pricing a configuración DB/admin.
+- FASE 6: mobile al backend seguro.
+
+## Estado FASE 5.10 — Persistencia financiera de pricing
+
+Objetivo:
+
+- Crear la base financiera correcta para reportes, auditoría y pagos reales.
+- Persistir el desglose completo de pricing en columnas separadas en `shipments`.
+- Actualizar la RPC atomica para guardar los nuevos campos.
+- Mostrar el desglose en la guía imprimible cuando existen los nuevos campos.
+- Mantener compatibilidad con instalaciones sin migración aplicada.
+
+**Modelo de pricing (shipflow_v1):**
+```
+provider_cost    = costo real del carrier/provider (crudo)
+platform_markup  = max(0.99, provider_cost * 6%)  — margen ShipFlow
+pricing_subtotal = provider_cost + platform_markup (antes del cargo de pago)
+payment_fee      = pricing_subtotal * 2.9% + $0.30 — no lo absorbe ShipFlow; se traslada al cliente
+customer_price   = pricing_subtotal + payment_fee  — total cobrado al cliente
+```
+
+**Nuevas columnas en `public.shipments` (migración 20260515):**
+- `payment_fee numeric(10,2) not null default 0` — cargo de procesamiento trasladado al cliente.
+- `pricing_subtotal numeric(10,2)` — provider_cost + platform_markup antes del fee.
+- `pricing_model text` — identificador de la fórmula usada (e.g. `shipflow_v1`).
+- `pricing_breakdown jsonb not null default '{}'` — snapshot completo del cálculo en el momento de compra.
+
+**Columnas defensivas agregadas si no existen (para instalaciones legacy sin FASE 1C):**
+- `provider_cost`, `platform_markup`, `customer_price`.
+
+**RPC actualizada — `create_label_shipment_transaction`:**
+- Nuevos parámetros: `p_payment_fee`, `p_pricing_subtotal`, `p_pricing_model`, `p_pricing_breakdown` (todos con defaults para retrocompatibilidad).
+- Nuevas validaciones: `payment_fee >= 0`, `customer_price >= provider_cost` si aplica.
+- Balance movement incluye ahora `paymentFee` y `pricingModel` en metadata.
+
+**Void/Refund (sin cambios):**
+- `void_label_refund_transaction` usa `p_refund_amount = customer_price` (precio total incluyendo fee).
+- El reembolso al saldo interno es el total completo que pagó el cliente.
+- No hay riesgo de doble refund (protegido por check de idempotencia existente).
+
+**Archivos creados:**
+- `supabase/migrations/20260515_add_pricing_breakdown_to_shipments.sql` — nuevas columnas + RPC actualizada.
+
+**Archivos modificados:**
+- `supabase/schema.sql`: Nuevas columnas en `CREATE TABLE` canónico y en bloque `ADD COLUMN IF NOT EXISTS`.
+- `lib/types.ts`: `Envio` += `providerCost?`, `platformMarkup?`, `paymentFee?`, `pricingSubtotal?`, `pricingModel?`, `pricingBreakdown?`.
+- `lib/server/shipments/createInternalShipment.ts`:
+  - `ShipmentRow` += nuevas columnas.
+  - `fromShipmentRow()` mapea `payment_fee → paymentFee`, `pricing_subtotal → pricingSubtotal`, `pricing_model → pricingModel`, `pricing_breakdown → pricingBreakdown`, `provider_cost → providerCost`, `platform_markup → platformMarkup`.
+  - `createInternalShipment()` persiste `payment_fee`, `pricing_subtotal`, `pricing_model`, `pricing_breakdown` en `logisticsShipmentFields`.
+- `lib/server/shipments/createShipStationShipment.ts`:
+  - `ShipStationLabelBody` += `platformMarkup?`, `paymentFee?`, `pricingSubtotal?`, `pricingModel?`, `pricingBreakdown?`.
+  - `buildRpcParams()` calcula fallback con `calculateCustomerPrice()` si body no trae los campos; pasa `p_payment_fee`, `p_pricing_subtotal`, `p_pricing_model`, `p_pricing_breakdown` al RPC.
+- `lib/services/apiClient.ts`: `CreateLabelBody` += `pricingSubtotal?`, `pricingModel?`, `pricingBreakdown?`.
+- `components/CreateGuideForm.tsx`: `handleConfirmed()` pasa `pricingSubtotal`, `pricingModel`, `pricingBreakdown` al API.
+- `components/PrintableGuide.tsx`: `PricingBlock` component — muestra desglose completo (Shipping cost + ShipFlow service charge + Payment processing + Total) si `paymentFee > 0 && providerCost != null`; fallback a solo "Total paid" si no hay datos de desglose.
+
+**Flujo completo UI → API → RPC → DB:**
+```
+handleConfirmed() (CreateGuideForm)
+→ apiCreateLabel({ ..., platformMarkup, paymentFee, pricingSubtotal, pricingModel, pricingBreakdown })
+→ POST /api/labels
+→ createShipStationShipment() o createInternalShipment()
+→ buildRpcParams() (o logisticsShipmentFields para internal)
+→ create_label_shipment_transaction RPC / Supabase insert
+→ shipments: { payment_fee, pricing_subtotal, pricing_model, pricing_breakdown }
+```
+
+**Compatibilidad con migración no aplicada:**
+- Para internal/mock: el fallback `isMissingSchemaColumnError` omite todos los campos `logisticsShipmentFields` y hace insert legacy. Funciona sin migración.
+- Para ShipStation real: la RPC falla explícitamente si no está aplicada (503 claro). No hay fallback inseguro después de comprar un label real.
+- Los nuevos parámetros de la RPC tienen defaults → la función SQL es retrocompatible si se llama desde código anterior.
+
+**No cambiado:**
+- Motor de pricing de FASE 5.9 sin cambios.
+- Mobile no fue tocado.
+- No se instalaron paquetes.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Validaciones:** lint, typecheck, build — ver reporte final de validaciones.
+
+**Pendiente (fase posterior):**
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
 - Mover constantes de pricing a configuración DB/admin.
 - FASE 6: mobile al backend seguro.

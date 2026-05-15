@@ -112,9 +112,12 @@ export type CreateLabelBody = {
   parcel: { weight: number; weightUnit?: string };
   carrierCode: string;
   serviceCode: string;
-  expectedCost?: number;    // full customer price (providerCost + platformMarkup + paymentFee)
-  platformMarkup?: number;  // ShipFlow margin; informational for backend — not yet stored separately
-  paymentFee?: number;      // payment processing cost passed to customer; informational for backend
+  expectedCost?: number;                          // full customer price (providerCost + platformMarkup + paymentFee)
+  platformMarkup?: number;                        // ShipFlow margin — persisted in shipments.platform_markup
+  paymentFee?: number;                            // payment processing fee — persisted in shipments.payment_fee
+  pricingSubtotal?: number;                       // providerCost + platformMarkup — persisted in shipments.pricing_subtotal
+  pricingModel?: string;                          // formula identifier — persisted in shipments.pricing_model
+  pricingBreakdown?: Record<string, unknown>;     // full calculation snapshot — persisted in shipments.pricing_breakdown
   labelFormat?: "pdf" | "zpl" | "png";
   idempotencyKey: string;
   senderName?: string;

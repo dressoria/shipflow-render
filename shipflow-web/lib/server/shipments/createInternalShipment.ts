@@ -85,6 +85,11 @@ export type ShipmentRow = {
   platform_markup?: number;
   customer_price?: number | null;
   currency?: string;
+  // FASE 5.10: financial pricing breakdown
+  payment_fee?: number | null;
+  pricing_subtotal?: number | null;
+  pricing_model?: string | null;
+  pricing_breakdown?: Record<string, unknown> | null;
   idempotency_key?: string | null;
   label_url?: string | null;
   label_format?: string | null;
@@ -155,6 +160,12 @@ export function fromShipmentRow(row: ShipmentRow): Envio {
     paymentStatus: row.payment_status ?? null,
     customerPrice: row.customer_price != null ? Number(row.customer_price) : null,
     providerShipmentId: row.provider_shipment_id ?? null,
+    providerCost: row.provider_cost != null ? Number(row.provider_cost) : null,
+    platformMarkup: row.platform_markup != null ? Number(row.platform_markup) : null,
+    paymentFee: row.payment_fee != null ? Number(row.payment_fee) : null,
+    pricingSubtotal: row.pricing_subtotal != null ? Number(row.pricing_subtotal) : null,
+    pricingModel: row.pricing_model ?? null,
+    pricingBreakdown: row.pricing_breakdown ?? null,
   };
 }
 
@@ -386,10 +397,24 @@ export async function createInternalShipment(
     platform_markup: rate.pricing.platformMarkup,
     customer_price: rate.pricing.customerPrice,
     currency: rate.currency,
+    payment_fee: rate.pricing.paymentFee,
+    pricing_subtotal: rate.pricing.subtotal,
+    pricing_model: "shipflow_v1",
+    pricing_breakdown: {
+      providerCost: rate.pricing.providerCost,
+      platformMarkup: rate.pricing.platformMarkup,
+      subtotal: rate.pricing.subtotal,
+      paymentFee: rate.pricing.paymentFee,
+      customerPrice: rate.pricing.customerPrice,
+      markupPercentage: rate.pricing.markupPercentage,
+      markupMinimum: rate.pricing.markupMinimum,
+      paymentFeePercentage: rate.pricing.paymentFeePercentage,
+      paymentFeeFixed: rate.pricing.paymentFeeFixed,
+    },
     idempotency_key: input.idempotencyKey,
     metadata: {
       source: "internal_web",
-      phase: "3",
+      phase: "5.10",
     },
   };
 
