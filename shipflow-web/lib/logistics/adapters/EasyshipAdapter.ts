@@ -21,19 +21,19 @@ export class EasyshipAdapter implements LogisticsAdapter {
     this.baseUrl = process.env.EASYSHIP_BASE_URL?.trim() ?? "https://api.easyship.com";
   }
 
-  async getRates(_input: RateInput): Promise<RateResult[]> {
+  async getRates(_: RateInput): Promise<RateResult[]> {
     throw new ProviderUnavailableError(
       "Easyship rates are not yet implemented. Set EASYSHIP_API_KEY and implement EasyshipAdapter.getRates().",
     );
   }
 
-  async createLabel(_input: CreateLabelInput): Promise<LabelResult> {
+  async createLabel(_: CreateLabelInput): Promise<LabelResult> {
     throw new ProviderUnavailableError(
       "Easyship labels are not yet implemented. Implement EasyshipAdapter.createLabel().",
     );
   }
 
-  async voidLabel(_input: VoidLabelInput): Promise<VoidLabelResult> {
+  async voidLabel(_: VoidLabelInput): Promise<VoidLabelResult> {
     throw new ProviderUnavailableError(
       "Easyship void is not yet implemented. Implement EasyshipAdapter.voidLabel().",
     );

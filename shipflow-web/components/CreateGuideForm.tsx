@@ -20,15 +20,15 @@ import { isPhone, required } from "@/lib/forms";
 import { calculateShippingRate, getActiveCouriers } from "@/lib/services/courierService";
 import { createShipment } from "@/lib/services/shipmentService";
 import {
-  apiCreateSSLabel,
+  apiCreateLabel,
   apiGetRates,
-  type SSLabelResult,
+  type CreateLabelResult,
 } from "@/lib/services/apiClient";
 import type { CourierConfig, Envio, ShippingRate } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
 import { formatCurrency } from "@/lib/utils";
 
-// "standard" = internal/mock | "online" = shipstation
+// "standard" = internal/mock | "online" = best_available (multi-provider)
 type QuoteMode = "standard" | "online";
 
 type FormState = {
@@ -292,12 +292,21 @@ export function CreateGuideForm() {
   async function handleConfirmed() {
     if (!selectedApiRate) return;
     setShowConfirm(false);
+
+    const rateProvider = selectedApiRate.provider;
+
+    // Skeleton providers don't support label creation yet.
+    if (rateProvider === "shippo" || rateProvider === "easypost" || rateProvider === "easyship") {
+      setErrors({ form: "Esta opción todavía no está disponible para generar guía. Selecciona otra tarifa." });
+      return;
+    }
+
     setSaving(true);
     setErrors({});
 
     try {
-      const result: SSLabelResult = await apiCreateSSLabel({
-        provider: "shipstation",
+      const result: CreateLabelResult = await apiCreateLabel({
+        provider: rateProvider,
         origin: {
           city: form.originCity,
           postalCode: form.originPostalCode.trim(),
@@ -315,6 +324,8 @@ export function CreateGuideForm() {
         carrierCode: selectedApiRate.courierId,
         serviceCode: selectedApiRate.serviceCode,
         expectedCost: selectedApiRate.customerPrice,
+        platformMarkup: selectedApiRate.pricing.platformMarkup,
+        paymentFee: selectedApiRate.pricing.paymentFee,
         idempotencyKey: idempotencyKeyRef.current,
         senderName: form.senderName.trim() || undefined,
         senderPhone: form.senderPhone.trim() || undefined,
@@ -654,6 +665,33 @@ function RateComparator({
   );
 }
 
+const CARRIER_DISPLAY: Record<string, string> = {
+  stamps_com: "USPS via Stamps.com",
+  ups: "UPS",
+  fedex: "FedEx",
+  dhl_express: "DHL Express",
+  usps: "USPS",
+  dhl: "DHL",
+};
+
+function displayCarrier(courierId: string, courierName: string): string {
+  return (
+    CARRIER_DISPLAY[courierId.toLowerCase()] ??
+    CARRIER_DISPLAY[courierName.toLowerCase()] ??
+    courierName
+  );
+}
+
+function formatDelivery(estimatedTime?: string): string | null {
+  if (!estimatedTime) return null;
+  const m = estimatedTime.match(/(\d+)/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    return `Entrega en ${n} día${n !== 1 ? "s" : ""}`;
+  }
+  return estimatedTime;
+}
+
 function AvailableRatesList({
   rates,
   selected,
@@ -663,65 +701,72 @@ function AvailableRatesList({
   selected: RateResult | null;
   onSelect: (r: RateResult) => void;
 }) {
-  // Tag the cheapest and fastest
-  const cheapestIdx = rates.reduce(
-    (best, r, i) => (r.customerPrice < rates[best].customerPrice ? i : best),
-    0,
-  );
-  const fastestIdx = rates.reduce(
-    (best, r, i) =>
-      (r.estimatedTime ?? "z") < (rates[best].estimatedTime ?? "z") ? i : best,
-    0,
-  );
-
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
       <h2 className="font-black text-slate-950">Tarifas disponibles</h2>
+      <p className="mt-1 text-xs text-slate-400">Precio incluye envío, servicio y cargo de pago</p>
       <div className="mt-4 grid gap-3">
-        {rates.map((rate, i) => {
-          const isCheapest = i === cheapestIdx;
-          const isFastest = i === fastestIdx && i !== cheapestIdx;
+        {rates.map((rate) => {
+          const isCheapest = !!rate.tags?.includes("cheapest");
+          const isFastest = !!rate.tags?.includes("fastest");
+          const isRecommended = !!rate.tags?.includes("recommended");
           const isSelected =
             selected?.serviceCode === rate.serviceCode &&
-            selected?.courierId === rate.courierId;
+            selected?.courierId === rate.courierId &&
+            selected?.provider === rate.provider;
+          const deliveryText = formatDelivery(rate.estimatedTime);
+          const carrierLabel = displayCarrier(rate.courierId, rate.courierName);
 
           return (
             <button
-              key={`${rate.courierId}-${rate.serviceCode}`}
+              key={`${rate.provider}-${rate.courierId}-${rate.serviceCode}`}
               type="button"
               onClick={() => onSelect(rate)}
               className={`rounded-2xl border p-4 text-left transition ${
                 isSelected
-                  ? "border-[#06B6D4] bg-cyan-50"
+                  ? "border-[#06B6D4] bg-cyan-50 ring-1 ring-[#06B6D4]/30"
                   : "border-slate-200 bg-slate-50 hover:border-cyan-200 hover:bg-cyan-50/40"
               }`}
             >
+              {(isRecommended || isCheapest || isFastest) && (
+                <div className="mb-2.5 flex flex-wrap gap-1.5">
+                  {isRecommended && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-700">
+                      Nuestra recomendación
+                    </span>
+                  )}
+                  {isCheapest && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-black text-green-700">
+                      El costo más bajo
+                    </span>
+                  )}
+                  {isFastest && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-black text-blue-700">
+                      Lo más rápido
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="font-black text-slate-950">{rate.serviceName}</p>
-                    {isCheapest && (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-black text-green-700">
-                        Más económico
-                      </span>
-                    )}
-                    {isFastest && (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-black text-blue-700">
-                        Más rápido
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">{rate.courierName}</p>
-                  {rate.estimatedTime ? (
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{rate.estimatedTime}</p>
-                  ) : null}
+                  <p className="font-black text-slate-950">{rate.serviceName}</p>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-500">{carrierLabel}</p>
+                  {deliveryText ? (
+                    <p className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
+                      {deliveryText}
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-slate-400">Tiempo de entrega no especificado</p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-black text-[#06B6D4]">{formatCurrency(rate.customerPrice)}</p>
+                  <p className="text-xl font-black text-[#06B6D4]">
+                    {formatCurrency(rate.customerPrice)}
+                  </p>
                   <p className="text-xs text-slate-400">{rate.currency}</p>
-                  {isSelected ? (
-                    <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-[#16a34a]" />
-                  ) : null}
+                  {isSelected && (
+                    <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-green-600" />
+                  )}
                 </div>
               </div>
             </button>
@@ -809,6 +854,11 @@ function ConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { pricing } = rate;
+  const hasFeeBreakdown = pricing.paymentFee > 0;
+  const carrierLabel = displayCarrier(rate.courierId, rate.courierName);
+  const deliveryText = formatDelivery(rate.estimatedTime);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
@@ -826,17 +876,53 @@ function ConfirmModal({
             <X className="h-4 w-4 text-slate-500" />
           </button>
         </div>
+
         <p className="mt-4 text-sm text-slate-600">
-          Esto generará una <strong>guía de envío real</strong> y descontará tu saldo. Esta acción no
-          puede deshacerse sin anular la guía.
+          Esto generará una <strong>guía de envío real</strong> y descontará tu saldo. Esta acción
+          no puede deshacerse sin anular la guía.
         </p>
+
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
           <p className="font-black text-slate-950">{rate.serviceName}</p>
-          <p className="text-slate-500">{rate.courierName}</p>
-          <p className="mt-2 text-2xl font-black text-[#06B6D4]">
-            {formatCurrency(rate.customerPrice)}
-          </p>
+          <p className="text-slate-500">{carrierLabel}</p>
+          {deliveryText && (
+            <p className="mt-1 text-xs text-slate-400">{deliveryText}</p>
+          )}
+
+          {hasFeeBreakdown ? (
+            <div className="mt-3 border-t border-slate-200 pt-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Envío</span>
+                <span className="font-bold text-slate-950">
+                  {formatCurrency(pricing.providerCost)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cargo de servicio ShipFlow</span>
+                <span className="font-bold text-slate-950">
+                  {formatCurrency(pricing.platformMarkup)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cargo de procesamiento de pago</span>
+                <span className="font-bold text-slate-950">
+                  {formatCurrency(pricing.paymentFee)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 pt-2">
+                <span className="font-black text-slate-950">Total</span>
+                <span className="text-2xl font-black text-[#06B6D4]">
+                  {formatCurrency(rate.customerPrice)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-2xl font-black text-[#06B6D4]">
+              {formatCurrency(rate.customerPrice)}
+            </p>
+          )}
         </div>
+
         <div className="mt-5 flex gap-3">
           <button
             type="button"

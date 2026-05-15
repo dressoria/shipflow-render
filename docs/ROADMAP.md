@@ -295,6 +295,61 @@ Pendiente:
 
 Validaciones: lint 0 errores, typecheck limpio, build exitoso (24 rutas).
 
+## FASE 5.8 — Routing de provider correcto y multi-provider seguro (completada)
+
+Objetivo:
+
+- Eliminar hardcode de `"shipstation"` en creación de label.
+- El flujo de cotización y creación de guía usa el provider real del rate seleccionado.
+- Providers skeleton bloquean label creation con error controlado.
+
+Tareas completadas:
+
+- `lib/logistics/types.ts`: campo `providerRateId?` agregado a `RateResult` para metadata interna de rate por provider.
+- `lib/services/apiClient.ts`: `SSLabelBody` → `CreateLabelBody` (provider genérico), `SSLabelResult` → `CreateLabelResult`, `apiCreateSSLabel` → `apiCreateLabel`.
+- `components/CreateGuideForm.tsx`:
+  - `handleConfirmed()` usa `selectedApiRate.provider`. Si provider es skeleton, muestra error: "Esta opción todavía no está disponible para generar guía."
+  - `AvailableRatesList` usa `rate.tags` del servidor cuando disponibles; agrega badge "Recomendado"; key incluye `provider`.
+- `app/api/labels/route.ts`: guard explícito → devuelve 501 para shippo/easypost/easyship sin fallback silencioso a ShipStation.
+- Adapters skeleton: `_input` → `_` para reducir warnings de lint.
+- Docs: CONTEXT.md, ROADMAP.md, LOGISTICS_INTEGRATION.md, ARCHITECTURE.md actualizados.
+
+Pendiente:
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Definir modelo matemático final de ranking y margen.
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso.
+
+## FASE 5.9 — Pricing engine rentable, deduplicación inteligente y fee de pago (completada)
+
+Objetivo:
+
+- Motor de pricing real con margen rentable (markup + payment fee).
+- Deduplicación inteligente de rates equivalentes de distintos providers.
+- UI de tarifas estilo cotizador profesional.
+- Desglose visible de precio en modal de confirmación.
+
+Tareas completadas:
+
+- `lib/logistics/pricing.ts`: Motor completo con `calculatePlatformMarkup()`, `calculatePaymentFee()`, `calculateCustomerPrice()`. Modelo: `markup = max(0.99, cost * 6%)`, `fee = subtotal * 2.9% + $0.30`, `total = subtotal + fee`. `applyMarkup()` conservado para retrocompatibilidad.
+- `lib/logistics/rateDeduplication.ts` (nuevo): `deduplicateRates()` — agrupa por (carrier normalizado, servicio normalizado, días), conserva el rate con menor providerCost. Proveedor ganador y metadata interna preservados para label creation.
+- `lib/logistics/types.ts`: `PricingBreakdown` extendido con `subtotal`, `paymentFee` (requeridos), campos opcionales de config snapshot.
+- `lib/logistics/rateAggregator.ts`: Pipeline ampliado: raw rates → `repriceRate()` (pricing completo) → `deduplicateRates()` → `rankRates()`.
+- `lib/logistics/rateRanking.ts`: Ranking con score ponderado `normalizedPrice * 0.65 + normalizedSpeed * 0.35`. cheapest/fastest/recommended bien delimitados.
+- `lib/services/apiClient.ts`: `CreateLabelBody` += `platformMarkup?`, `paymentFee?` (informacionales para backend).
+- `components/CreateGuideForm.tsx`:
+  - Nuevas helpers `displayCarrier()` (mapea carrier code a nombre público) y `formatDelivery()`.
+  - `AvailableRatesList`: cards profesionales con badges arriba, carrier visible (UPS/FedEx/etc.), entrega en días, precio grande.
+  - `ConfirmModal`: desglose de precio (Envío + Cargo servicio + Cargo procesamiento de pago + Total).
+  - `handleConfirmed()`: pasa `platformMarkup` y `paymentFee` al API.
+
+Pendiente:
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Migrar schema para columna `payment_fee` separada en DB.
+- Mover constantes de pricing a configuración DB/admin.
+
+Validaciones: lint 0 errores, 16 warnings (mismos de antes), typecheck limpio, build exitoso (24 rutas).
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

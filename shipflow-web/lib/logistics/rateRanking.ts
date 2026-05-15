@@ -1,9 +1,8 @@
 import type { RateResult } from "@/lib/logistics/types";
 
-// TODO: El modelo matemático final (margen por proveedor, confiabilidad estimada,
-// penalizaciones por tiempo de entrega, preferencias del cliente) se definirá
-// con criterios de negocio en una fase posterior.
-// Este ranking es provisional y usa precio y tiempo estimado como proxy.
+// TODO: The final scoring model (provider reliability, delivery guarantees, customer preferences)
+// will be defined with business criteria in a future phase.
+// This ranking uses price and delivery speed as initial proxies.
 
 export type RateTag = "cheapest" | "fastest" | "recommended";
 
@@ -16,26 +15,53 @@ function parseDays(estimatedTime?: string): number | null {
 export function rankRates(rates: RateResult[]): RateResult[] {
   if (rates.length === 0) return [];
 
-  const withDays = rates.map((r) => ({ rate: r, days: parseDays(r.estimatedTime) }));
+  // Single rate: mark it as cheapest (no competition to rank against).
+  if (rates.length === 1) {
+    return [{ ...rates[0], tags: ["cheapest"] }];
+  }
 
-  const minPrice = Math.min(...rates.map((r) => r.customerPrice));
+  const prices = rates.map((r) => r.customerPrice);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  const priceRange = maxPrice - minPrice;
 
-  const daysWithValue = withDays.filter((r) => r.days != null);
-  const minDays = daysWithValue.length > 0 ? Math.min(...daysWithValue.map((r) => r.days!)) : null;
+  const days = rates.map((r) => parseDays(r.estimatedTime));
+  const daysWithData = days.filter((d): d is number => d != null);
+  const hasSpeedData = daysWithData.length >= 2;
+  const minDays = hasSpeedData ? Math.min(...daysWithData) : null;
+  const maxDays = hasSpeedData ? Math.max(...daysWithData) : null;
+  const daysRange =
+    hasSpeedData && minDays != null && maxDays != null ? maxDays - minDays : 0;
 
-  let recommendedSet = false;
+  // Score per rate: lower = better overall option.
+  // normalizedPrice: 0 = cheapest, 1 = most expensive
+  // normalizedSpeed: 0 = fastest, 1 = slowest; 0.5 if rate has no speed data
+  const scores = rates.map((rate, i) => {
+    const np = priceRange > 0 ? (rate.customerPrice - minPrice) / priceRange : 0;
+    let ns = 0;
+    if (hasSpeedData) {
+      const d = days[i];
+      ns = d != null ? (daysRange > 0 ? (d - minDays!) / daysRange : 0) : 0.5;
+    }
+    return np * 0.65 + ns * 0.35;
+  });
 
-  return withDays.map(({ rate, days }) => {
+  const minScore = Math.min(...scores);
+  const recommendedIdx = scores.indexOf(minScore);
+
+  return rates.map((rate, i) => {
     const tags: RateTag[] = [];
 
     if (rate.customerPrice === minPrice) tags.push("cheapest");
-    if (days != null && minDays != null && days === minDays && rate.customerPrice !== minPrice) {
+
+    const d = days[i];
+    if (hasSpeedData && d === minDays && rate.customerPrice !== minPrice) {
       tags.push("fastest");
     }
-    // Provisional: first rate that has no other tag gets "recommended"
-    if (tags.length === 0 && !recommendedSet) {
+
+    // Recommended: best-score rate; only applied when it's not already tagged as cheapest+fastest.
+    if (i === recommendedIdx && !tags.includes("cheapest") && !tags.includes("fastest")) {
       tags.push("recommended");
-      recommendedSet = true;
     }
 
     return { ...rate, tags };

@@ -39,8 +39,8 @@ La app web usa Next.js App Router. Las rutas principales son:
 - `/api/shipments/create`: endpoint backend para crear guia interna web.
 - `/api/shipments`: listado backend autenticado de envios.
 - `/api/shipments/[id]`: detalle backend autenticado de envio.
-- `/api/rates`: cotizacion interna/mock autenticada.
-- `/api/labels`: creacion interna/mock autenticada.
+- `/api/rates`: cotizacion multi-provider autenticada. Soporta `mode: "best_available"` (RateAggregator: raw → reprice → dedup → rank) y `provider: "shipstation"` (directo, sin dedup ni pricing completo).
+- `/api/labels`: creacion de label autenticada. Routea por `provider` del body: shipstation (real), internal/mock (local), shippo/easypost/easyship devuelven 501 hasta implementar.
 - `/api/labels/[id]/void`: void interno limitado.
 - `/api/balance`: lectura backend autenticada de balance.
 

@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Envio } from "@/lib/types";
-import type { RateResult } from "@/lib/logistics/types";
+import type { LogisticsProvider, RateResult } from "@/lib/logistics/types";
 
 async function getToken(): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) return null;
@@ -99,8 +99,8 @@ export async function apiGetRates(body: RatesBody): Promise<RatesData> {
 
 // ── Labels ───────────────────────────────────────────────────────────────────
 
-export type SSLabelBody = {
-  provider: "shipstation";
+export type CreateLabelBody = {
+  provider: LogisticsProvider;
   origin: { city: string; postalCode: string; state?: string; country?: string };
   destination: {
     city: string;
@@ -112,7 +112,9 @@ export type SSLabelBody = {
   parcel: { weight: number; weightUnit?: string };
   carrierCode: string;
   serviceCode: string;
-  expectedCost?: number;
+  expectedCost?: number;    // full customer price (providerCost + platformMarkup + paymentFee)
+  platformMarkup?: number;  // ShipFlow margin; informational for backend — not yet stored separately
+  paymentFee?: number;      // payment processing cost passed to customer; informational for backend
   labelFormat?: "pdf" | "zpl" | "png";
   idempotencyKey: string;
   senderName?: string;
@@ -122,7 +124,7 @@ export type SSLabelBody = {
   productType?: string;
 };
 
-export type SSLabelResult = {
+export type CreateLabelResult = {
   shipment: Envio;
   trackingNumber: string;
   labelStatus: string;
@@ -133,8 +135,8 @@ export type SSLabelResult = {
   message: string;
 };
 
-export async function apiCreateSSLabel(body: SSLabelBody): Promise<SSLabelResult> {
-  return apiFetch<SSLabelResult>("/api/labels", { method: "POST", body: JSON.stringify(body) });
+export async function apiCreateLabel(body: CreateLabelBody): Promise<CreateLabelResult> {
+  return apiFetch<CreateLabelResult>("/api/labels", { method: "POST", body: JSON.stringify(body) });
 }
 
 // ── Void label ───────────────────────────────────────────────────────────────

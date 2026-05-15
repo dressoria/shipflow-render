@@ -701,9 +701,115 @@ Objetivo:
 
 **Validaciones:** lint 0 errores, typecheck limpio, build exitoso (24 rutas).
 
+FASE 5.8 corrigió el routing de provider en label creation (ver sección siguiente).
+
+## Estado FASE 5.8 — Routing de provider correcto y multi-provider seguro
+
+Objetivo:
+
+- Eliminar hardcode de `"shipstation"` en creación de label.
+- La guía se compra con el provider del rate seleccionado, no con uno hardcodeado.
+- Providers skeleton retornan 501 en `/api/labels` sin fallback silencioso.
+- UI muestra error controlado para providers todavía no implementados.
+
+**Archivos modificados:**
+- `lib/logistics/types.ts`: `RateResult` += `providerRateId?` (ID interno del rate por provider).
+- `lib/services/apiClient.ts`: `SSLabelBody` → `CreateLabelBody` (provider genérico), `SSLabelResult` → `CreateLabelResult`, `apiCreateSSLabel` → `apiCreateLabel`.
+- `components/CreateGuideForm.tsx`:
+  - `handleConfirmed()`: usa `selectedApiRate.provider` en vez de hardcodear `"shipstation"`. Si provider es skeleton (shippo/easypost/easyship), muestra error controlado sin llamar al API.
+  - `AvailableRatesList`: usa `rate.tags` del servidor (rateRanking) cuando están disponibles; agrega badge "Recomendado"; key de item incluye `provider` para evitar colisiones entre providers.
+- `app/api/labels/route.ts`: guard explícito para shippo/easypost/easyship → 501 sin fallback a ShipStation.
+- Adapters skeleton (ShippoAdapter, EasyPostAdapter, EasyshipAdapter): parámetros `_input` → `_` para suprimir warnings de lint.
+
+**Comportamiento:**
+- ShipStation: flujo de label real sin cambios.
+- Providers skeleton: UI muestra "Esta opción todavía no está disponible para generar guía." Nunca intenta llamar al API.
+- `/api/labels`: si recibe provider shippo/easypost/easyship, devuelve 501 (doble barrera).
+- Tags de tarifa: se renderizan desde `rate.tags` del servidor cuando están disponibles.
+
+**No cambiado:**
+- Modelo matemático final sigue pendiente.
+- Mobile no fue tocado.
+- No se instalaron paquetes.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Validaciones:** lint 0 errores, typecheck limpio, build exitoso.
+
 **Pendiente (fase posterior):**
 - Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
 - Definir modelo matemático final de ranking y margen.
-- Generalizar label creation para multi-provider.
 
 FASE 6 (mobile al backend seguro) es el siguiente paso.
+
+## Estado FASE 5.9 — Pricing engine rentable, deduplicación inteligente y fee de pago
+
+Objetivo:
+
+- Construir el motor inicial de pricing real con margen rentable.
+- Deduplicar rates equivalentes de distintos providers, conservando el más barato internamente.
+- Sumar fee de procesamiento de pago al precio final (no lo absorbe ShipFlow).
+- Mejorar las cards de tarifas al estilo cotizador profesional.
+- Mostrar desglose claro de precio en el modal de confirmación.
+
+**Modelo de pricing aprobado:**
+
+```
+platform_markup = max(0.99, provider_cost * 0.06)
+subtotal        = provider_cost + platform_markup
+payment_fee     = subtotal * 0.029 + 0.30
+customer_price  = subtotal + payment_fee
+```
+
+Ejemplos:
+- provider_cost $3.00 → markup $0.99 → subtotal $3.99 → fee $0.42 → total $4.41
+- provider_cost $100.00 → markup $6.00 → subtotal $106.00 → fee $3.37 → total $109.37
+
+**Archivos creados:**
+- `lib/logistics/rateDeduplication.ts`: `deduplicateRates()` — agrupa rates por (carrier normalizado, servicio normalizado, días estimados); conserva el rate con menor `providerCost`; el provider ganador y su metadata interna se preservan para crear label.
+
+**Archivos modificados:**
+- `lib/logistics/types.ts`: `PricingBreakdown` extendido con `subtotal`, `paymentFee` (requeridos) y `markupPercentage`, `markupMinimum`, `paymentFeePercentage`, `paymentFeeFixed` (opcionales — snapshot de config).
+- `lib/logistics/pricing.ts`: Reescrito con `calculatePlatformMarkup()`, `calculatePaymentFee()`, `calculateCustomerPrice()` (pricing completo con fee). `applyMarkup()` conservado para retrocompatibilidad en adapters (devuelve pricing.paymentFee = 0).
+- `lib/logistics/rateAggregator.ts`: Pipeline extendido: raw rates → reprice (calculateCustomerPrice) → deduplicateRates → rankRates. Los adapters siguen devolviendo costo crudo; el aggregator aplica el modelo de pricing completo.
+- `lib/logistics/rateRanking.ts`: Ranking con score ponderado: `score = normalizedPrice * 0.65 + normalizedSpeed * 0.35`. cheapest = menor customerPrice; fastest = menor días (si distinto de cheapest); recommended = menor score (solo si no tiene ya cheapest ni fastest).
+- `lib/services/apiClient.ts`: `CreateLabelBody` += `platformMarkup?`, `paymentFee?` (informacionales; el backend los ignora por ahora — storage de payment_fee pendiente de migración de schema).
+- `components/CreateGuideForm.tsx`:
+  - `handleConfirmed()`: pasa `platformMarkup` y `paymentFee` al API junto con `expectedCost` (precio final completo).
+  - `AvailableRatesList`: nuevo diseño de cards — badges arriba ("Nuestra recomendación", "El costo más bajo", "Lo más rápido"), nombre de carrier mapeado a display (UPS/FedEx/USPS/DHL), entrega en días formateada ("Entrega en N días"), precio grande.
+  - `ConfirmModal`: muestra desglose de precio (Envío + Cargo de servicio ShipFlow + Cargo de procesamiento de pago + Total) cuando `pricing.paymentFee > 0`.
+  - Nuevas funciones locales: `displayCarrier()` (mapea carrier code a nombre visible), `formatDelivery()` (formatea estimatedTime a "Entrega en N días").
+
+**Comportamiento del pipeline de rates (modo best_available):**
+```
+provider adapters → providerCost (raw, sin markup)
+aggregateRates()  → reprice via calculateCustomerPrice (markup + payment_fee)
+                 → deduplicateRates (un rate por carrier/servicio/días, el más barato gana)
+                 → rankRates (cheapest / fastest / recommended con score)
+                 → { rates con pricing completo, tags, proveedor ganador oculto }
+```
+
+**Provider interno oculto:**
+- El usuario nunca ve "shipstation", "shippo", "easypost", "easyship", "internal", "mock".
+- `displayCarrier()` mapea carrier codes a nombres públicos (UPS, FedEx, USPS via Stamps.com...).
+- El proveedor ganador se conserva en `rate.provider` para routing interno en label creation.
+
+**Storage de paymentFee:**
+- `paymentFee` se calcula y muestra al usuario, pero no se almacena como columna separada en DB (el schema actual tiene `customer_price` que ya lo incluye).
+- Pendiente: añadir columna `payment_fee` en migración futura cuando sea necesario para auditoría/contabilidad.
+
+**No cambiado:**
+- Flujo de label creation ShipStation real sin cambios.
+- Adapters skeleton sin llamadas reales nuevas.
+- Mobile no fue tocado.
+- No se instalaron paquetes.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Validaciones:** lint 0 errores, 16 warnings (mismos de antes), typecheck limpio, build exitoso (24 rutas).
+
+**Pendiente (fase posterior):**
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Migrar schema para columna `payment_fee` separada.
+- Mover constantes de pricing a configuración DB/admin.
+- FASE 6: mobile al backend seguro.

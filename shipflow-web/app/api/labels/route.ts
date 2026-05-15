@@ -6,12 +6,23 @@ import {
 } from "@/lib/server/shipments/createShipStationShipment";
 import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
 
+// Providers with skeleton adapters — label creation not yet implemented.
+const SKELETON_LABEL_PROVIDERS = ["shippo", "easypost", "easyship"] as const;
+
 function isShipStationLabelRequest(body: unknown): body is ShipStationLabelBody {
   return (
     typeof body === "object" &&
     body !== null &&
     (body as Record<string, unknown>).provider === "shipstation"
   );
+}
+
+function extractProvider(body: unknown): string | undefined {
+  if (typeof body === "object" && body !== null) {
+    const p = (body as Record<string, unknown>).provider;
+    return typeof p === "string" ? p : undefined;
+  }
+  return undefined;
 }
 
 export async function POST(request: Request) {
@@ -22,6 +33,16 @@ export async function POST(request: Request) {
   try {
     const { supabase, user } = await requireSupabaseUser(request);
     const body = (await request.json()) as unknown;
+
+    const provider = extractProvider(body);
+
+    // Reject skeleton providers explicitly — no silent fallback to ShipStation.
+    if (provider && SKELETON_LABEL_PROVIDERS.includes(provider as typeof SKELETON_LABEL_PROVIDERS[number])) {
+      return apiError(
+        `Label creation for provider "${provider}" is not yet implemented. Only ShipStation labels are currently supported.`,
+        501,
+      );
+    }
 
     if (isShipStationLabelRequest(body)) {
       const result = await createShipStationShipment(supabase, user.id, body);

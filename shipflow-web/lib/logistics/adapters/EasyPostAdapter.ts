@@ -19,19 +19,19 @@ export class EasyPostAdapter implements LogisticsAdapter {
     this.apiKey = process.env.EASYPOST_API_KEY?.trim();
   }
 
-  async getRates(_input: RateInput): Promise<RateResult[]> {
+  async getRates(_: RateInput): Promise<RateResult[]> {
     throw new ProviderUnavailableError(
       "EasyPost rates are not yet implemented. Set EASYPOST_API_KEY and implement EasyPostAdapter.getRates().",
     );
   }
 
-  async createLabel(_input: CreateLabelInput): Promise<LabelResult> {
+  async createLabel(_: CreateLabelInput): Promise<LabelResult> {
     throw new ProviderUnavailableError(
       "EasyPost labels are not yet implemented. Implement EasyPostAdapter.createLabel().",
     );
   }
 
-  async voidLabel(_input: VoidLabelInput): Promise<VoidLabelResult> {
+  async voidLabel(_: VoidLabelInput): Promise<VoidLabelResult> {
     throw new ProviderUnavailableError(
       "EasyPost void is not yet implemented. Implement EasyPostAdapter.voidLabel().",
     );

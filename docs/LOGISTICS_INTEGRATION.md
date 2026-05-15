@@ -1,10 +1,10 @@
 # Integracion logistica
 
-## Estado actual de providers (FASE 5.7)
+## Estado actual de providers (FASE 5.9)
 
 ### Arquitectura multi-provider
 
-FASE 5.7 introduce el motor multi-provider. La capa logistics ahora soporta:
+FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. La capa logistics ahora soporta:
 
 | Provider | Rates | Labels | Void | Tracking | Configurado |
 |---|---|---|---|---|---|
@@ -18,19 +18,51 @@ FASE 5.7 introduce el motor multi-provider. La capa logistics ahora soporta:
 
 `lib/logistics/rateAggregator.ts` consulta todos los providers configurados en paralelo y devuelve una lista normalizada de rates. Los providers no configurados (sin env vars) se omiten automáticamente. Los errores por provider se capturan sin romper la cotización completa.
 
-Flujo para `mode: "best_available"`:
+Flujo para `mode: "best_available"` (FASE 5.9):
 1. `/api/rates` recibe body con `mode: "best_available"`
 2. `aggregateRates()` filtra providers con `configured = true` en `providerCapabilities.ts`
-3. Consulta adapters en paralelo con `Promise.allSettled`
-4. Normaliza y rankea rates via `rateRanking.ts`
-5. Devuelve `rates[]` con `tags: ["cheapest", "fastest", "recommended"]`
-6. Provider interno no se expone al frontend (solo se usa para routing de label creation)
+3. Consulta adapters en paralelo con `Promise.allSettled` → raw rates (providerCost = costo crudo, markup = 0)
+4. `repriceRate()` aplica `calculateCustomerPrice(providerCost)` a cada rate → pricing completo con markup + payment fee
+5. `deduplicateRates()` agrupa por (carrier normalizado, servicio normalizado, días) → conserva el más barato internamente
+6. `rankRates()` asigna tags: cheapest, fastest, recommended (score ponderado 65% precio + 35% velocidad)
+7. Devuelve `rates[]` limpios con `customerPrice` final, `tags`, y `provider` interno para routing
 
-### RateRanking (provisional)
+### Pricing engine (FASE 5.9)
 
-`lib/logistics/rateRanking.ts` — ranking provisional basado en precio y días estimados.
+`lib/logistics/pricing.ts` — motor de pricing con margen rentable y fee de pago separado.
 
-**TODO:** El modelo matemático final (margen por proveedor, confiabilidad estimada, penalizaciones por tiempo de entrega, preferencias del cliente) se definirá con criterios de negocio en una fase posterior.
+**Modelo actual:**
+```
+platform_markup = max($0.99, providerCost × 6%)
+subtotal        = providerCost + platform_markup
+payment_fee     = subtotal × 2.9% + $0.30
+customer_price  = subtotal + payment_fee
+```
+
+- ShipFlow no absorbe el fee de pago — se suma aparte al cliente.
+- Texto público: "Cargo de procesamiento de pago" (no "fee de tarjeta").
+- TODO: mover constantes de pricing a configuración DB/admin cuando se defina el modelo final.
+
+### RateDeduplication (FASE 5.9)
+
+`lib/logistics/rateDeduplication.ts` — deduplicación inteligente de rates equivalentes.
+
+- Agrupa por clave: `normalize(carrierName) + "__" + normalize(serviceName) + "__" + estimatedDays`.
+- Por grupo: conserva el rate con menor `providerCost` (el proveedor más barato gana).
+- El provider ganador y toda su metadata interna se preservan para routing en label creation.
+- Resultado: el usuario nunca ve 3 opciones "UPS Ground 3 días" de distintos providers.
+
+### RateRanking (FASE 5.9)
+
+`lib/logistics/rateRanking.ts` — ranking ponderado por precio y velocidad.
+
+- **cheapest**: menor customerPrice.
+- **fastest**: menor días estimados (solo si distinto de cheapest).
+- **recommended**: menor score = `normalizedPrice × 0.65 + normalizedSpeed × 0.35`. Se asigna solo si la tasa no tiene ya cheapest ni fastest.
+- Si hay un solo rate: solo tag "cheapest".
+- Si no hay datos de velocidad (todos sin estimatedTime): score = solo precio → recommended = cheapest.
+
+**TODO:** El modelo matemático final (margen por proveedor, confiabilidad, penalizaciones) se definirá con criterios de negocio en una fase posterior.
 
 ### providerCapabilities.ts
 
@@ -44,12 +76,22 @@ Describe capacidades y estado de configuración de cada provider. Se evalúa al 
 
 Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
 
-### UI
+### UI (FASE 5.9)
 
 Los nombres de provider nunca se muestran al usuario. La UI muestra:
 - "Cotización estándar" (internal/mock)
 - "Mejor tarifa disponible" (aggregated)
-- "Más económico" / "Más rápido" / "Recomendado" en badges de rates
+- Badges de rates: "Nuestra recomendación" / "El costo más bajo" / "Lo más rápido"
+- Carrier visible: UPS, FedEx, USPS via Stamps.com, DHL (mapeados desde carrier code interno)
+- Entrega formateada: "Entrega en N días"
+- Desglose en modal de confirmación: Envío + Cargo de servicio ShipFlow + Cargo de procesamiento de pago + Total
+
+### Label creation multi-provider (FASE 5.8)
+
+- `handleConfirmed()` usa `selectedApiRate.provider` — no hay hardcode de "shipstation".
+- Si provider es skeleton (shippo/easypost/easyship), la UI muestra error controlado sin llamar al API.
+- `/api/labels` tiene un guard explícito que devuelve 501 para providers skeleton: no hay fallback silencioso a ShipStation.
+- ShipStation sigue siendo el único provider con label creation real activa.
 
 ### Pendiente antes de activar providers externos
 
@@ -57,7 +99,6 @@ Los nombres de provider nunca se muestran al usuario. La UI muestra:
 - Implementar `EasyPostAdapter` ídem.
 - Implementar `EasyshipAdapter` ídem.
 - Definir modelo matemático final de ranking/margen.
-- Para label creation multi-provider: generalizar `handleConfirmed` en CreateGuideForm para usar `selectedApiRate.provider` en lugar de hardcodear `"shipstation"`.
 
 ## USPS/UPS/FedEx/DHL
 

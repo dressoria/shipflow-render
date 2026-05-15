@@ -27,8 +27,15 @@ export type Parcel = {
 export type PricingBreakdown = {
   providerCost: number;
   platformMarkup: number;
+  subtotal: number;          // providerCost + platformMarkup (before payment fee)
+  paymentFee: number;        // estimated payment processing cost (not absorbed by ShipFlow)
   customerPrice: number;
   currency: "USD";
+  // Config snapshot used for this calculation
+  markupPercentage?: number;
+  markupMinimum?: number;
+  paymentFeePercentage?: number;
+  paymentFeeFixed?: number;
 };
 
 export type RateInput = {
@@ -46,6 +53,7 @@ export type RateResult = {
   serviceName: string;
   courierId: string;
   courierName: string;
+  providerRateId?: string; // provider-specific rate ID; needed for label creation by some providers
   shippingSubtotal: number;
   cashOnDeliveryCommission: number;
   total: number;

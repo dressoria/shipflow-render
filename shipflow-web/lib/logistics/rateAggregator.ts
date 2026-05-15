@@ -1,9 +1,11 @@
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { getProviderCapabilities } from "@/lib/logistics/providerCapabilities";
+import { calculateCustomerPrice } from "@/lib/logistics/pricing";
+import { deduplicateRates } from "@/lib/logistics/rateDeduplication";
 import { rankRates } from "@/lib/logistics/rateRanking";
 import type { LogisticsProvider, RateInput, RateResult } from "@/lib/logistics/types";
 
-// Providers eligible for aggregation — internal/mock are excluded (fallback only)
+// Providers eligible for aggregation — internal/mock are excluded (fallback only).
 const AGGREGATION_PROVIDERS: LogisticsProvider[] = ["shipstation", "shippo", "easypost", "easyship"];
 
 type ProviderOutcome =
@@ -11,11 +13,25 @@ type ProviderOutcome =
   | { provider: LogisticsProvider; error: string; ok: false };
 
 export type AggregatedRatesResult = {
-  rates: RateResult[];   // ranked, tags populated
+  rates: RateResult[];   // priced, deduplicated, ranked; tags populated
   outcomes: ProviderOutcome[];
   queriedProviders: LogisticsProvider[];
   configuredCount: number;
 };
+
+// Applies the ShipFlow pricing model to a raw provider rate.
+// Adapters return rates with pricing.providerCost = raw cost and markup = 0.
+// The aggregator is responsible for applying the real markup + payment fee on top.
+function repriceRate(rate: RateResult): RateResult {
+  const providerCost = rate.pricing.providerCost;
+  const pricing = calculateCustomerPrice(providerCost);
+  return {
+    ...rate,
+    platformMarkup: pricing.platformMarkup,
+    customerPrice: pricing.customerPrice,
+    pricing,
+  };
+}
 
 export async function aggregateRates(input: RateInput): Promise<AggregatedRatesResult> {
   const eligible = AGGREGATION_PROVIDERS.filter((p) => {
@@ -41,11 +57,15 @@ export async function aggregateRates(input: RateInput): Promise<AggregatedRatesR
     return { provider, error: msg, ok: false as const };
   });
 
-  const flat = outcomes
+  // Collect raw rates from all successful providers.
+  const rawRates = outcomes
     .filter((o): o is Extract<ProviderOutcome, { ok: true }> => o.ok)
     .flatMap((o) => o.rates);
 
-  const ranked = rankRates(flat);
+  // Pipeline: reprice → deduplicate → rank
+  const priced = rawRates.map(repriceRate);
+  const deduped = deduplicateRates(priced);
+  const ranked = rankRates(deduped);
 
   return {
     rates: ranked,
