@@ -40,6 +40,12 @@ export type Envio = {
   status: ShipmentStatus;
   date: string;
   value: number;
+  // Provider/logistics fields — populated when FASE 1C migration is applied
+  provider?: string | null;
+  labelStatus?: string | null;
+  paymentStatus?: string | null;
+  customerPrice?: number | null;
+  providerShipmentId?: string | null;
 };
 
 export type MovimientoSaldo = {

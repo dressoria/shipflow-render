@@ -118,6 +118,9 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
                 ["Product", shipment.productType],
                 ["Weight", `${shipment.weight} kg`],
                 ["Carrier", shipment.courier],
+                ["Provider", shipment.provider ?? "internal"],
+                ...(shipment.labelStatus ? [["Label status", shipment.labelStatus] as [string, string]] : []),
+                ...(shipment.providerShipmentId ? [["Provider ID", shipment.providerShipmentId] as [string, string]] : []),
                 ["Date", formatDate(shipment.date)],
               ]}
             />

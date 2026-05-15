@@ -12,21 +12,26 @@ import { formatCurrency } from "@/lib/utils";
 export function BalancePanel() {
   const [balance, setLocalBalance] = useState(0);
   const [movements, setMovements] = useState<MovimientoSaldo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function refresh() {
+    const [nextBalance, nextMovements] = await Promise.all([
+      getAvailableBalance(),
+      getBalanceMovements(),
+    ]);
+    setLocalBalance(nextBalance);
+    setMovements(nextMovements);
+  }
 
   useEffect(() => {
     window.setTimeout(() => {
-      Promise.all([getAvailableBalance(), getBalanceMovements()]).then(([nextBalance, nextMovements]) => {
-        setLocalBalance(nextBalance);
-        setMovements(nextMovements);
-      });
+      refresh().finally(() => setLoading(false));
     }, 0);
   }, []);
 
   async function recharge() {
-    const amount = 25;
-    await addBalance(amount);
-    setLocalBalance(await getAvailableBalance());
-    setMovements(await getBalanceMovements());
+    await addBalance(25);
+    await refresh();
   }
 
   return (
@@ -36,21 +41,29 @@ export function BalancePanel() {
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
             <CreditCard className="h-6 w-6 text-[#22C55E]" />
           </span>
-          <Badge tone="green">{isSupabaseConfigured ? "Supabase activo" : "Fallback"}</Badge>
+          <Badge tone="green">{isSupabaseConfigured ? "Backend activo" : "Demo local"}</Badge>
         </div>
         <p className="mt-8 text-sm text-slate-300">Saldo disponible</p>
-        <p className="mt-2 text-5xl font-black">{formatCurrency(balance)}</p>
+        <p className="mt-2 text-5xl font-black">
+          {loading ? "—" : formatCurrency(balance)}
+        </p>
         <p className="mt-3 text-sm leading-6 text-slate-300">
           Use this balance to pay for generated labels, shipment activity, and account movements.
         </p>
-        <button
-          type="button"
-          onClick={recharge}
-          className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Recargar saldo
-        </button>
+        {isSupabaseConfigured ? (
+          <p className="mt-7 rounded-2xl bg-white/10 px-4 py-3 text-center text-xs font-semibold text-slate-300">
+            Recharges must be done through the admin panel or payment flow.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={recharge}
+            className="mt-7 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Recargar saldo (demo)
+          </button>
+        )}
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
@@ -59,17 +72,23 @@ export function BalancePanel() {
           <Badge tone="blue">{movements.length} movimientos</Badge>
         </div>
         <div className="mt-4 grid gap-3">
-          {movements.map((movement) => (
-            <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
-              <div>
-                <p className="font-bold text-slate-950">{movement.concept}</p>
-                <p className="text-sm text-slate-500">{formatDate(movement.date)}</p>
+          {loading ? (
+            <p className="text-sm text-slate-500">Cargando...</p>
+          ) : movements.length === 0 ? (
+            <p className="text-sm text-slate-500">No hay movimientos registrados.</p>
+          ) : (
+            movements.map((movement) => (
+              <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+                <div>
+                  <p className="font-bold text-slate-950">{movement.concept}</p>
+                  <p className="text-sm text-slate-500">{formatDate(movement.date)}</p>
+                </div>
+                <p className={movement.amount > 0 ? "font-black text-[#15803d]" : "font-black text-slate-700"}>
+                  {formatCurrency(movement.amount)}
+                </p>
               </div>
-              <p className={movement.amount > 0 ? "font-black text-[#15803d]" : "font-black text-slate-700"}>
-                {formatCurrency(movement.amount)}
-              </p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

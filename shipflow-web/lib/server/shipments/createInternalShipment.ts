@@ -150,6 +150,11 @@ export function fromShipmentRow(row: ShipmentRow): Envio {
     status: row.status,
     value: Number(row.value),
     date: row.created_at,
+    provider: row.provider ?? null,
+    labelStatus: row.label_status ?? null,
+    paymentStatus: row.payment_status ?? null,
+    customerPrice: row.customer_price != null ? Number(row.customer_price) : null,
+    providerShipmentId: row.provider_shipment_id ?? null,
   };
 }
 

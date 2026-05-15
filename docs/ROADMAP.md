@@ -216,6 +216,34 @@ SHIPSTATION_WEBHOOK_SECRET   # REQUERIDA para validar webhooks entrantes
 
 Nota: La tabla `webhook_events` ya existia desde FASE 1C. No se requirio migracion nueva.
 
+## FASE 5.5 - Web UI operativa (completada)
+
+Objetivo:
+
+- Cerrar la experiencia web operativa antes de pasar a mobile.
+
+Tareas completadas:
+
+- `Envio` type extendido con campos `provider`, `labelStatus`, `paymentStatus`, `customerPrice`, `providerShipmentId` (opcionales).
+- `fromShipmentRow` actualizado para mapear los nuevos campos.
+- Nuevo `lib/services/apiClient.ts`: cliente autenticado para todos los endpoints propios.
+- `shipmentService.ts`: `getShipments()` y `getShipmentByTrackingNumber()` usan `/api/shipments`.
+- `balanceService.ts`: `getAvailableBalance()` y `getBalanceMovements()` usan `/api/balance`.
+- `BalancePanel.tsx`: usa backend; boton de recarga solo en modo demo local.
+- `ShipmentsTable.tsx`: muestra provider/label_status/payment_status/customer_price; boton "Anular" con confirmacion inline para labels ShipStation purchased.
+- `CreateGuideForm.tsx`: selector de provider (internal/shipstation); flujo SS con fetch de rates reales, confirmacion explicita antes de label real, descarga de labelData como blob local; idempotencyKey estable por intento.
+- `TrackingSearch.tsx`: badge "Real" y fuente del tracking.
+- `PrintableGuide.tsx`: muestra provider, label_status y providerShipmentId.
+
+Variables: ninguna nueva (usa las de FASE 4D y 5).
+
+Pendiente antes de usar SS desde UI:
+
+- Migraciones FASE 1C + FASE 4D en Supabase.
+- `SUPABASE_SERVICE_ROLE_KEY` y `SHIPSTATION_API_KEY/SECRET` en servidor.
+- Checklist de prueba real.
+- Supabase Storage para PDFs permanentes (futuro).
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

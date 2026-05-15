@@ -572,3 +572,51 @@ SHIPSTATION_API_SECRET           # recomendada
 
 ADVERTENCIA: ShipStation requiere HTTPS para enviar webhooks. No registrar la URL del webhook en ShipStation hasta que el servidor tenga SSL configurado.
 FASE 6 (mobile backend seguro) es el siguiente paso.
+
+## Estado FASE 5.5 — Web UI operativa
+
+Objetivo:
+
+- Cerrar la experiencia web operativa antes de pasar a mobile.
+
+Cambios preparados:
+
+**Tipos y servidor:**
+- `lib/types.ts`: `Envio` extendido con campos opcionales `provider`, `labelStatus`, `paymentStatus`, `customerPrice`, `providerShipmentId`.
+- `lib/server/shipments/createInternalShipment.ts:fromShipmentRow`: mapea los nuevos campos de la fila de DB a `Envio`.
+
+**Cliente API centralizado:**
+- Nuevo `lib/services/apiClient.ts`: helper autenticado que lee el token de sesion de Supabase y llama a los endpoints propios: `apiGetBalance()`, `apiGetShipments()`, `apiGetRates()`, `apiCreateSSLabel()`, `apiVoidLabel()`.
+
+**Servicios actualizados:**
+- `lib/services/shipmentService.ts`: `getShipments()` y `getShipmentByTrackingNumber()` ahora usan `/api/shipments` (backend autenticado) cuando Supabase esta activo. Fallback a localStorage en modo demo.
+- `lib/services/balanceService.ts`: `getAvailableBalance()` y `getBalanceMovements()` usan `/api/balance`. `addBalance()` solo funciona en modo demo local.
+
+**Componentes actualizados:**
+- `BalancePanel.tsx`: usa `/api/balance` via apiClient. Boton de recarga solo en modo demo; en Supabase activo muestra nota de que recargas van por admin.
+- `ShipmentsTable.tsx`: usa `/api/shipments`. Muestra campos extendidos: provider (badge), label_status (badge coloreado), payment_status, customer_price. Boton "Anular" con confirmacion inline para shipments de ShipStation con label_status = purchased. Llama `apiVoidLabel()`.
+- `CreateGuideForm.tsx`: refactorizado con flujo dual:
+  - **Provider selector**: "Internal / demo" (default) o "ShipStation (real)".
+  - **Flujo internal**: igual al anterior (couriers locales, calculo local, sin confirmacion extra).
+  - **Flujo ShipStation**: formulario con campos comunes + state/weightUnit adicionales. Boton "Get ShipStation rates" llama `/api/rates`. Muestra lista de rates reales. Formulario secundario para postal codes (requeridos para label). Boton "Generate real ShipStation label" abre modal de confirmacion explicito. Al confirmar llama `apiCreateSSLabel()`. Si respuesta trae `labelData` (base64 PDF): boton "Download label PDF" crea blob local en el navegador sin pasar por localStorage ni logs. Si no hay labelData (retry/idempotencia): mensaje explicativo.
+- `TrackingSearch.tsx`: muestra badge "Real" cuando `isReal = true` y fuente del tracking.
+- `PrintableGuide.tsx`: muestra provider, label_status y providerShipmentId si estan disponibles.
+
+**No cambiado:**
+- Flujo internal/mock sigue funcionando igual.
+- Mobile no fue tocado.
+- No se instalaron paquetes adicionales.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Pendiente antes de usar ShipStation real desde UI:**
+1. Aplicar migraciones FASE 1C y FASE 4D en Supabase (para que `fromShipmentRow` devuelva campos provider/label).
+2. Configurar `SUPABASE_SERVICE_ROLE_KEY` en servidor.
+3. Configurar `SHIPSTATION_API_KEY` y `SHIPSTATION_API_SECRET`.
+4. Completar checklist `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md`.
+5. Para webhooks: completar `docs/SHIPSTATION_WEBHOOK_TEST_CHECKLIST.md`.
+6. FASE 6: mobile al backend seguro.
+7. Supabase Storage para guardar label PDFs permanentemente (pendiente FASE futura).
+
+ADVERTENCIA: No usar el flujo ShipStation desde la UI sin tener `SUPABASE_SERVICE_ROLE_KEY` configurado y la migracion de RPC aplicada. El backend ya devuelve error 503 si faltan, pero el balance podria quedar sin descontar si la RPC no existe.
+FASE 6 (mobile al backend seguro) es el siguiente paso.

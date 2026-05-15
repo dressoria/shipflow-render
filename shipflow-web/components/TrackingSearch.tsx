@@ -132,12 +132,26 @@ export function TrackingSearch() {
             </Badge>
           </div>
           <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#06B6D4]">
-              {loadingRealTracking ? "Checking live carrier status..." : realTracking?.isReal ? "Live tracking" : "Fallback status"}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#06B6D4]">
+                {loadingRealTracking
+                  ? "Checking live carrier status..."
+                  : realTracking?.isReal
+                  ? "Live tracking"
+                  : "Fallback / simulated"}
+              </p>
+              {!loadingRealTracking && realTracking?.isReal && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-black text-green-700">
+                  Real
+                </span>
+              )}
+            </div>
             <p className="mt-2 text-sm font-semibold text-slate-600">
               {trackingMessage || "We could not check this carrier right now"}
             </p>
+            {!loadingRealTracking && realTracking && (
+              <p className="mt-1 text-xs text-slate-400">Source: {realTracking.source}</p>
+            )}
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Info label="Route" value={`${shipment.originCity} -> ${shipment.destinationCity}`} />
