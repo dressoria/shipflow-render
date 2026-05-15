@@ -666,4 +666,44 @@ Cambios:
 
 **Validaciones:** lint 0 errores / 7 warnings (pre-existentes), typecheck limpio, build exitoso (24 rutas).
 
+## Estado FASE 5.7 — Motor multi-provider
+
+Objetivo:
+
+- Crear base del motor multi-provider sin decidir la fórmula matemática final.
+- ShipStation sigue siendo el único proveedor real activo.
+- Shippo, EasyPost, Easyship preparados como skeleton.
+- Providers nunca visibles al usuario.
+
+**Archivos nuevos:**
+- `lib/logistics/providerCapabilities.ts` — mapa de capacidades por provider: `supportsRates`, `supportsLabels`, `supportsVoid`, `supportsTracking`, `configured`, `priority`.
+- `lib/logistics/rateAggregator.ts` — consulta adapters configurados en paralelo, captura errores por provider, devuelve rates rankeados.
+- `lib/logistics/rateRanking.ts` — ranking provisional (cheapest/fastest/recommended). **Modelo matemático final pendiente.**
+- `lib/logistics/adapters/ShippoAdapter.ts` — skeleton. Requiere `SHIPPO_API_KEY`.
+- `lib/logistics/adapters/EasyPostAdapter.ts` — skeleton. Requiere `EASYPOST_API_KEY`.
+- `lib/logistics/adapters/EasyshipAdapter.ts` — skeleton. Requiere `EASYSHIP_API_KEY` + `EASYSHIP_BASE_URL`.
+
+**Archivos modificados:**
+- `lib/logistics/types.ts`: `LogisticsProvider` += `"shippo" | "easypost" | "easyship"`. `RateResult` += `tags?`.
+- `lib/logistics/registry.ts`: `normalizeProvider` y `getLogisticsAdapter` actualizados para los nuevos providers.
+- `lib/services/apiClient.ts`: nuevo tipo `AggregatedRatesBody { mode: "best_available" }`, union `RatesBody`, `apiGetRates` acepta ambos.
+- `app/api/rates/route.ts`: nuevo branch `isAggregatedRequest` usa `aggregateRates()`. Branch ShipStation directo (`provider: "shipstation"`) conservado para retrocompatibilidad.
+- `components/CreateGuideForm.tsx`: modo "online" envía `mode: "best_available"` (antes `provider: "shipstation"`).
+- `.env.example`: stubs para nuevos providers.
+
+**No cambiado:**
+- Flujo internal/mock sigue siendo fallback técnico.
+- Label creation: sigue usando ShipStation (único provider real configurado).
+- Mobile no fue tocado.
+- No se instalaron paquetes.
+- No se ejecutaron migraciones.
+- No se hizo commit ni deploy.
+
+**Validaciones:** lint 0 errores, typecheck limpio, build exitoso (24 rutas).
+
+**Pendiente (fase posterior):**
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Definir modelo matemático final de ranking y margen.
+- Generalizar label creation para multi-provider.
+
 FASE 6 (mobile al backend seguro) es el siguiente paso.

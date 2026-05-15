@@ -1,6 +1,6 @@
 import type { TrackingResult as AppTrackingResult } from "@/lib/types";
 
-export type LogisticsProvider = "internal" | "mock" | "shipstation";
+export type LogisticsProvider = "internal" | "mock" | "shipstation" | "shippo" | "easypost" | "easyship";
 
 export type LogisticsServiceCode = string;
 
@@ -54,6 +54,7 @@ export type RateResult = {
   customerPrice: number;
   estimatedTime?: string;
   pricing: PricingBreakdown;
+  tags?: ("cheapest" | "fastest" | "recommended")[];
 };
 
 export type CreateLabelInput = RateInput & {

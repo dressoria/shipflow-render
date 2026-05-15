@@ -63,7 +63,13 @@ export async function apiGetShipments(params?: {
 
 // ── Rates ────────────────────────────────────────────────────────────────────
 
-export type RatesData = { provider: string; rates: RateResult[]; message?: string };
+export type RatesData = {
+  mode?: string;
+  rates: RateResult[];
+  message?: string;
+  queriedProviders?: string[];
+  configuredCount?: number;
+};
 
 export type SSRatesBody = {
   provider: "shipstation";
@@ -75,7 +81,19 @@ export type SSRatesBody = {
   cashAmount?: number;
 };
 
-export async function apiGetRates(body: SSRatesBody): Promise<RatesData> {
+export type AggregatedRatesBody = {
+  mode: "best_available";
+  origin: { city: string; postalCode?: string; state?: string; country?: string };
+  destination: { city: string; postalCode?: string; state?: string; country?: string };
+  parcel: { weight: number; weightUnit?: string };
+  courier?: string;
+  cashOnDelivery?: boolean;
+  cashAmount?: number;
+};
+
+export type RatesBody = SSRatesBody | AggregatedRatesBody;
+
+export async function apiGetRates(body: RatesBody): Promise<RatesData> {
   return apiFetch<RatesData>("/api/rates", { method: "POST", body: JSON.stringify(body) });
 }
 

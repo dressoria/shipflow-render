@@ -259,7 +259,7 @@ export function CreateGuideForm() {
 
     try {
       const result = await apiGetRates({
-        provider: "shipstation",
+        mode: "best_available",
         origin: { city: form.originCity },
         destination: { city: form.destinationCity },
         parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },

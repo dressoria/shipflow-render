@@ -263,6 +263,38 @@ Tareas completadas:
 
 Validaciones: lint 0 errores, typecheck limpio, build exitoso (24 rutas).
 
+## FASE 5.7 - Motor multi-provider (completada)
+
+Objetivo:
+
+- Crear la base del motor multi-provider sin decidir la fórmula matemática final.
+- Mantener ShipStation como primer proveedor real.
+- Preparar adapters skeleton para Shippo, EasyPost, Easyship.
+- Ocultar providers al usuario; UI habla en términos comerciales.
+
+Tareas completadas:
+
+- `lib/logistics/types.ts`: `LogisticsProvider` extendido con `"shippo" | "easypost" | "easyship"`. Campo opcional `tags?: ("cheapest" | "fastest" | "recommended")[]` agregado a `RateResult`.
+- `lib/logistics/providerCapabilities.ts` (nuevo): mapa de capacidades por provider con `configured`, `priority`, `supportsRates`, etc. Evalúa env vars al importar.
+- `lib/logistics/rateAggregator.ts` (nuevo): consulta adapters configurados en paralelo, captura errores por provider, rankea resultados.
+- `lib/logistics/rateRanking.ts` (nuevo): ranking provisional por precio y días. **TODO: modelo matemático final pendiente.**
+- `lib/logistics/adapters/ShippoAdapter.ts` (nuevo): skeleton, lanza `ProviderUnavailableError`. Requiere `SHIPPO_API_KEY`.
+- `lib/logistics/adapters/EasyPostAdapter.ts` (nuevo): skeleton. Requiere `EASYPOST_API_KEY`.
+- `lib/logistics/adapters/EasyshipAdapter.ts` (nuevo): skeleton. Requiere `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
+- `lib/logistics/registry.ts`: actualizado con `normalizeProvider` y `getLogisticsAdapter` para los nuevos providers.
+- `lib/services/apiClient.ts`: nuevo tipo `AggregatedRatesBody { mode: "best_available" }`, union `RatesBody`, `apiGetRates` acepta ambos.
+- `app/api/rates/route.ts`: nuevo branch `mode: "best_available"` usa `aggregateRates()`. Branch ShipStation directo conservado para retrocompatibilidad.
+- `components/CreateGuideForm.tsx`: modo "online" ahora envía `mode: "best_available"` al API (antes `provider: "shipstation"`).
+- `.env.example`: stubs para `SHIPPO_API_KEY`, `EASYPOST_API_KEY`, `EASYSHIP_API_KEY`, `EASYSHIP_BASE_URL`.
+- Docs: `LOGISTICS_INTEGRATION.md`, `ROADMAP.md`, `CONTEXT.md` actualizados.
+
+Pendiente:
+- Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
+- Definir modelo matemático final de ranking y margen.
+- Generalizar label creation para multi-provider (actualmente hardcoded para ShipStation en CreateGuideForm).
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso (24 rutas).
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

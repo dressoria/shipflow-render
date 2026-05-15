@@ -1,29 +1,63 @@
 # Integracion logistica
 
-## Estado actual de providers
+## Estado actual de providers (FASE 5.7)
 
-Actualmente no existe integracion real para comprar labels.
+### Arquitectura multi-provider
 
-Detectado:
+FASE 5.7 introduce el motor multi-provider. La capa logistics ahora soporta:
 
-- USPS
-- UPS
-- FedEx
-- DHL
+| Provider | Rates | Labels | Void | Tracking | Configurado |
+|---|---|---|---|---|---|
+| internal/mock | Sí (local) | Sí (local) | Sí | No | Siempre (fallback) |
+| shipstation | Sí (real) | Sí (real) | Sí (real) | No | Si SHIPSTATION_API_KEY+SECRET |
+| shippo | Preparado | Preparado | Preparado | Preparado | No (skeleton) |
+| easypost | Preparado | Preparado | Preparado | Preparado | No (skeleton) |
+| easyship | Preparado | Preparado | No | Preparado | No (skeleton) |
 
-Uso actual:
+### RateAggregator
 
-- Solo tracking preparado.
-- Las tarifas son calculadas localmente.
-- Las labels son visuales/imprimibles.
-- FASE 3 agrega una capa Adapter Pattern internal/mock.
-- No hay ShipStation.
-- No hay Shippo.
-- No hay EasyPost.
-- No hay ShipEngine.
-- No hay webhooks logisticos reales.
-- No hay manifests ni pickups.
-- No hay void/cancel de label real.
+`lib/logistics/rateAggregator.ts` consulta todos los providers configurados en paralelo y devuelve una lista normalizada de rates. Los providers no configurados (sin env vars) se omiten automáticamente. Los errores por provider se capturan sin romper la cotización completa.
+
+Flujo para `mode: "best_available"`:
+1. `/api/rates` recibe body con `mode: "best_available"`
+2. `aggregateRates()` filtra providers con `configured = true` en `providerCapabilities.ts`
+3. Consulta adapters en paralelo con `Promise.allSettled`
+4. Normaliza y rankea rates via `rateRanking.ts`
+5. Devuelve `rates[]` con `tags: ["cheapest", "fastest", "recommended"]`
+6. Provider interno no se expone al frontend (solo se usa para routing de label creation)
+
+### RateRanking (provisional)
+
+`lib/logistics/rateRanking.ts` — ranking provisional basado en precio y días estimados.
+
+**TODO:** El modelo matemático final (margen por proveedor, confiabilidad estimada, penalizaciones por tiempo de entrega, preferencias del cliente) se definirá con criterios de negocio en una fase posterior.
+
+### providerCapabilities.ts
+
+Describe capacidades y estado de configuración de cada provider. Se evalúa al importar el módulo (server-side). Permite al RateAggregator saber cuáles providers consultar sin intentar llamadas a providers no configurados.
+
+### Adapters skeleton
+
+- `ShippoAdapter.ts` — listo para implementar. Requiere `SHIPPO_API_KEY`.
+- `EasyPostAdapter.ts` — listo para implementar. Requiere `EASYPOST_API_KEY`.
+- `EasyshipAdapter.ts` — listo para implementar. Requiere `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
+
+Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
+
+### UI
+
+Los nombres de provider nunca se muestran al usuario. La UI muestra:
+- "Cotización estándar" (internal/mock)
+- "Mejor tarifa disponible" (aggregated)
+- "Más económico" / "Más rápido" / "Recomendado" en badges de rates
+
+### Pendiente antes de activar providers externos
+
+- Implementar `ShippoAdapter.getRates()`, `createLabel()`, `voidLabel()`.
+- Implementar `EasyPostAdapter` ídem.
+- Implementar `EasyshipAdapter` ídem.
+- Definir modelo matemático final de ranking/margen.
+- Para label creation multi-provider: generalizar `handleConfirmed` en CreateGuideForm para usar `selectedApiRate.provider` en lugar de hardcodear `"shipstation"`.
 
 ## USPS/UPS/FedEx/DHL
 

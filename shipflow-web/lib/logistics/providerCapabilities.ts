@@ -1,0 +1,78 @@
+import type { LogisticsProvider } from "@/lib/logistics/types";
+
+export type ProviderCapabilities = {
+  supportsRates: boolean;
+  supportsLabels: boolean;
+  supportsVoid: boolean;
+  supportsTracking: boolean;
+  supportsAddressValidation: boolean;
+  configured: boolean;
+  priority: number; // lower = higher priority in aggregation
+};
+
+function isShipStationConfigured(): boolean {
+  const key = process.env.SHIPSTATION_API_KEY?.trim();
+  const secret = process.env.SHIPSTATION_API_SECRET?.trim();
+  return Boolean(key && secret && key.length > 4 && secret.length > 4);
+}
+
+export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabilities> = {
+  internal: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: true,
+    supportsTracking: false,
+    supportsAddressValidation: false,
+    configured: true,
+    priority: 99, // internal fallback only — never included in aggregation
+  },
+  mock: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: true,
+    supportsTracking: false,
+    supportsAddressValidation: false,
+    configured: true,
+    priority: 99,
+  },
+  shipstation: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: true,
+    supportsTracking: false,
+    supportsAddressValidation: false,
+    configured: isShipStationConfigured(),
+    priority: 1,
+  },
+  shippo: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: true,
+    supportsTracking: true,
+    supportsAddressValidation: true,
+    configured: Boolean(process.env.SHIPPO_API_KEY?.trim()?.length),
+    priority: 2,
+  },
+  easypost: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: true,
+    supportsTracking: true,
+    supportsAddressValidation: true,
+    configured: Boolean(process.env.EASYPOST_API_KEY?.trim()?.length),
+    priority: 3,
+  },
+  easyship: {
+    supportsRates: true,
+    supportsLabels: true,
+    supportsVoid: false,
+    supportsTracking: true,
+    supportsAddressValidation: false,
+    configured: Boolean(process.env.EASYSHIP_API_KEY?.trim()?.length),
+    priority: 4,
+  },
+};
+
+export function getProviderCapabilities(provider: LogisticsProvider): ProviderCapabilities {
+  return PROVIDER_CAPABILITIES[provider];
+}
