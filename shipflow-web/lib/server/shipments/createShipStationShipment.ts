@@ -55,6 +55,9 @@ export type ShipStationShipmentResult = {
 };
 
 function validateBody(body: ShipStationLabelBody) {
+  if (!body.origin?.line1?.trim()) {
+    throw new Response("origin.line1 is required.", { status: 400 });
+  }
   if (!body.origin?.city?.trim()) {
     throw new Response("origin.city is required.", { status: 400 });
   }
@@ -64,11 +67,21 @@ function validateBody(body: ShipStationLabelBody) {
   if (!body.destination?.city?.trim()) {
     throw new Response("destination.city is required.", { status: 400 });
   }
+  if (!body.destination?.line1?.trim()) {
+    throw new Response("destination.line1 is required.", { status: 400 });
+  }
   if (!body.destination?.postalCode?.trim()) {
     throw new Response("destination.postalCode is required for ShipStation labels.", { status: 400 });
   }
   if (!Number.isFinite(Number(body.parcel?.weight)) || Number(body.parcel?.weight) <= 0) {
     throw new Response("parcel.weight must be a positive number.", { status: 400 });
+  }
+  if (
+    !Number.isFinite(Number(body.parcel?.length)) || Number(body.parcel?.length) <= 0 ||
+    !Number.isFinite(Number(body.parcel?.width)) || Number(body.parcel?.width) <= 0 ||
+    !Number.isFinite(Number(body.parcel?.height)) || Number(body.parcel?.height) <= 0
+  ) {
+    throw new Response("parcel dimensions must be positive numbers.", { status: 400 });
   }
   if (!body.carrierCode?.trim()) {
     throw new Response(
@@ -114,7 +127,13 @@ function buildCreateLabelInput(body: ShipStationLabelBody, idempotencyKey: strin
   return {
     origin: body.origin,
     destination: body.destination,
-    parcel: { ...body.parcel, weight: Number(body.parcel.weight) },
+    parcel: {
+      ...body.parcel,
+      weight: Number(body.parcel.weight),
+      length: Number(body.parcel.length),
+      width: Number(body.parcel.width),
+      height: Number(body.parcel.height),
+    },
     courier: body.carrierCode,
     idempotencyKey,
     provider: "shipstation",

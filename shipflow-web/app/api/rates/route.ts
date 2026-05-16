@@ -1,5 +1,4 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
-import { calculateInternalRates, type RateRequestInput } from "@/lib/server/shipments/createInternalShipment";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { aggregateRates } from "@/lib/logistics/rateAggregator";
@@ -26,10 +25,6 @@ type AggregatedRateBody = {
   cashAmount?: number;
 };
 
-type InternalRateBody = RateRequestInput & {
-  provider?: "internal" | "mock";
-};
-
 function isShipStationRequest(body: unknown): body is ShipStationRateBody {
   return (
     typeof body === "object" &&
@@ -46,26 +41,39 @@ function isAggregatedRequest(body: unknown): body is AggregatedRateBody {
   );
 }
 
-function parseExternalRateInput(
-  body: ShipStationRateBody | AggregatedRateBody,
-  providerLabel: string,
-): RateInput {
+function parseExternalRateInput(body: ShipStationRateBody | AggregatedRateBody): RateInput {
   const { origin, destination, parcel, courier, cashOnDelivery, cashAmount } = body;
 
-  if (!origin || typeof origin.city !== "string" || !origin.city.trim()) {
-    throw new InvalidPayloadError(`origin.city is required for ${providerLabel} rates.`);
+  if (!origin?.line1?.trim() || !origin.city?.trim() || !origin.state?.trim() || !origin.postalCode?.trim()) {
+    throw new InvalidPayloadError("Complete origin street, city, state, and ZIP.");
   }
-  if (!destination || typeof destination.city !== "string" || !destination.city.trim()) {
-    throw new InvalidPayloadError(`destination.city is required for ${providerLabel} rates.`);
+  if (!destination?.line1?.trim() || !destination.city?.trim() || !destination.state?.trim() || !destination.postalCode?.trim()) {
+    throw new InvalidPayloadError("Complete destination street, city, state, and ZIP.");
+  }
+  if ((origin.country ?? "US") !== "US" || (destination.country ?? "US") !== "US") {
+    throw new InvalidPayloadError("Only US domestic rates are supported right now.");
   }
   if (!parcel || !Number.isFinite(Number(parcel.weight)) || Number(parcel.weight) <= 0) {
     throw new InvalidPayloadError("parcel.weight must be a positive number.");
+  }
+  if (
+    !Number.isFinite(Number(parcel.length)) || Number(parcel.length) <= 0 ||
+    !Number.isFinite(Number(parcel.width)) || Number(parcel.width) <= 0 ||
+    !Number.isFinite(Number(parcel.height)) || Number(parcel.height) <= 0
+  ) {
+    throw new InvalidPayloadError("parcel length, width, and height must be positive numbers.");
   }
 
   return {
     origin,
     destination,
-    parcel: { ...parcel, weight: Number(parcel.weight) },
+    parcel: {
+      ...parcel,
+      weight: Number(parcel.weight),
+      length: Number(parcel.length),
+      width: Number(parcel.width),
+      height: Number(parcel.height),
+    },
     courier: typeof courier === "string" ? courier.trim() || undefined : undefined,
     cashOnDelivery: Boolean(cashOnDelivery),
     cashAmount: Number(cashAmount ?? 0),
@@ -78,45 +86,47 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { supabase } = await requireVerifiedUser(request);
+    await requireVerifiedUser(request);
     const body = (await request.json()) as unknown;
 
     // ── Best available: aggregate rates from all configured providers ──────────
     if (isAggregatedRequest(body)) {
-      const rateInput = parseExternalRateInput(body, "aggregated");
+      const rateInput = parseExternalRateInput(body);
       const { rates, outcomes, queriedProviders, configuredCount } = await aggregateRates(rateInput);
+      const failedCount = outcomes.filter((o) => !o.ok).length;
+      const diagnostic =
+        configuredCount === 0
+          ? "not_configured"
+          : rates.length === 0 && failedCount > 0
+            ? "providers_failed"
+            : rates.length === 0
+              ? "no_rates"
+              : undefined;
 
       return apiSuccess({
         mode: "best_available",
         rates,
-        queriedProviders,
         configuredCount,
-        partialErrors: outcomes.filter((o) => !o.ok).map((o) => (!o.ok ? o.error : "")),
-        message: `Aggregated rates from ${configuredCount} configured provider(s).`,
+        queriedProvidersCount: queriedProviders.length,
+        diagnostic,
+        message: rates.length > 0 ? "Rates available." : "No rates available.",
       });
     }
 
     // ── ShipStation direct (legacy path, kept for backward compatibility) ──────
     if (isShipStationRequest(body)) {
-      const rateInput = parseExternalRateInput(body, "ShipStation");
+      const rateInput = parseExternalRateInput(body);
       const adapter = getLogisticsAdapter("shipstation");
       const rates = await adapter.getRates(rateInput);
 
       return apiSuccess({
         mode: "direct",
         rates,
-        message: "Direct provider rates.",
+        message: "Rates available.",
       });
     }
 
-    // ── Default: internal/mock ─────────────────────────────────────────────────
-    const rates = await calculateInternalRates(supabase, body as InternalRateBody);
-
-    return apiSuccess({
-      mode: "standard",
-      rates,
-      message: "Standard rates.",
-    });
+    return apiError("Usa el cotizador de tarifas reales para obtener opciones disponibles.", 400);
   } catch (error) {
     return apiErrorFromUnknown(error, "We could not calculate rates.");
   }

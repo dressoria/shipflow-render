@@ -4,8 +4,8 @@ import { DashboardShell } from "@/components/DashboardShell";
 export default function CreateGuidePage() {
   return (
     <DashboardShell
-      title="Create label"
-      description="Functional form with validation, rate comparison, print view, and saved shipments."
+      title="Cotizar envío"
+      description="Cotiza tu envío con dirección de origen, destino y paquete."
     >
       <CreateGuideForm />
     </DashboardShell>

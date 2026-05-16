@@ -20,7 +20,7 @@ export function Footer() {
         <div>
           <p className="font-bold">Product</p>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <Link href="/crear-guia" className="hover:text-white">Create label</Link>
+            <Link href="/crear-guia" className="hover:text-white">Cotizar envío</Link>
             <Link href="/envios" className="hover:text-white">Shipments</Link>
             <Link href="/tracking" className="hover:text-white">Tracking</Link>
           </div>

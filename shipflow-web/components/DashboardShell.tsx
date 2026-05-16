@@ -22,7 +22,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 
 const menu = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Create label", href: "/crear-guia", icon: PlusCircle },
+  { label: "Cotizar envío", href: "/crear-guia", icon: PlusCircle },
   { label: "Envíos", href: "/envios", icon: Truck },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
   { label: "Saldo", href: "/saldo", icon: CreditCard },
@@ -51,7 +51,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           </Link>
           <div className="hidden h-11 min-w-72 items-center gap-3 rounded-2xl border border-pink-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm md:flex">
             <Search className="h-4 w-4" />
-            Search label, customer, or city
+            Buscar guía, cliente o ciudad
           </div>
           <Button href="/crear-guia" icon={<PlusCircle className="h-4 w-4" />} className="rounded-2xl">
             Cotizar envío

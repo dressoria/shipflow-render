@@ -163,15 +163,19 @@ Si no está configurada, `PROVIDER_CAPABILITIES.shippo.configured = false` y el 
 
 Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
 
-### UI (FASE 5.9)
+### UI (FASE 5.16)
 
 Los nombres de provider nunca se muestran al usuario. La UI muestra:
-- "Cotización estándar" (internal/mock)
-- "Mejor tarifa disponible" (aggregated)
+- Un solo flujo con botón principal "Cotizar envío".
+- Tarifas reales obtenidas con `mode: "best_available"`.
 - Badges de rates: "Nuestra recomendación" / "El costo más bajo" / "Lo más rápido"
 - Carrier visible: UPS, FedEx, USPS via Stamps.com, DHL (mapeados desde carrier code interno)
 - Entrega formateada: "Entrega en N días"
 - Desglose en modal de confirmación: Envío + Cargo de servicio ShipFlow + Cargo de procesamiento de pago + Total
+- Dirección: pegar dirección completa, Places si hay key, mapa/pin opcional y edición manual colapsada.
+- País fijo: Estados Unidos. Estado como select.
+- Paquete: peso, largo, ancho y alto obligatorios con defaults `1`.
+- La tabla `couriers` no se usa como cotizador visible de precios finales.
 
 ### Label creation multi-provider (FASE 5.8)
 
@@ -529,7 +533,7 @@ Reglas:
 
 Estado FASE 2/3/4A/4B/4D:
 
-- `POST /api/rates` ya existe. Default usa el adapter internal/mock sobre `couriers`. Si el body trae `provider: "shipstation"`, llama a ShipStation real (FASE 4A).
+- `POST /api/rates` ya existe. El cotizador visible usa `mode: "best_available"` y RateAggregator. El fallback local sobre `couriers` ya no es el default visible.
 - `POST /api/labels` ya existe y crea label interna/mock (default) o label real ShipStation (FASE 4B). Persistencia atomica via RPC (FASE 4D). Requiere `SUPABASE_SERVICE_ROLE_KEY` para provider shipstation.
 - `POST /api/labels/[id]/void` actualizado en FASE 4D: para provider shipstation, llama void real en ShipStation y refund atomico via RPC. Para labels internas, sigue siendo void local limitado.
 - `POST /api/webhooks/shipstation` sigue pendiente (FASE 5).

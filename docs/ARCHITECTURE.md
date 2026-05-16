@@ -256,8 +256,8 @@ Comportamiento:
 
 - `GET /api/shipments` lista envios del usuario autenticado.
 - `GET /api/shipments/[id]` carga envio y tracking events del usuario autenticado.
-- `POST /api/rates` recalcula tarifas internas con `couriers`.
-- `POST /api/labels` crea una guia/label interna; no compra label real.
+- `POST /api/rates` usa `mode: "best_available"` para el cotizador real; ya no muestra tarifas locales de `couriers` en `/crear-guia`.
+- `POST /api/labels` genera guía según el rate seleccionado cuando el proveedor soporta label; mantiene fallback interno solo para compatibilidad backend.
 - `POST /api/labels/[id]/void` permite void interno limitado si `label_status` existe.
 - `GET /api/balance` calcula balance desde `balance_movements`; no permite recargas.
 - `POST /api/tracking` mantiene compatibilidad sin token, pero valida carrier permitido; si recibe Bearer token, valida sesion.
@@ -293,7 +293,7 @@ Comportamiento actual:
 - `ShipStationAdapter.getRates()` implementado (FASE 4A): llama a `POST /shipments/getrates` en ShipStation V1 API.
 - `ShipStationAdapter.createLabel()` implementado (FASE 4B): flujo V1 `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `LabelResult` con `providerShipmentId`, `providerLabelId`, `providerServiceCode`. `labelUrl = null` (V1 devuelve base64).
 - `ShipStationAdapter.voidLabel()` y `trackShipment()` devuelven error `NOT_IMPLEMENTED` (501).
-- `/api/rates` soporta `provider: "shipstation"` para rates reales, o default internal/mock.
+- `/api/rates` soporta `mode: "best_available"` para el cotizador visible y `provider: "shipstation"` como compatibilidad directa; no usa default local en el flujo visible.
 - `/api/labels` soporta `provider: "shipstation"` para labels reales (FASE 4B); default internal/mock.
 - `/api/shipments/create` sigue usando internal/mock.
 - Tracking real/fallback sigue en servicios actuales.
@@ -421,6 +421,32 @@ Cambios:
 - Normalización: `rate.provider` → `courierId/courierName` (USPS, UPS, FedEx, DHL); `rate.servicelevel.token` → `serviceCode`; `rate.servicelevel.name` → `serviceName`.
 - Deduplicación: si múltiples providers devuelven el mismo carrier/servicio/días, se muestra solo el más barato.
 - Labels: Shippo bloqueado en UI (`handleConfirmed`) y en `/api/labels` (devuelve 501). Solo ShipStation compra labels reales.
+
+## Cotizador único FASE 5.16
+
+`/crear-guia` queda como un flujo único de cotización:
+
+```text
+AddressInput origen/destino
+→ validación US-only + calle/ciudad/estado/ZIP
+→ paquete con peso y dimensiones
+→ POST /api/rates { mode: "best_available" }
+→ RateAggregator
+→ cards de tarifas reales
+→ selección de rate
+→ confirmación/generación de guía si el rate soporta label
+```
+
+Cambios clave:
+
+- Se eliminó el selector visible de tipo de cotización.
+- Ya no se muestran tarifas locales basadas en la tabla `couriers`.
+- `couriers` puede seguir existiendo como catálogo/admin, pero no es fuente visible de precios finales en `/crear-guia`.
+- `/api/rates` ya no devuelve el fallback local por defecto; requiere `mode: "best_available"` para el cotizador.
+- `AddressInput` acepta dirección pegada, usa Places si hay key y muestra mapa solo bajo acción explícita.
+- País fijo en UI: Estados Unidos. Estado como select.
+- Dimensiones requeridas con defaults `1`.
+- Errores de no-rates ahora distinguen configuración, dirección, paquete y falla de integraciones.
 
 ## Arquitectura futura deseada
 

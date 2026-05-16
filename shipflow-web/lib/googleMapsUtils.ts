@@ -1,10 +1,134 @@
-import type { StructuredAddress } from "@/lib/types";
+import type { AddressValidationStatus, StructuredAddress } from "@/lib/types";
 
 export type GoogleAddressComponent = {
   long_name: string;
   short_name: string;
   types: string[];
 };
+
+export const US_STATE_CODES = [
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DC",
+  "DE",
+  "FL",
+  "GA",
+  "HI",
+  "IA",
+  "ID",
+  "IL",
+  "IN",
+  "KS",
+  "KY",
+  "LA",
+  "MA",
+  "MD",
+  "ME",
+  "MI",
+  "MN",
+  "MO",
+  "MS",
+  "MT",
+  "NC",
+  "ND",
+  "NE",
+  "NH",
+  "NJ",
+  "NM",
+  "NV",
+  "NY",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VA",
+  "VT",
+  "WA",
+  "WI",
+  "WV",
+  "WY",
+] as const;
+
+const US_STATE_SET = new Set<string>(US_STATE_CODES);
+
+function cleanCountry(value: string) {
+  return value
+    .replace(/\b(usa|u\.s\.a\.|united states|ee\.?\s*uu\.?)\b/gi, "")
+    .replace(/,\s*$/g, "")
+    .trim();
+}
+
+function statusForAddress(address: Pick<StructuredAddress, "street1" | "city" | "state" | "postalCode">): AddressValidationStatus {
+  return address.street1 && address.city && address.state && address.postalCode ? "complete" : "needs_review";
+}
+
+export function parsePastedUSAddress(input: string): Partial<StructuredAddress> {
+  const raw = input.trim().replace(/\s+/g, " ");
+  if (!raw) {
+    return { country: "US", source: "manual", validationStatus: "incomplete" };
+  }
+
+  const normalized = cleanCountry(raw);
+  const zipMatch = normalized.match(/\b(\d{5})(?:-\d{4})?\b/);
+  const postalCode = zipMatch?.[1] ?? "";
+
+  const stateZipMatch = normalized.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\b/i);
+  const stateCandidate = stateZipMatch?.[1]?.toUpperCase() ?? "";
+  const state = US_STATE_SET.has(stateCandidate) ? stateCandidate : "";
+
+  let street1 = "";
+  let city = "";
+  const commaParts = normalized.split(",").map((part) => part.trim()).filter(Boolean);
+
+  if (commaParts.length >= 3) {
+    street1 = commaParts[0] ?? "";
+    city = commaParts[1] ?? "";
+  } else if (commaParts.length === 2) {
+    street1 = commaParts[0] ?? "";
+    const second = commaParts[1] ?? "";
+    city = second.replace(/\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/i, "").trim();
+  } else if (state && postalCode) {
+    const beforeStateZip = normalized
+      .replace(new RegExp(`\\b${state}\\s+${postalCode}(?:-\\d{4})?\\b`, "i"), "")
+      .trim();
+    const tokens = beforeStateZip.split(" ").filter(Boolean);
+
+    if (tokens.length > 2) {
+      const streetTokens = tokens.slice(0, Math.max(2, tokens.length - 2));
+      const cityTokens = tokens.slice(streetTokens.length);
+      street1 = streetTokens.join(" ");
+      city = cityTokens.join(" ");
+    } else {
+      street1 = beforeStateZip;
+    }
+  }
+
+  const parsed = {
+    street1,
+    city,
+    state,
+    postalCode,
+    country: "US",
+    formattedAddress: raw,
+    source: "manual" as const,
+  };
+
+  return {
+    ...parsed,
+    validationStatus: statusForAddress(parsed),
+  };
+}
 
 export function parseAddressComponents(
   components: GoogleAddressComponent[],

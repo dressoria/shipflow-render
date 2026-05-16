@@ -508,6 +508,32 @@ Pendiente (fase posterior):
 - Labels Shippo reales (`ShippoAdapter.createLabel()`, `voidLabel()`).
 - Labels multi-provider (selección automática del ganador de deduplicación).
 
+## FASE 5.16 — Cotizador: flujo único real y dirección fácil (completada)
+
+Objetivo:
+
+- Convertir `/crear-guia` en un cotizador único de tarifas reales, simple y claro.
+
+Tareas completadas:
+
+- Eliminado selector visible de tipo de cotización.
+- Eliminado comparador local de `couriers` en la UI.
+- Botón único antes de rates: `Cotizar envío`.
+- `CreateGuideForm` llama siempre `/api/rates` con `mode: "best_available"`.
+- `AddressInput` permite pegar dirección completa y parsearla sin Google Maps.
+- Google Places restringido a Estados Unidos cuando hay key.
+- Botón visible `Seleccionar en mapa` solo cuando Google Maps está configurado.
+- País fijo Estados Unidos y estado como select USA.
+- Paquete completo: peso, largo, ancho, alto con defaults `1`.
+- `/api/rates` valida calle, ciudad, estado, ZIP y dimensiones antes de consultar integraciones.
+- Mensajes de no-rates más claros por configuración, dirección, paquete o falla de integraciones.
+- Tabla `couriers` queda fuera del cotizador visible de precios finales.
+
+Pendiente:
+
+- Revisión final de compra de labels multi-provider.
+- Mobile seguirá en FASE 6.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

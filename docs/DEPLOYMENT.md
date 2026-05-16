@@ -41,8 +41,8 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY   # OPCIONAL — habilita Google Places Autocomplete y mapa con pin en /crear-guia
-                                   # Si está vacía el formulario funciona en modo manual completo
-                                   # Con key: aparecen tabs "Buscar dirección" y "Seleccionar en mapa" en el formulario
+                                   # Si está vacía el formulario funciona con parser local y edición manual
+                                   # Con key: aparece "Seleccionar en mapa" y Places Autocomplete en el formulario
                                    # El mapa usa Geocoder para reverse geocoding; no necesita librería npm adicional
                                    # Restringir por HTTP referrer en Google Cloud Console antes de producción
                                    # Requiere: Maps JavaScript API + Places API habilitados en el proyecto de Google Cloud
@@ -57,9 +57,13 @@ SHIPSTATION_API_KEY              # REQUERIDA para rates/labels/void/webhooks
 SHIPSTATION_API_SECRET           # recomendada (Basic Auth key:secret)
 SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.com
 SHIPSTATION_WEBHOOK_SECRET       # REQUERIDA para autenticar webhooks entrantes; generar con: openssl rand -hex 32
+EASYPOST_API_KEY                 # opcional; activa rates reales en el cotizador
+SHIPPO_API_KEY                   # opcional; activa rates reales en el cotizador
 PAYMENT_PROVIDER_SECRET
 WEBHOOK_PAYMENT_SECRET
 ```
+
+Para que el cotizador muestre tarifas debe existir al menos una integración de cotización real configurada en servidor. `/api/config/status` expone solo booleans y `activeRateProviders`, nunca nombres ni secretos.
 
 Nota sobre webhooks: ShipStation requiere HTTPS para enviar webhooks. El servidor staging/produccion debe tener SSL configurado antes de registrar la URL del webhook en ShipStation Dashboard.
 

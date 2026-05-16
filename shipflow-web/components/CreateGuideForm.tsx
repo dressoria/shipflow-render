@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,8 +23,6 @@ import { Badge } from "@/components/Badge";
 import { AddressInput } from "@/components/AddressInput";
 import type { AddressInputErrors } from "@/components/AddressInput";
 import { isPhone } from "@/lib/forms";
-import { calculateShippingRate, getActiveCouriers } from "@/lib/services/courierService";
-import { createShipment } from "@/lib/services/shipmentService";
 import {
   apiCreateLabel,
   apiGetConfigStatus,
@@ -32,12 +30,9 @@ import {
   type ConfigStatus,
   type CreateLabelResult,
 } from "@/lib/services/apiClient";
-import type { CourierConfig, Envio, ShippingRate, StructuredAddress } from "@/lib/types";
+import type { Envio, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
 import { formatCurrency } from "@/lib/utils";
-
-// "standard" = internal/mock | "online" = best_available (multi-provider)
-type QuoteMode = "standard" | "online";
 
 const EMPTY_ADDRESS: StructuredAddress = {
   name: "",
@@ -56,12 +51,11 @@ type FormState = {
   destination: StructuredAddress;
   weight: string;
   productType: string;
-  // Standard-only
-  courier: string;
-  cashOnDelivery: "no" | "si";
-  cashAmount: string;
-  // Shared
   weightUnit: "lb" | "oz";
+  length: string;
+  width: string;
+  height: string;
+  dimensionUnit: "in" | "cm";
 };
 
 const initialState: FormState = {
@@ -69,10 +63,11 @@ const initialState: FormState = {
   destination: { ...EMPTY_ADDRESS, city: "Chicago", state: "IL", country: "US" },
   weight: "1",
   productType: "Apparel and accessories",
-  courier: "",
-  cashOnDelivery: "no",
-  cashAmount: "",
   weightUnit: "lb",
+  length: "1",
+  width: "1",
+  height: "1",
+  dimensionUnit: "in",
 };
 
 const productTypes = [
@@ -88,17 +83,12 @@ export function CreateGuideForm() {
   const router = useRouter();
   const { emailVerified, loading: authLoading } = useAuth();
 
-  const [mode, setMode] = useState<QuoteMode>("standard");
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Server config status — fetched once on mount
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
-  // Standard couriers
-  const [couriers, setCouriers] = useState<CourierConfig[]>([]);
-
-  // Online quotation state
   const [apiRates, setApiRates] = useState<RateResult[]>([]);
   const [selectedApiRate, setSelectedApiRate] = useState<RateResult | null>(null);
   const [fetchingRates, setFetchingRates] = useState(false);
@@ -114,44 +104,8 @@ export function CreateGuideForm() {
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
-    // Load couriers and config status in parallel
     apiGetConfigStatus().then(setConfigStatus);
-    window.setTimeout(() => {
-      getActiveCouriers().then((items) => {
-        setCouriers(items);
-        setForm((current) => ({
-          ...current,
-          courier: current.courier || items[0]?.nombre || "",
-        }));
-      });
-    }, 0);
   }, []);
-
-  function handleModeChange(next: QuoteMode) {
-    setMode(next);
-    setApiRates([]);
-    setSelectedApiRate(null);
-    setRatesError(null);
-    setErrors({});
-    setSummary(null);
-    setLabelData(null);
-  }
-
-  const standardRates = useMemo(() => {
-    return couriers.map((c) =>
-      calculateShippingRate({
-        courier: c,
-        peso: Number(form.weight) || 1,
-        ciudadOrigen: form.origin.city || "—",
-        ciudadDestino: form.destination.city || "—",
-        contraEntrega: form.cashOnDelivery === "si",
-        valorCobrar: Number(form.cashAmount) || 0,
-      }),
-    );
-  }, [couriers, form.cashAmount, form.cashOnDelivery, form.destination.city, form.origin.city, form.weight]);
-
-  const selectedStandardRate =
-    standardRates.find((r) => r.courier.nombre === form.courier) ?? standardRates[0];
 
   function updateOrigin(addr: StructuredAddress) {
     setForm((current) => ({ ...current, origin: addr }));
@@ -167,7 +121,7 @@ export function CreateGuideForm() {
 
   function updateField(name: keyof Omit<FormState, "origin" | "destination">, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
-    if (name === "weight") {
+    if (["weight", "weightUnit", "length", "width", "height", "dimensionUnit"].includes(name)) {
       setApiRates([]);
       setSelectedApiRate(null);
     }
@@ -177,60 +131,43 @@ export function CreateGuideForm() {
 
   type ErrorMap = Record<string, string>;
 
-  function validateAddress(addr: StructuredAddress, prefix: string, strict: boolean): ErrorMap {
+  function validateAddress(addr: StructuredAddress, prefix: string): ErrorMap {
     const next: ErrorMap = {};
     if (!addr.name?.trim()) next[`${prefix}.name`] = "Campo requerido.";
     if (!addr.phone?.trim()) next[`${prefix}.phone`] = "Campo requerido.";
     else if (!isPhone(addr.phone)) next[`${prefix}.phone`] = "Teléfono inválido.";
+    if (!addr.street1?.trim()) next[`${prefix}.street1`] = "Calle requerida.";
     if (!addr.city?.trim()) next[`${prefix}.city`] = "Campo requerido.";
-    if (strict) {
-      if (!addr.postalCode?.trim()) next[`${prefix}.postalCode`] = "ZIP requerido para cotizar.";
-      if (!addr.state?.trim()) next[`${prefix}.state`] = "Estado requerido.";
-    }
+    if (!addr.state?.trim()) next[`${prefix}.state`] = "Estado requerido.";
+    if (!addr.postalCode?.trim()) next[`${prefix}.postalCode`] = "ZIP requerido.";
+    if ((addr.country || "US") !== "US") next[`${prefix}.country`] = "Solo Estados Unidos.";
     return next;
   }
 
-  function validateCommon(strict = false): ErrorMap {
-    return {
-      ...validateAddress(form.origin, "origin", strict),
-      ...validateAddress(form.destination, "destination", strict),
-      ...(Number(form.weight) <= 0 ? { weight: "Ingresa un peso válido." } : {}),
+  function validateQuote(): ErrorMap {
+    const next: ErrorMap = {
+      ...validateAddress(form.origin, "origin"),
+      ...validateAddress(form.destination, "destination"),
       ...(!form.productType ? { productType: "Campo requerido." } : {}),
     };
-  }
+    const weight = Number(form.weight);
+    const length = Number(form.length);
+    const width = Number(form.width);
+    const height = Number(form.height);
 
-  function validateStandard(): ErrorMap {
-    const next = validateCommon(false);
-    if (!form.destination.street1?.trim()) next["destination.street1"] = "Campo requerido.";
-    if (!form.courier) next.courier = "Campo requerido.";
-    if (form.cashOnDelivery === "si" && Number(form.cashAmount) <= 0)
-      next.cashAmount = "Ingresa el monto a cobrar.";
-    if (
-      form.cashOnDelivery === "si" &&
-      selectedStandardRate &&
-      !selectedStandardRate.courier.permiteContraEntrega
-    )
-      next.courier = "El carrier seleccionado no soporta contra entrega.";
-    return next;
-  }
+    if (!Number.isFinite(weight) || weight <= 0) next.weight = "Ingresa un peso válido.";
+    if (!Number.isFinite(length) || length <= 0) next.length = "Ingresa un largo válido.";
+    if (!Number.isFinite(width) || width <= 0) next.width = "Ingresa un ancho válido.";
+    if (!Number.isFinite(height) || height <= 0) next.height = "Ingresa un alto válido.";
 
-  function validateOnlineRates(): ErrorMap {
-    const next: ErrorMap = {};
-    if (!form.origin.city?.trim()) next["origin.city"] = "Campo requerido.";
-    if (!form.origin.state?.trim()) next["origin.state"] = "Estado requerido.";
-    if (!form.destination.city?.trim()) next["destination.city"] = "Campo requerido.";
-    if (!form.destination.state?.trim()) next["destination.state"] = "Estado requerido.";
-    if (Number(form.weight) <= 0) next.weight = "Ingresa un peso válido.";
     return next;
   }
 
   function validateOnlineLabel(): ErrorMap {
-    const next = validateCommon(true);
-    if (!form.origin.street1?.trim())
-      next["origin.street1"] = "Calle requerida para generar la guía.";
-    if (!form.destination.street1?.trim()) next["destination.street1"] = "Campo requerido.";
-    if (!selectedApiRate) next.form = "Selecciona una tarifa antes de generar la guía.";
-    return next;
+    return {
+      ...validateQuote(),
+      ...(!selectedApiRate ? { form: "Selecciona una tarifa antes de generar la guía." } : {}),
+    };
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -257,70 +194,55 @@ export function CreateGuideForm() {
     };
   }
 
-  // ── Standard submit ─────────────────────────────────────────────────────────
+  function quoteValidationMessage(errs: ErrorMap) {
+    const addressFields = Object.keys(errs).filter((key) => key.startsWith("origin.") || key.startsWith("destination."));
+    const packageFields = ["weight", "length", "width", "height"].filter((key) => errs[key]);
 
-  async function handleStandardSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const errs = validateStandard();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    if (!selectedStandardRate) return;
-
-    setSaving(true);
-    setErrors({});
-    const trackingNumber = `SF-${Date.now().toString().slice(-6)}`;
-    const guide: Envio = {
-      id: trackingNumber,
-      trackingNumber,
-      senderName: form.origin.name?.trim() ?? "",
-      senderPhone: form.origin.phone?.trim() ?? "",
-      originCity: form.origin.city,
-      recipientName: form.destination.name?.trim() ?? "",
-      recipientPhone: form.destination.phone?.trim() ?? "",
-      destinationCity: form.destination.city,
-      destinationAddress: form.destination.street1.trim(),
-      weight: Number(form.weight),
-      productType: form.productType,
-      courier: selectedStandardRate.courier.nombre,
-      shippingSubtotal: selectedStandardRate.subtotal,
-      cashOnDeliveryCommission: selectedStandardRate.contraEntregaComision,
-      total: selectedStandardRate.total,
-      cashOnDelivery: form.cashOnDelivery === "si",
-      cashAmount: form.cashOnDelivery === "si" ? Number(form.cashAmount) : 0,
-      status: "Pendiente",
-      date: new Date().toISOString(),
-      value: selectedStandardRate.total,
-    };
-
-    try {
-      setSummary(await createShipment(guide));
-    } catch (error) {
-      setErrors({ form: error instanceof Error ? error.message : "No se pudo crear la guía." });
-    } finally {
-      setSaving(false);
+    if (addressFields.length > 0) {
+      return "Completa calle, ciudad, estado y ZIP en origen y destino para cotizar correctamente.";
     }
+    if (packageFields.length > 0) {
+      return "Completa peso, largo, ancho y alto del paquete.";
+    }
+    return null;
   }
 
-  // ── Online: fetch rates ─────────────────────────────────────────────────────
+  function noRatesMessage(result?: { diagnostic?: string; configuredCount?: number }) {
+    if (configStatus?.activeRateProviders === 0 || result?.configuredCount === 0) {
+      return "No hay integraciones de cotización real configuradas.";
+    }
+    if (result?.diagnostic === "address_incomplete") {
+      return "Revisa calle, ciudad, estado y ZIP.";
+    }
+    if (result?.diagnostic === "providers_failed") {
+      return "No encontramos tarifas para esta ruta con los datos ingresados. Revisa dirección, ZIP y dimensiones.";
+    }
+    return "No encontramos tarifas para esta ruta con los datos ingresados. Revisa dirección, ZIP y dimensiones.";
+  }
+
+  // ── Fetch real rates ────────────────────────────────────────────────────────
 
   async function handleFetchRates(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (configStatus && !configStatus.supabaseConfigured) {
       setRatesError(
-        "Supabase no está configurado en el servidor. Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY para cotizar en modo real.",
+        "El servidor no está configurado para cotizar. Revisa la configuración de Supabase.",
       );
       return;
     }
 
     if (configStatus && !configStatus.ratesConfigured) {
-      setRatesError(
-        "No hay proveedores de tarifas configurados en el servidor. Agrega al menos una API key de carrier para cotizar en modo real.",
-      );
+      setRatesError("Configura al menos una integración de cotización real.");
       return;
     }
 
-    const errs = validateOnlineRates();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    const errs = validateQuote();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      setRatesError(quoteValidationMessage(errs));
+      return;
+    }
 
     setFetchingRates(true);
     setRatesError(null);
@@ -332,24 +254,36 @@ export function CreateGuideForm() {
       const result = await apiGetRates({
         mode: "best_available",
         origin: {
+          line1: form.origin.street1,
+          line2: form.origin.street2 || undefined,
           city: form.origin.city,
-          postalCode: form.origin.postalCode || undefined,
-          state: form.origin.state || undefined,
-          country: form.origin.country || "US",
+          postalCode: form.origin.postalCode,
+          state: form.origin.state,
+          country: "US",
         },
         destination: {
+          line1: form.destination.street1,
+          line2: form.destination.street2 || undefined,
           city: form.destination.city,
-          postalCode: form.destination.postalCode || undefined,
-          state: form.destination.state || undefined,
-          country: form.destination.country || "US",
+          postalCode: form.destination.postalCode,
+          state: form.destination.state,
+          country: "US",
         },
-        parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },
+        parcel: {
+          weight: Number(form.weight),
+          weightUnit: form.weightUnit,
+          length: Number(form.length),
+          width: Number(form.width),
+          height: Number(form.height),
+          dimensionUnit: form.dimensionUnit,
+        },
       });
-      if (!result.rates.length) {
-        setRatesError("No hay tarifas disponibles para esta ruta. Verifica los datos o intenta otra ruta.");
+      const visibleRates = result.rates.filter((rate) => rate.provider !== "internal" && rate.provider !== "mock");
+      if (!visibleRates.length) {
+        setRatesError(noRatesMessage(result));
       } else {
-        setApiRates(result.rates);
-        setSelectedApiRate(result.rates[0]);
+        setApiRates(visibleRates);
+        setSelectedApiRate(visibleRates[0]);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No se pudieron obtener tarifas.";
@@ -358,9 +292,13 @@ export function CreateGuideForm() {
         return;
       }
       if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
-        setRatesError("El servidor no está configurado correctamente. Verifica las variables de entorno de Supabase.");
+        setRatesError("El servidor no está configurado correctamente para cotizar.");
+      } else if (msg.toLowerCase().includes("address") || msg.toLowerCase().includes("postal") || msg.toLowerCase().includes("zip")) {
+        setRatesError("Revisa calle, ciudad, estado y ZIP.");
+      } else if (msg.toLowerCase().includes("parcel") || msg.toLowerCase().includes("weight")) {
+        setRatesError("Completa peso, largo, ancho y alto del paquete.");
       } else {
-        setRatesError(msg);
+        setRatesError("No encontramos tarifas para esta ruta con los datos ingresados. Revisa dirección, ZIP y dimensiones.");
       }
     } finally {
       setFetchingRates(false);
@@ -398,19 +336,29 @@ export function CreateGuideForm() {
       const result: CreateLabelResult = await apiCreateLabel({
         provider: rateProvider,
         origin: {
+          line1: form.origin.street1,
+          line2: form.origin.street2 || undefined,
           city: form.origin.city,
           postalCode: form.origin.postalCode,
-          state: form.origin.state || undefined,
-          country: form.origin.country || "US",
+          state: form.origin.state,
+          country: "US",
         },
         destination: {
           city: form.destination.city,
           postalCode: form.destination.postalCode,
-          state: form.destination.state || undefined,
-          country: form.destination.country || "US",
-          line1: form.destination.street1 || undefined,
+          state: form.destination.state,
+          country: "US",
+          line1: form.destination.street1,
+          line2: form.destination.street2 || undefined,
         },
-        parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },
+        parcel: {
+          weight: Number(form.weight),
+          weightUnit: form.weightUnit,
+          length: Number(form.length),
+          width: Number(form.width),
+          height: Number(form.height),
+          dimensionUnit: form.dimensionUnit,
+        },
         carrierCode: selectedApiRate.courierId,
         serviceCode: selectedApiRate.serviceCode,
         expectedCost: selectedApiRate.customerPrice,
@@ -441,7 +389,14 @@ export function CreateGuideForm() {
       setLabelData(result.labelData);
       idempotencyKeyRef.current = crypto.randomUUID();
     } catch (err) {
-      setErrors({ form: err instanceof Error ? err.message : "No se pudo crear la guía." });
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.toLowerCase().includes("line1") || msg.toLowerCase().includes("postal") || msg.toLowerCase().includes("city")) {
+        setErrors({ form: "Revisa calle, ciudad, estado y ZIP antes de generar la guía." });
+      } else if (msg.toLowerCase().includes("parcel") || msg.toLowerCase().includes("weight") || msg.toLowerCase().includes("dimensions")) {
+        setErrors({ form: "Completa peso, largo, ancho y alto del paquete." });
+      } else {
+        setErrors({ form: "No se pudo crear la guía con la tarifa seleccionada." });
+      }
     } finally {
       setSaving(false);
     }
@@ -491,212 +446,109 @@ export function CreateGuideForm() {
 
   return (
     <div className="grid gap-6">
-      <ModeSelector mode={mode} onChange={handleModeChange} />
-
-      {/* Config warnings — only shown in online mode */}
-      {mode === "online" && showConfigWarning && (
+      {showConfigWarning && (
         <ConfigAlert type="error">
-          <strong>Supabase no está configurado.</strong> Para cotizar en modo real, configura{" "}
-          <code className="rounded bg-red-100 px-1 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> y{" "}
-          <code className="rounded bg-red-100 px-1 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
-          en el servidor.
+          <strong>El servidor no está listo para cotizar.</strong> Revisa la configuración de Supabase.
         </ConfigAlert>
       )}
-      {mode === "online" && showNoRatesWarning && (
+      {showNoRatesWarning && (
         <ConfigAlert type="warning">
-          <strong>Sin integraciones de transporte activas.</strong> Configura al menos una
-          integración de carrier en el servidor para ver tarifas reales.
+          <strong>Sin integraciones de cotización activas.</strong> Configura al menos una
+          integración real en el servidor para ver tarifas.
         </ConfigAlert>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_400px]">
-        {/* ── Cotización estándar ── */}
-        {mode === "standard" && (
+        <div className="grid gap-5">
           <form
-            onSubmit={handleStandardSubmit}
+            onSubmit={handleFetchRates}
             className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5"
             noValidate
           >
-            <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">Cotizar envío</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Cotiza tu envío con dirección de origen, destino y paquete. Buscamos automáticamente la mejor tarifa disponible.
+              </p>
+            </div>
+
+            <SectionHeader icon={<User className="h-4 w-4" />} title="Origen" />
             <AddressInput
-              sectionLabel="Remitente"
+              sectionLabel="Origen"
               value={form.origin}
               onChange={updateOrigin}
+              requirePostal
               errors={originErrors()}
             />
             <AddressSummary addr={form.origin} />
 
-            <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
+            <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destino" />
             <AddressInput
-              sectionLabel="Destinatario"
+              sectionLabel="Destino"
               value={form.destination}
               onChange={updateDestination}
+              requirePostal
               errors={destinationErrors()}
             />
             <AddressSummary addr={form.destination} />
 
             <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
             <div className="grid gap-4 md:grid-cols-3">
-              <NumberField label="Peso del paquete" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
+              <NumberField label="Peso" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
+              <SelectField label="Unidad de peso" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
               <SelectField label="Tipo de producto" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
-              <SelectField label="Carrier" value={form.courier} options={couriers.map((c) => c.nombre)} onChange={(v) => updateField("courier", v)} error={errors.courier} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <SelectField label="¿Contra entrega?" value={form.cashOnDelivery} options={["no", "si"]} onChange={(v) => updateField("cashOnDelivery", v)} />
-              {form.cashOnDelivery === "si" ? (
-                <NumberField label="Monto a cobrar" value={form.cashAmount} onChange={(v) => updateField("cashAmount", v)} placeholder="0.00" error={errors.cashAmount} />
-              ) : null}
+              <NumberField label="Largo" value={form.length} onChange={(v) => updateField("length", v)} placeholder="1" error={errors.length} />
+              <NumberField label="Ancho" value={form.width} onChange={(v) => updateField("width", v)} placeholder="1" error={errors.width} />
+              <NumberField label="Alto" value={form.height} onChange={(v) => updateField("height", v)} placeholder="1" error={errors.height} />
+              <SelectField label="Unidad de dimensión" value={form.dimensionUnit} options={["in", "cm"]} onChange={(v) => updateField("dimensionUnit", v)} />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-6 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? "Generando..." : "Generar guía"}
-              </button>
-              <p className="text-xs text-slate-400">Cotizamos con la mejor opción disponible para tu envío.</p>
-            </div>
-            {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
+            <button
+              type="submit"
+              disabled={fetchingRates || showConfigWarning}
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-50 sm:w-fit"
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              {fetchingRates ? "Cotizando..." : "Cotizar envío"}
+            </button>
+
+            {ratesError ? (
+              <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                {ratesError}
+              </div>
+            ) : null}
           </form>
-        )}
 
-        {/* ── Cotización en línea ── */}
-        {mode === "online" && (
-          <div className="grid gap-5">
+          {apiRates.length > 0 && (
             <form
-              onSubmit={handleFetchRates}
-              className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5"
+              onSubmit={handleRequestOnlineLabel}
+              className="grid gap-4 rounded-3xl border border-cyan-200 bg-cyan-50/40 p-5 shadow-sm"
               noValidate
             >
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">Cotización en línea</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Completa los datos y cotiza con las tarifas disponibles. El proveedor técnico se selecciona automáticamente.
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <p className="text-sm font-semibold text-slate-700">
+                  Selecciona una tarifa para revisar el desglose y continuar con la guía.
                 </p>
               </div>
 
-              <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
-              <AddressInput
-                sectionLabel="Remitente"
-                value={form.origin}
-                onChange={updateOrigin}
-                requirePostal={false}
-                errors={originErrors()}
-              />
-              <AddressSummary addr={form.origin} />
-
-              <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
-              <AddressInput
-                sectionLabel="Destinatario"
-                value={form.destination}
-                onChange={updateDestination}
-                requirePostal={false}
-                errors={destinationErrors()}
-              />
-              <AddressSummary addr={form.destination} />
-
-              <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
-              <div className="grid gap-4 md:grid-cols-3">
-                <NumberField label="Peso" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
-                <SelectField label="Unidad de peso" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
-                <SelectField label="Tipo de producto" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
-              </div>
-
-              {(!form.origin.postalCode || !form.destination.postalCode) && (
-                <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                  El ZIP / Código postal mejora la precisión de la cotización. Puedes continuar sin él, pero algunas tarifas pueden no estar disponibles.
-                </div>
-              )}
-
               <button
                 type="submit"
-                disabled={fetchingRates || showConfigWarning}
-                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-50 sm:w-fit"
+                disabled={saving || !selectedApiRate}
+                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70 sm:w-fit"
               >
-                <Zap className="mr-2 h-4 w-4" />
-                {fetchingRates ? "Buscando tarifas..." : "Buscar tarifas"}
+                <Save className="mr-2 h-4 w-4" />
+                Continuar
               </button>
-
-              {ratesError ? (
-                <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  {ratesError}
-                </div>
-              ) : null}
+              {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
             </form>
-
-            {/* Paso 2: seleccionar tarifa y generar */}
-            {apiRates.length > 0 && (
-              <form
-                onSubmit={handleRequestOnlineLabel}
-                className="grid gap-4 rounded-3xl border border-cyan-200 bg-cyan-50/40 p-5 shadow-sm"
-                noValidate
-              >
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <p className="text-sm font-semibold text-slate-700">
-                    <strong>Guía real:</strong> Al confirmar se generará una guía de envío real y se descontará de tu saldo.
-                  </p>
-                </div>
-
-                {/* Address completeness check */}
-                {(!form.origin.street1?.trim() ||
-                  !form.origin.postalCode ||
-                  !form.destination.street1?.trim() ||
-                  !form.destination.postalCode) && (
-                  <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    Completa la dirección postal antes de generar la guía: calle, ciudad, estado, ZIP y país son obligatorios.
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={saving || !selectedApiRate}
-                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:opacity-70 sm:w-fit"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {saving ? "Generando..." : "Generar guía"}
-                </button>
-                {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
-              </form>
-            )}
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── Sidebar ── */}
         <aside className="grid gap-5 content-start">
-          {mode === "standard" && (
-            <>
-              <RateComparator
-                rates={standardRates}
-                selected={form.courier}
-                onSelect={(c) => updateField("courier", c)}
-              />
-              {selectedStandardRate ? (
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-                  <div className="flex items-center justify-between gap-4">
-                    <h2 className="font-black text-slate-950">Total calculado</h2>
-                    <Badge tone="green">Tarifa activa</Badge>
-                  </div>
-                  <p className="mt-5 text-sm text-slate-500">Costo total</p>
-                  <p className="mt-1 text-4xl font-black text-slate-950">
-                    {formatCurrency(selectedStandardRate.total)}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Subtotal {formatCurrency(selectedStandardRate.subtotal)} · Comisión C/E{" "}
-                    {formatCurrency(selectedStandardRate.contraEntregaComision)}
-                  </p>
-                </div>
-              ) : null}
-            </>
-          )}
-
-          {mode === "online" && apiRates.length > 0 && (
+          {apiRates.length > 0 && (
             <AvailableRatesList
               rates={apiRates}
               selected={selectedApiRate}
@@ -741,83 +593,11 @@ function ConfigAlert({ type, children }: { type: "error" | "warning"; children: 
   );
 }
 
-function ModeSelector({ mode, onChange }: { mode: QuoteMode; onChange: (m: QuoteMode) => void }) {
-  const options: { value: QuoteMode; label: string; desc: string }[] = [
-    { value: "standard", label: "Cotización estándar", desc: "Carriers disponibles en la plataforma" },
-    { value: "online", label: "Mejor tarifa disponible", desc: "Motor de cotización en línea" },
-  ];
-
-  return (
-    <div className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:flex sm:flex-wrap sm:items-center">
-      <p className="text-sm font-black text-slate-700 sm:mr-2">Tipo de cotización:</p>
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => onChange(opt.value)}
-          className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-bold transition ${
-            mode === opt.value
-              ? "border-[#06B6D4] bg-cyan-50 text-[#0891B2]"
-              : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-slate-100"
-          }`}
-        >
-          {mode === opt.value ? <CheckCircle2 className="h-4 w-4" /> : null}
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
       <span className="text-slate-400">{icon}</span>
       <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">{title}</h3>
-    </div>
-  );
-}
-
-function RateComparator({
-  rates,
-  selected,
-  onSelect,
-}: {
-  rates: ShippingRate[];
-  selected: string;
-  onSelect: (courier: string) => void;
-}) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <h2 className="font-black text-slate-950">Comparar carriers</h2>
-      <div className="mt-4 grid gap-3">
-        {rates.map((rate) => (
-          <button
-            key={rate.courier.id}
-            type="button"
-            onClick={() => onSelect(rate.courier.nombre)}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-black text-slate-950">{rate.courier.nombre}</p>
-                <p className="text-sm text-slate-500">
-                  {rate.courier.tiempoEstimado} · {rate.courier.cobertura}
-                </p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  {rate.courier.permiteContraEntrega ? "Contra entrega disponible" : "Sin contra entrega"}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="font-black text-[#06B6D4]">{formatCurrency(rate.total)}</p>
-                {selected === rate.courier.nombre ? (
-                  <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-[#16a34a]" />
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

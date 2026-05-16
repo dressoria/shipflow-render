@@ -335,7 +335,7 @@ Cambios preparados:
 - Nuevas clases de error: `ProviderAuthError`, `ProviderRateLimitError`, `InvalidPayloadError`.
 - `ShipStationAdapter.createLabel()`, `voidLabel()` y `trackShipment()` devuelven `LogisticsError` con codigo `NOT_IMPLEMENTED` (501).
 - `/api/rates` acepta `provider: "shipstation"` en el body: usa `ShipStationAdapter` con `RateInput` completo (origin/destination/parcel con postal codes).
-- Default de `/api/rates` sigue siendo internal/mock usando couriers de Supabase.
+- `/api/rates` mantiene `provider: "shipstation"` solo como compatibilidad directa, pero el flujo visible usa `mode: "best_available"` y ya no expone cotizaciones locales de `couriers`.
 
 Variables necesarias FASE 4A:
 
@@ -1211,3 +1211,35 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - `ShippoAdapter.createLabel()` y `voidLabel()` — labels reales con Shippo.
 - Labels multi-provider (selección automática del proveedor ganador de deduplicación).
 - `EasyPostAdapter.createLabel()` — labels reales con EasyPost.
+
+## Estado FASE 5.16 — Cotizador con flujo único y dirección fácil
+
+**Objetivo:** dejar `/crear-guia` como cotizador único de tarifas reales, sin precios locales visibles.
+
+**Cambios principales:**
+- `CreateGuideForm.tsx`: se eliminó el selector de tipo de cotización y el comparador local de `couriers`.
+- Antes de ver tarifas solo queda un botón principal: **"Cotizar envío"**.
+- El formulario siempre llama `/api/rates` con `mode: "best_available"`.
+- Las tarifas visibles se filtran para no mostrar resultados `internal`/`mock`.
+- Paquete completo requerido: peso, largo, ancho y alto con defaults `1`; unidades `lb` e `in`.
+- Validación previa bloquea la llamada si faltan calle, ciudad, estado, ZIP o dimensiones.
+
+**Dirección:**
+- `AddressInput.tsx`: input principal para buscar o pegar dirección completa.
+- Sin Google Maps key: parser local intenta separar calle, ciudad, estado y ZIP en formatos comunes de USA.
+- Con Google Maps key: Places Autocomplete restringido a Estados Unidos y botón visible **"Seleccionar en mapa"**.
+- Los campos manuales quedan colapsados por defecto bajo **"Editar datos manualmente"**.
+- País fijo: Estados Unidos.
+- Estado: select de códigos USA.
+
+**Errores:**
+- Si no hay integraciones activas: mensaje de configuración claro.
+- Si falta dirección: mensaje específico de calle, ciudad, estado y ZIP.
+- Si falta paquete: mensaje específico de peso y dimensiones.
+- Si las integraciones no devuelven tarifas: mensaje orientado a revisar dirección, ZIP y dimensiones.
+
+**No cambiado:**
+- Mobile no fue tocado.
+- Pricing engine FASE 5.9 no cambió.
+- RateAggregator, EasyPost, Shippo y ShipStation se mantienen.
+- No se ejecutaron migraciones, deploy ni commits.

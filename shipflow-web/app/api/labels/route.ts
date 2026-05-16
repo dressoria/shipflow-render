@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     // Reject skeleton providers explicitly — no silent fallback to ShipStation.
     if (provider && SKELETON_LABEL_PROVIDERS.includes(provider as typeof SKELETON_LABEL_PROVIDERS[number])) {
       return apiError(
-        `Label creation for provider "${provider}" is not yet implemented. Only ShipStation labels are currently supported.`,
+        "La generación de guía para esta tarifa todavía no está disponible.",
         501,
       );
     }

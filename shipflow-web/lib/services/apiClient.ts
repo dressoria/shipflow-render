@@ -97,15 +97,15 @@ export type RatesData = {
   mode?: string;
   rates: RateResult[];
   message?: string;
-  queriedProviders?: string[];
   configuredCount?: number;
+  diagnostic?: "not_configured" | "address_incomplete" | "providers_failed" | "no_rates";
 };
 
 export type SSRatesBody = {
   provider: "shipstation";
-  origin: { city: string; postalCode?: string; state?: string; country?: string };
-  destination: { city: string; postalCode?: string; state?: string; country?: string };
-  parcel: { weight: number; weightUnit?: string };
+  origin: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
+  destination: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
+  parcel: { weight: number; weightUnit?: string; length?: number; width?: number; height?: number; dimensionUnit?: string };
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;
@@ -113,9 +113,9 @@ export type SSRatesBody = {
 
 export type AggregatedRatesBody = {
   mode: "best_available";
-  origin: { city: string; postalCode?: string; state?: string; country?: string };
-  destination: { city: string; postalCode?: string; state?: string; country?: string };
-  parcel: { weight: number; weightUnit?: string };
+  origin: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
+  destination: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
+  parcel: { weight: number; weightUnit?: string; length?: number; width?: number; height?: number; dimensionUnit?: string };
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;
@@ -131,15 +131,16 @@ export async function apiGetRates(body: RatesBody): Promise<RatesData> {
 
 export type CreateLabelBody = {
   provider: LogisticsProvider;
-  origin: { city: string; postalCode: string; state?: string; country?: string };
+  origin: { line1?: string; line2?: string; city: string; postalCode: string; state?: string; country?: string };
   destination: {
     city: string;
     postalCode: string;
     state?: string;
     country?: string;
     line1?: string;
+    line2?: string;
   };
-  parcel: { weight: number; weightUnit?: string };
+  parcel: { weight: number; weightUnit?: string; length?: number; width?: number; height?: number; dimensionUnit?: string };
   carrierCode: string;
   serviceCode: string;
   expectedCost?: number;                          // full customer price (providerCost + platformMarkup + paymentFee)
