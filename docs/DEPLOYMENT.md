@@ -40,6 +40,10 @@ Web publicas:
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_APP_URL
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY   # OPCIONAL — habilita Google Places Autocomplete en /crear-guia
+                                   # Si está vacía el formulario funciona en modo manual
+                                   # Restringir por dominio HTTP en Google Cloud Console antes de producción
+                                   # Requiere: Maps JavaScript API + Places API habilitados
 ```
 
 Web privadas:

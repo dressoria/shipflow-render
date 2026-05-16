@@ -891,9 +891,158 @@ handleConfirmed() (CreateGuideForm)
 - No se ejecutaron migraciones.
 - No se hizo commit ni deploy.
 
-**Validaciones:** lint, typecheck, build — ver reporte final de validaciones.
+**Validaciones:** lint 0 errores, 16 warnings (pre-existentes en adapters skeleton), typecheck limpio, build exitoso (24 rutas).
 
 **Pendiente (fase posterior):**
 - Implementar métodos reales en Shippo/EasyPost/Easyship adapters.
 - Mover constantes de pricing a configuración DB/admin.
 - FASE 6: mobile al backend seguro.
+
+## Estado FASE 5.11 — Dirección inteligente, Google Places y bloqueo de cotizaciones falsas
+
+Objetivo:
+
+- Reemplazar campos de dirección sueltos por un componente estructurado reutilizable.
+- Integrar Google Places Autocomplete opcionalmente (con fallback manual sin API key).
+- Bloquear cotizaciones en línea si Supabase o los providers no están configurados.
+- Exponer un endpoint público de estado de configuración para diagnóstico en UI.
+- Mostrar mensajes claros de error de configuración en lugar de tarifas falsas.
+
+**Tipo nuevo en `lib/types.ts`:**
+- `StructuredAddress` — dirección postal completa con campos: `name`, `phone`, `company`, `street1`, `street2`, `city`, `state`, `postalCode`, `country`, `latitude`, `longitude`, `formattedAddress`, `placeId`, `source` ("manual" | "google_places" | "map_pin"), `validationStatus` ("complete" | "incomplete" | "needs_review").
+
+**Variable de entorno nueva (`.env.example`):**
+```
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+```
+- Si está vacía: formulario manual limpio sin dependencias externas.
+- Si está configurada: habilita Google Places Autocomplete en `AddressInput`.
+- La key debe restringirse por dominio HTTP en Google Cloud Console antes de usar en producción.
+- Requiere: Maps JavaScript API + Places API habilitados en el proyecto de Google Cloud.
+
+**Endpoint nuevo — `GET /api/config/status` (público, sin auth):**
+```json
+{
+  "supabaseConfigured": boolean,
+  "serviceRoleConfigured": boolean,
+  "ratesConfigured": boolean,
+  "googleMapsConfigured": boolean,
+  "activeRateProviders": number
+}
+```
+- Solo devuelve booleans. Nunca revela valores de secrets ni keys.
+- Usado por `/crear-guia` para saber si debe permitir cotización real.
+
+**Función nueva en `lib/services/apiClient.ts`:**
+- `apiGetConfigStatus(): Promise<ConfigStatus>` — GET público sin token. En caso de error retorna todos `false` para no mostrar UI de cotización real.
+
+**Componente nuevo — `components/AddressInput.tsx`:**
+- Sirve tanto para Remitente como para Destinatario.
+- Props: `sectionLabel`, `value: StructuredAddress`, `onChange`, `requirePostal?`, `errors?`.
+- Campos: Nombre, Teléfono, [Buscar dirección si Google Maps key], Calle, Apt/Suite, Ciudad, Estado, ZIP, País.
+- Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`:
+  - Carga script de Google Maps JS una sola vez (idempotente: `window.__gMapsLoaded`).
+  - Inicializa `google.maps.places.Autocomplete` en el campo de búsqueda.
+  - Al seleccionar: parsea `address_components` y llena campos automáticamente.
+  - Si faltan campos tras autocompletar: `validationStatus = "needs_review"`, muestra aviso.
+  - Si todos los campos están presentes: `validationStatus = "complete"`, badge verde.
+- Sin `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: formulario manual limpio, mismos campos, sin búsqueda.
+- No instala paquetes. Los tipos de Google Maps se declaran inline con `declare global`.
+
+**`components/CreateGuideForm.tsx` — refactorizado:**
+- `FormState` usa `origin: StructuredAddress` y `destination: StructuredAddress` en lugar de campos sueltos.
+- Integra `AddressInput` en ambos modos (standard y online).
+- Fetch de `apiGetConfigStatus()` en mount. Resultados en estado `configStatus`.
+- Banners de error si Supabase no está configurado o no hay providers activos (solo en modo online).
+- Botón "Buscar tarifas" deshabilitado si `showConfigWarning` (Supabase ausente).
+- Hint "Tarifa estimada según dirección y paquete ingresados." visible debajo del listado de tarifas.
+- Aviso inline si faltan ZIP de origen o destino al intentar generar guía.
+- En `handleFetchRates()`: si Supabase o rates no configurados → error inmediato sin llamar API.
+- Si el error de la API menciona "supabase" o "not configured" → mensaje claro de configuración.
+- Validaciones de dirección separadas: `validateAddress(addr, prefix, strict)`.
+  - `strict = true` (para generar label): requiere `postalCode` y `state`.
+  - `strict = false` (para buscar rates): solo requiere `city`.
+
+**Mapa/pin:**
+- No implementado en FASE 5.11. Prioridad fue autocomplete + validación estructurada.
+- `AddressMapPicker` documentado como pendiente para fase posterior.
+
+**Compatibilidad:**
+- Sin Google Maps key: formulario funciona igual que antes (manual).
+- Sin Supabase: modo standard sigue funcionando (cotización local con couriers). Solo modo online queda bloqueado.
+
+**Archivos creados:**
+- `components/AddressInput.tsx`
+- `app/api/config/status/route.ts`
+
+**Archivos modificados:**
+- `lib/types.ts`: + `StructuredAddress`, `AddressSource`, `AddressValidationStatus`.
+- `lib/services/apiClient.ts`: + `ConfigStatus` type y `apiGetConfigStatus()`.
+- `components/CreateGuideForm.tsx`: refactorizado completo.
+- `.env.example`: + `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
+
+**Validaciones:** lint 0 errores, typecheck limpio, build exitoso (25 rutas).
+
+**Pendiente (fase posterior):**
+- `AddressMapPicker` con selección de pin en mapa y reverse geocoding.
+- Activar segundo provider real de rates.
+- Mover constantes de pricing a configuración DB/admin.
+- FASE 6: mobile al backend seguro.
+
+## Estado FASE 5.12 — EasyPost rates reales
+
+**Objetivo:** Activar EasyPost como segundo provider real de rates (cotizaciones solamente).
+
+**Archivos modificados:**
+- `lib/logistics/adapters/EasyPostAdapter.ts`: `getRates()` implementado con llamada real a `POST https://api.easypost.com/v2/shipments`. `createLabel()` y `voidLabel()` siguen lanzando `ProviderUnavailableError`.
+- `lib/logistics/providerCapabilities.ts`: `supportsLabels: false`, `supportsVoid: false` para EasyPost.
+
+**EasyPost API:**
+- Base URL: `https://api.easypost.com/v2`
+- Autenticación: Basic Auth con `EASYPOST_API_KEY` como username, password vacío: `base64("key:")`.
+- Endpoint: `POST /shipments` → crea un Shipment (sin comprar label) y devuelve `rates[]`.
+- Peso: requiere onzas. Conversión interna: lb×16, oz×1, kg×35.274.
+- Dimensiones: pulgadas. Conversión interna: cm/2.54.
+- Dirección: usa campo `zip` (no `postalCode`).
+
+**Campos requeridos para rates EasyPost:**
+- `origin.postalCode` y `destination.postalCode` (mapeados a `zip`).
+- `parcel.weight > 0`.
+
+**Normalización de rates:**
+- `provider: "easypost"`, `providerRateId: rate.id`.
+- `courierId/courierName = rate.carrier` (USPS, UPS, FedEx, etc. — devuelto por EasyPost).
+- `serviceCode/serviceName = rate.service`.
+- `providerCost = parseFloat(rate.rate)`.
+- `estimatedTime = "${delivery_days} day(s)"` si disponible.
+- Pasan por el pipeline completo: `repriceRate → deduplicateRates → rankRates`.
+
+**Flujo multi-provider con EasyPost activo:**
+```
+POST /api/rates { mode: "best_available" }
+→ RateAggregator consulta ShipStation + EasyPost en paralelo (Promise.allSettled)
+→ Si EasyPost falla, ShipStation sigue respondiendo y viceversa
+→ repriceRate() aplica markup + payment_fee a cada rate
+→ deduplicateRates() elige el proveedor más barato por carrier/servicio/días
+→ rankRates() asigna tags cheapest/fastest/recommended
+→ UI muestra carrier real (USPS, UPS, FedEx, DHL), precio total, entrega estimada
+→ Provider nunca visible en UI
+```
+
+**Bloqueo de labels EasyPost:**
+- `CreateGuideForm.handleConfirmed()` verifica `selectedApiRate.provider === "easypost"` y muestra:
+  "Esta opción todavía no está disponible para generar guía. Selecciona otra tarifa."
+- `/api/labels` devuelve 501 si `provider: "easypost"` en el body.
+- No se compra nada.
+
+**Variable requerida:**
+```text
+EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
+
+**Validaciones:** lint 0 errores, typecheck limpio, build exitoso.
+
+**Pendiente (fase posterior):**
+- `EasyPostAdapter.createLabel()` — labels reales con EasyPost.
+- `EasyPostAdapter.voidLabel()`.
+- Activar Shippo como tercer provider o labels multi-provider.

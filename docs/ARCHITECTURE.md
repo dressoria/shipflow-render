@@ -380,6 +380,36 @@ La RPC `create_label_shipment_transaction` fue actualizada con 4 nuevos parametr
 
 PREREQUISITO: Aplicar FASE 1C y FASE 4D antes de esta migracion.
 
+## Dirección inteligente y config status FASE 5.11
+
+Nuevos elementos en `shipflow-web`:
+
+- `components/AddressInput.tsx` — componente reutilizable de dirección estructurada. Integra Google Places Autocomplete si `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` está configurado; fallback a formulario manual si no.
+- `app/api/config/status` — endpoint GET público que devuelve booleans de configuración sin exponer secrets. Consumido por `/crear-guia` para bloquear cotizaciones si falta Supabase o providers.
+- `lib/types.ts`: tipo `StructuredAddress` con `name`, `phone`, `street1`, `city`, `state`, `postalCode`, `country`, `latitude`, `longitude`, `formattedAddress`, `placeId`, `source`, `validationStatus`.
+- `lib/services/apiClient.ts`: función `apiGetConfigStatus()` — fetch público sin auth.
+
+`CreateGuideForm` usa `StructuredAddress` para origen y destino. Valida dirección antes de cotizar y bloquea la cotización online si la configuración del servidor es incompleta.
+
+Google Maps / Places:
+- Script cargado dinámicamente en el cliente (sin paquetes npm adicionales).
+- Tipos declarados inline con `declare global { interface Window { google? } }`.
+- La key debe restringirse por dominio HTTP en Google Cloud antes de producción.
+- Sin key: flujo manual idéntico al anterior.
+
+`AddressMapPicker` (mapa con pin de selección + reverse geocoding): pendiente FASE futura.
+
+## EasyPost rates reales FASE 5.12
+
+`EasyPostAdapter.getRates()` implementado. Llama a `POST https://api.easypost.com/v2/shipments` con Basic Auth (`EASYPOST_API_KEY:`). Activo cuando `EASYPOST_API_KEY` está configurado.
+
+Cambios:
+- `lib/logistics/adapters/EasyPostAdapter.ts`: `getRates()` real; `createLabel()` y `voidLabel()` siguen en `ProviderUnavailableError`.
+- `lib/logistics/providerCapabilities.ts`: `supportsLabels: false`, `supportsVoid: false` para EasyPost.
+- El `RateAggregator` consulta ShipStation + EasyPost en paralelo cuando ambas keys están presentes.
+- Deduplicación: si ShipStation y EasyPost devuelven el mismo servicio/carrier, se muestra solo el más barato.
+- Labels: EasyPost bloqueado en UI (`handleConfirmed`) y en `/api/labels` (devuelve 501). Solo ShipStation compra labels reales.
+
 ## Arquitectura futura deseada
 
 La arquitectura futura debe mover operaciones sensibles a backend:

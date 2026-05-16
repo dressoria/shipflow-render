@@ -21,6 +21,32 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return json.data as T;
 }
 
+// ── Config status ───────────────────────────────────────────────────────────
+
+export type ConfigStatus = {
+  supabaseConfigured: boolean;
+  serviceRoleConfigured: boolean;
+  ratesConfigured: boolean;
+  googleMapsConfigured: boolean;
+  activeRateProviders: number;
+};
+
+// Public fetch — no auth token required. Returns configuration booleans only.
+export async function apiGetConfigStatus(): Promise<ConfigStatus> {
+  const res = await fetch("/api/config/status");
+  const json = (await res.json()) as { success: boolean; data: ConfigStatus | null; error: string | null };
+  if (!res.ok || !json.success || !json.data) {
+    return {
+      supabaseConfigured: false,
+      serviceRoleConfigured: false,
+      ratesConfigured: false,
+      googleMapsConfigured: false,
+      activeRateProviders: 0,
+    };
+  }
+  return json.data;
+}
+
 // ── Balance ─────────────────────────────────────────────────────────────────
 
 export type BalanceMovement = {

@@ -1,17 +1,17 @@
 # Integracion logistica
 
-## Estado actual de providers (FASE 5.10)
+## Estado actual de providers (FASE 5.12)
 
 ### Arquitectura multi-provider
 
-FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. La capa logistics ahora soporta:
+FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. FASE 5.12 activó EasyPost rates reales. La capa logistics ahora soporta:
 
 | Provider | Rates | Labels | Void | Tracking | Configurado |
 |---|---|---|---|---|---|
 | internal/mock | Sí (local) | Sí (local) | Sí | No | Siempre (fallback) |
 | shipstation | Sí (real) | Sí (real) | Sí (real) | No | Si SHIPSTATION_API_KEY+SECRET |
+| easypost | Sí (real) | Pendiente | No | Preparado | Si EASYPOST_API_KEY |
 | shippo | Preparado | Preparado | Preparado | Preparado | No (skeleton) |
-| easypost | Preparado | Preparado | Preparado | Preparado | No (skeleton) |
 | easyship | Preparado | Preparado | No | Preparado | No (skeleton) |
 
 ### RateAggregator
@@ -68,10 +68,53 @@ customer_price  = subtotal + payment_fee
 
 Describe capacidades y estado de configuración de cada provider. Se evalúa al importar el módulo (server-side). Permite al RateAggregator saber cuáles providers consultar sin intentar llamadas a providers no configurados.
 
+### EasyPost — rates reales (FASE 5.12)
+
+`EasyPostAdapter.getRates()` implementado. Llama a `POST https://api.easypost.com/v2/shipments`, que crea un Shipment en EasyPost sin comprar un label y devuelve todos los rates disponibles según las carriers conectadas a la cuenta.
+
+**Autenticación:** Basic Auth con `EASYPOST_API_KEY` como username y password vacío: `Authorization: Basic base64("key:")`.
+
+**Campos requeridos:**
+- `origin.postalCode` y `destination.postalCode` → mapeados a campo `zip` de EasyPost.
+- `parcel.weight > 0`.
+
+**Conversiones internas:**
+- Peso: lb×16 → oz (EasyPost requiere onzas).
+- Dimensiones: cm÷2.54 → in (EasyPost requiere pulgadas).
+
+**Normalización de rates:**
+```
+rate.carrier → courierId/courierName (e.g. "USPS", "UPS", "FedEx")
+rate.service → serviceCode/serviceName (e.g. "Priority", "Ground")
+parseFloat(rate.rate) → providerCost
+rate.id → providerRateId
+rate.delivery_days ?? est_delivery_days → estimatedTime
+```
+
+**Labels:** No implementado. `createLabel()` y `voidLabel()` lanzan `ProviderUnavailableError`. La UI bloquea antes de llamar `/api/labels` si el rate es de EasyPost; el endpoint también devuelve 501.
+
+**Errores manejados:**
+
+| Situación | Clase de error | HTTP |
+|---|---|---|
+| EASYPOST_API_KEY faltante | `ProviderUnavailableError` | 503 |
+| 401/403 de EasyPost | `ProviderAuthError` | 401 |
+| 429 rate limit | `ProviderRateLimitError` | 429 |
+| 400/422 payload inválido | `InvalidPayloadError` | 400 |
+| postalCode faltante | `InvalidAddressError` | 400 |
+| Sin rates devueltos | `ProviderUnavailableError` | 503 |
+| Timeout/network | `ProviderTimeoutError` / `ProviderUnavailableError` | 504/503 |
+
+**Variables:**
+```text
+EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
+
+Si no está configurada, `PROVIDER_CAPABILITIES.easypost.configured = false` y el `RateAggregator` omite EasyPost automáticamente.
+
 ### Adapters skeleton
 
 - `ShippoAdapter.ts` — listo para implementar. Requiere `SHIPPO_API_KEY`.
-- `EasyPostAdapter.ts` — listo para implementar. Requiere `EASYPOST_API_KEY`.
 - `EasyshipAdapter.ts` — listo para implementar. Requiere `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
 
 Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
@@ -125,10 +168,10 @@ Internal path: via insert con fallback isMissingSchemaColumnError para instancia
 - `20260515_add_pricing_breakdown_to_shipments.sql` — debe aplicarse en Supabase antes de labels reales en staging.
 - PREREQUISITO: `20260514_shipflow_security_logistics_foundation.sql` y `20260514_create_label_transaction_rpc.sql` deben estar aplicados primero.
 
-### Pendiente antes de activar providers externos
+### Pendiente antes de activar más providers externos
 
+- Implementar `EasyPostAdapter.createLabel()` y `voidLabel()` (rates ya activos).
 - Implementar `ShippoAdapter.getRates()`, `createLabel()`, `voidLabel()`.
-- Implementar `EasyPostAdapter` ídem.
 - Implementar `EasyshipAdapter` ídem.
 - Definir modelo matemático final de ranking/margen.
 

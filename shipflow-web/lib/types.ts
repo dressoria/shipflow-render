@@ -126,3 +126,24 @@ export type TrackingStatus = {
 };
 
 export type TrackingResult = TrackingStatus;
+
+export type AddressSource = "manual" | "google_places" | "map_pin";
+export type AddressValidationStatus = "complete" | "incomplete" | "needs_review";
+
+export type StructuredAddress = {
+  name?: string;
+  phone?: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
+  placeId?: string;
+  source?: AddressSource;
+  validationStatus?: AddressValidationStatus;
+};

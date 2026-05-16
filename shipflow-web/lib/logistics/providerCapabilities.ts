@@ -55,8 +55,8 @@ export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabiliti
   },
   easypost: {
     supportsRates: true,
-    supportsLabels: true,
-    supportsVoid: true,
+    supportsLabels: false, // labels not yet implemented — rates only (FASE 5.12)
+    supportsVoid: false,   // not yet implemented
     supportsTracking: true,
     supportsAddressValidation: true,
     configured: Boolean(process.env.EASYPOST_API_KEY?.trim()?.length),

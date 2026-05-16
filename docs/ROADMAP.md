@@ -375,6 +375,68 @@ Pendiente:
 
 Validaciones: ver reporte final de validaciones.
 
+## FASE 5.11 — Dirección inteligente, Google Places y bloqueo de cotizaciones falsas (completada)
+
+Objetivo:
+
+- Componente de dirección estructurada reutilizable.
+- Google Places Autocomplete opcional (sin dependencias npm, con fallback manual).
+- Bloquear cotizaciones online si falta Supabase o providers.
+- Endpoint de salud de configuración.
+
+Tareas completadas:
+
+- `lib/types.ts`: nuevo tipo `StructuredAddress` con todos los campos de una dirección postal + metadata (source, validationStatus, placeId, lat/lng).
+- `.env.example`: + `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` con documentación (opcional, restringir por dominio, Maps JS + Places API).
+- `app/api/config/status/route.ts` (nuevo): GET público que devuelve booleans de configuración. Nunca revela secrets.
+- `lib/services/apiClient.ts`: + `ConfigStatus` type y `apiGetConfigStatus()` — fetch público sin auth, retorna todos `false` en caso de error.
+- `components/AddressInput.tsx` (nuevo):
+  - Props: `sectionLabel`, `value: StructuredAddress`, `onChange`, `requirePostal?`, `errors?`.
+  - Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: carga script Google Maps JS una sola vez (idempotente), inicializa `Autocomplete`, parsea `address_components` al seleccionar, muestra `validationStatus`.
+  - Sin key: formulario manual limpio, mismos campos, ninguna llamada externa.
+  - Tipos de Google Maps declarados inline con `declare global` (sin `@types/google.maps`).
+- `components/CreateGuideForm.tsx` — refactorizado:
+  - `FormState` usa `origin: StructuredAddress` y `destination: StructuredAddress`.
+  - `AddressInput` integrado en modo standard y online.
+  - `apiGetConfigStatus()` en mount. Banners de error solo en modo online.
+  - Botón "Buscar tarifas" deshabilitado si Supabase no está configurado.
+  - Hint "Tarifa estimada según dirección y paquete ingresados." en la lista de tarifas.
+  - Aviso inline si falta ZIP al intentar generar guía.
+  - Validación con `strict = false` para rates (solo ciudad), `strict = true` para label (postal + estado).
+  - `handleFetchRates()` corta antes de llamar API si config inválida.
+
+`AddressMapPicker` (pin en mapa + reverse geocoding): no implementado; pendiente fase futura.
+
+Variables nuevas:
+```text
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY   # OPCIONAL — habilita Google Places Autocomplete
+```
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso (25 rutas).
+
+## FASE 5.12 — EasyPost rates reales (completada)
+
+Objetivo:
+
+- Activar EasyPost como segundo provider real de cotizaciones.
+- Labels siguen siendo solo ShipStation por ahora.
+
+Tareas completadas:
+
+- `lib/logistics/adapters/EasyPostAdapter.ts`: `getRates()` real implementado. Llama a `POST https://api.easypost.com/v2/shipments`. Auth: Basic Auth con `EASYPOST_API_KEY:`. Convierte peso a onzas y dimensiones a pulgadas. Normaliza rates de EasyPost a `RateResult[]`.
+- `lib/logistics/providerCapabilities.ts`: EasyPost marcado `supportsLabels: false`, `supportsVoid: false` (rates únicamente).
+- `RateAggregator`: ya consultaba EasyPost en `Promise.allSettled` — ahora tiene rates reales si `EASYPOST_API_KEY` está configurada.
+- Pipeline multi-provider: `repriceRate → deduplicateRates → rankRates` aplica también a rates de EasyPost.
+- Bloqueo de labels EasyPost en UI (`handleConfirmed`) y server (`/api/labels` → 501).
+- UI: provider nunca visible. Solo carrier real (USPS, UPS, FedEx), precio final, entrega estimada.
+
+Variables nuevas:
+```text
+EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

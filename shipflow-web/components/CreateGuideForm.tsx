@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Info,
   Package,
   MapPin,
   User,
@@ -16,73 +17,61 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/Badge";
-import { isPhone, required } from "@/lib/forms";
+import { AddressInput } from "@/components/AddressInput";
+import type { AddressInputErrors } from "@/components/AddressInput";
+import { isPhone } from "@/lib/forms";
 import { calculateShippingRate, getActiveCouriers } from "@/lib/services/courierService";
 import { createShipment } from "@/lib/services/shipmentService";
 import {
   apiCreateLabel,
+  apiGetConfigStatus,
   apiGetRates,
+  type ConfigStatus,
   type CreateLabelResult,
 } from "@/lib/services/apiClient";
-import type { CourierConfig, Envio, ShippingRate } from "@/lib/types";
+import type { CourierConfig, Envio, ShippingRate, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
 import { formatCurrency } from "@/lib/utils";
 
 // "standard" = internal/mock | "online" = best_available (multi-provider)
 type QuoteMode = "standard" | "online";
 
+const EMPTY_ADDRESS: StructuredAddress = {
+  name: "",
+  phone: "",
+  street1: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "US",
+  source: "manual",
+  validationStatus: "incomplete",
+};
+
 type FormState = {
-  senderName: string;
-  senderPhone: string;
-  originCity: string;
-  recipientName: string;
-  recipientPhone: string;
-  destinationCity: string;
-  destinationAddress: string;
+  origin: StructuredAddress;
+  destination: StructuredAddress;
   weight: string;
   productType: string;
   // Standard-only
   courier: string;
   cashOnDelivery: "no" | "si";
   cashAmount: string;
-  // Online quotation extra address fields
-  originPostalCode: string;
-  originState: string;
-  destinationPostalCode: string;
-  destinationState: string;
+  // Shared
   weightUnit: "lb" | "oz";
 };
 
 const initialState: FormState = {
-  senderName: "",
-  senderPhone: "",
-  originCity: "New York, NY",
-  recipientName: "",
-  recipientPhone: "",
-  destinationCity: "Chicago, IL",
-  destinationAddress: "",
+  origin: { ...EMPTY_ADDRESS, city: "New York", state: "NY", country: "US" },
+  destination: { ...EMPTY_ADDRESS, city: "Chicago", state: "IL", country: "US" },
   weight: "1",
   productType: "Apparel and accessories",
   courier: "",
   cashOnDelivery: "no",
   cashAmount: "",
-  originPostalCode: "",
-  originState: "",
-  destinationPostalCode: "",
-  destinationState: "",
   weightUnit: "lb",
 };
 
-const cities = [
-  "New York, NY",
-  "Los Angeles, CA",
-  "Chicago, IL",
-  "Houston, TX",
-  "Phoenix, AZ",
-  "Miami, FL",
-  "Seattle, WA",
-  "Austin, TX",
-];
 const productTypes = [
   "Apparel and accessories",
   "Electronics",
@@ -96,6 +85,9 @@ export function CreateGuideForm() {
   const [mode, setMode] = useState<QuoteMode>("standard");
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Server config status — fetched once on mount
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
   // Standard couriers
   const [couriers, setCouriers] = useState<CourierConfig[]>([]);
@@ -116,6 +108,8 @@ export function CreateGuideForm() {
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
+    // Load couriers and config status in parallel
+    apiGetConfigStatus().then(setConfigStatus);
     window.setTimeout(() => {
       getActiveCouriers().then((items) => {
         setCouriers(items);
@@ -142,20 +136,32 @@ export function CreateGuideForm() {
       calculateShippingRate({
         courier: c,
         peso: Number(form.weight) || 1,
-        ciudadOrigen: form.originCity,
-        ciudadDestino: form.destinationCity,
+        ciudadOrigen: form.origin.city || "—",
+        ciudadDestino: form.destination.city || "—",
         contraEntrega: form.cashOnDelivery === "si",
         valorCobrar: Number(form.cashAmount) || 0,
       }),
     );
-  }, [couriers, form.cashAmount, form.cashOnDelivery, form.destinationCity, form.originCity, form.weight]);
+  }, [couriers, form.cashAmount, form.cashOnDelivery, form.destination.city, form.origin.city, form.weight]);
 
   const selectedStandardRate =
     standardRates.find((r) => r.courier.nombre === form.courier) ?? standardRates[0];
 
-  function update(name: keyof FormState, value: string) {
+  function updateOrigin(addr: StructuredAddress) {
+    setForm((current) => ({ ...current, origin: addr }));
+    setApiRates([]);
+    setSelectedApiRate(null);
+  }
+
+  function updateDestination(addr: StructuredAddress) {
+    setForm((current) => ({ ...current, destination: addr }));
+    setApiRates([]);
+    setSelectedApiRate(null);
+  }
+
+  function updateField(name: keyof Omit<FormState, "origin" | "destination">, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
-    if (["weight", "originCity", "destinationCity"].includes(name)) {
+    if (name === "weight") {
       setApiRates([]);
       setSelectedApiRate(null);
     }
@@ -163,25 +169,34 @@ export function CreateGuideForm() {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
-  function validateCommon() {
-    const next: Record<string, string> = {};
-    const fields: Array<keyof FormState> = [
-      "senderName", "senderPhone", "originCity",
-      "recipientName", "recipientPhone", "destinationCity",
-      "destinationAddress", "weight", "productType",
-    ];
-    fields.forEach((f) => {
-      if (!required(form[f])) next[f] = "Campo requerido.";
-    });
-    if (form.senderPhone && !isPhone(form.senderPhone)) next.senderPhone = "Teléfono inválido.";
-    if (form.recipientPhone && !isPhone(form.recipientPhone)) next.recipientPhone = "Teléfono inválido.";
-    if (Number(form.weight) <= 0) next.weight = "Ingresa un peso válido.";
+  type ErrorMap = Record<string, string>;
+
+  function validateAddress(addr: StructuredAddress, prefix: string, strict: boolean): ErrorMap {
+    const next: ErrorMap = {};
+    if (!addr.name?.trim()) next[`${prefix}.name`] = "Campo requerido.";
+    if (!addr.phone?.trim()) next[`${prefix}.phone`] = "Campo requerido.";
+    else if (!isPhone(addr.phone)) next[`${prefix}.phone`] = "Teléfono inválido.";
+    if (!addr.city?.trim()) next[`${prefix}.city`] = "Campo requerido.";
+    if (strict) {
+      if (!addr.postalCode?.trim()) next[`${prefix}.postalCode`] = "ZIP requerido para cotizar.";
+      if (!addr.state?.trim()) next[`${prefix}.state`] = "Estado requerido.";
+    }
     return next;
   }
 
-  function validateStandard() {
-    const next = validateCommon();
-    if (!required(form.courier)) next.courier = "Campo requerido.";
+  function validateCommon(strict = false): ErrorMap {
+    return {
+      ...validateAddress(form.origin, "origin", strict),
+      ...validateAddress(form.destination, "destination", strict),
+      ...(Number(form.weight) <= 0 ? { weight: "Ingresa un peso válido." } : {}),
+      ...(!form.productType ? { productType: "Campo requerido." } : {}),
+    };
+  }
+
+  function validateStandard(): ErrorMap {
+    const next = validateCommon(false);
+    if (!form.destination.street1?.trim()) next["destination.street1"] = "Campo requerido.";
+    if (!form.courier) next.courier = "Campo requerido.";
     if (form.cashOnDelivery === "si" && Number(form.cashAmount) <= 0)
       next.cashAmount = "Ingresa el monto a cobrar.";
     if (
@@ -193,12 +208,44 @@ export function CreateGuideForm() {
     return next;
   }
 
-  function validateOnlineLabel() {
-    const next = validateCommon();
-    if (!required(form.originPostalCode)) next.originPostalCode = "Requerido para generar guía.";
-    if (!required(form.destinationPostalCode)) next.destinationPostalCode = "Requerido para generar guía.";
+  function validateOnlineRates(): ErrorMap {
+    // For rate fetching: only need origin+destination city + weight
+    const next: ErrorMap = {};
+    if (!form.origin.city?.trim()) next["origin.city"] = "Campo requerido.";
+    if (!form.destination.city?.trim()) next["destination.city"] = "Campo requerido.";
+    if (Number(form.weight) <= 0) next.weight = "Ingresa un peso válido.";
+    return next;
+  }
+
+  function validateOnlineLabel(): ErrorMap {
+    const next = validateCommon(true);
+    if (!form.destination.street1?.trim()) next["destination.street1"] = "Campo requerido.";
     if (!selectedApiRate) next.form = "Selecciona una tarifa antes de generar la guía.";
     return next;
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  function originErrors(): AddressInputErrors {
+    return {
+      name: errors["origin.name"],
+      phone: errors["origin.phone"],
+      street1: errors["origin.street1"],
+      city: errors["origin.city"],
+      state: errors["origin.state"],
+      postalCode: errors["origin.postalCode"],
+    };
+  }
+
+  function destinationErrors(): AddressInputErrors {
+    return {
+      name: errors["destination.name"],
+      phone: errors["destination.phone"],
+      street1: errors["destination.street1"],
+      city: errors["destination.city"],
+      state: errors["destination.state"],
+      postalCode: errors["destination.postalCode"],
+    };
   }
 
   // ── Standard submit ─────────────────────────────────────────────────────────
@@ -215,13 +262,13 @@ export function CreateGuideForm() {
     const guide: Envio = {
       id: trackingNumber,
       trackingNumber,
-      senderName: form.senderName.trim(),
-      senderPhone: form.senderPhone.trim(),
-      originCity: form.originCity,
-      recipientName: form.recipientName.trim(),
-      recipientPhone: form.recipientPhone.trim(),
-      destinationCity: form.destinationCity,
-      destinationAddress: form.destinationAddress.trim(),
+      senderName: form.origin.name?.trim() ?? "",
+      senderPhone: form.origin.phone?.trim() ?? "",
+      originCity: form.origin.city,
+      recipientName: form.destination.name?.trim() ?? "",
+      recipientPhone: form.destination.phone?.trim() ?? "",
+      destinationCity: form.destination.city,
+      destinationAddress: form.destination.street1.trim(),
       weight: Number(form.weight),
       productType: form.productType,
       courier: selectedStandardRate.courier.nombre,
@@ -248,7 +295,22 @@ export function CreateGuideForm() {
 
   async function handleFetchRates(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const errs = validateCommon();
+
+    if (configStatus && !configStatus.supabaseConfigured) {
+      setRatesError(
+        "Supabase no está configurado en el servidor. Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY para cotizar en modo real.",
+      );
+      return;
+    }
+
+    if (configStatus && !configStatus.ratesConfigured) {
+      setRatesError(
+        "No hay proveedores de tarifas configurados en el servidor. Agrega al menos una API key de carrier para cotizar en modo real.",
+      );
+      return;
+    }
+
+    const errs = validateOnlineRates();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     setFetchingRates(true);
@@ -260,8 +322,18 @@ export function CreateGuideForm() {
     try {
       const result = await apiGetRates({
         mode: "best_available",
-        origin: { city: form.originCity },
-        destination: { city: form.destinationCity },
+        origin: {
+          city: form.origin.city,
+          postalCode: form.origin.postalCode || undefined,
+          state: form.origin.state || undefined,
+          country: form.origin.country || "US",
+        },
+        destination: {
+          city: form.destination.city,
+          postalCode: form.destination.postalCode || undefined,
+          state: form.destination.state || undefined,
+          country: form.destination.country || "US",
+        },
         parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },
       });
       if (!result.rates.length) {
@@ -271,7 +343,13 @@ export function CreateGuideForm() {
         setSelectedApiRate(result.rates[0]);
       }
     } catch (err) {
-      setRatesError(err instanceof Error ? err.message : "No se pudieron obtener tarifas. Verifica tu conexión.");
+      const msg = err instanceof Error ? err.message : "No se pudieron obtener tarifas.";
+      // Surface Supabase config errors clearly
+      if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
+        setRatesError("El servidor no está configurado correctamente. Verifica las variables de entorno de Supabase.");
+      } else {
+        setRatesError(msg);
+      }
     } finally {
       setFetchingRates(false);
     }
@@ -308,17 +386,17 @@ export function CreateGuideForm() {
       const result: CreateLabelResult = await apiCreateLabel({
         provider: rateProvider,
         origin: {
-          city: form.originCity,
-          postalCode: form.originPostalCode.trim(),
-          state: form.originState.trim() || undefined,
-          country: "US",
+          city: form.origin.city,
+          postalCode: form.origin.postalCode,
+          state: form.origin.state || undefined,
+          country: form.origin.country || "US",
         },
         destination: {
-          city: form.destinationCity,
-          postalCode: form.destinationPostalCode.trim(),
-          state: form.destinationState.trim() || undefined,
-          country: "US",
-          line1: form.destinationAddress.trim() || undefined,
+          city: form.destination.city,
+          postalCode: form.destination.postalCode,
+          state: form.destination.state || undefined,
+          country: form.destination.country || "US",
+          line1: form.destination.street1 || undefined,
         },
         parcel: { weight: Number(form.weight), weightUnit: form.weightUnit },
         carrierCode: selectedApiRate.courierId,
@@ -340,10 +418,10 @@ export function CreateGuideForm() {
           paymentFeeFixed: selectedApiRate.pricing.paymentFeeFixed,
         },
         idempotencyKey: idempotencyKeyRef.current,
-        senderName: form.senderName.trim() || undefined,
-        senderPhone: form.senderPhone.trim() || undefined,
-        recipientName: form.recipientName.trim() || undefined,
-        recipientPhone: form.recipientPhone.trim() || undefined,
+        senderName: form.origin.name?.trim() || undefined,
+        senderPhone: form.origin.phone?.trim() || undefined,
+        recipientName: form.destination.name?.trim() || undefined,
+        recipientPhone: form.destination.phone?.trim() || undefined,
         productType: form.productType || undefined,
       });
 
@@ -371,11 +449,33 @@ export function CreateGuideForm() {
     URL.revokeObjectURL(url);
   }
 
+  // ── Config alerts ───────────────────────────────────────────────────────────
+
+  const showConfigWarning = configStatus !== null && !configStatus.supabaseConfigured;
+  const showNoRatesWarning =
+    configStatus !== null && configStatus.supabaseConfigured && !configStatus.ratesConfigured;
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="grid gap-6">
       <ModeSelector mode={mode} onChange={handleModeChange} />
+
+      {/* Config warnings — only shown in online mode */}
+      {mode === "online" && showConfigWarning && (
+        <ConfigAlert type="error">
+          <strong>Supabase no está configurado.</strong> Para cotizar en modo real, configura{" "}
+          <code className="rounded bg-red-100 px-1 text-xs">NEXT_PUBLIC_SUPABASE_URL</code> y{" "}
+          <code className="rounded bg-red-100 px-1 text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
+          en el servidor.
+        </ConfigAlert>
+      )}
+      {mode === "online" && showNoRatesWarning && (
+        <ConfigAlert type="warning">
+          <strong>Sin proveedores de tarifas activos.</strong> Configura al menos una API key de
+          carrier (ShipStation, Shippo, EasyPost o Easyship) para ver tarifas reales.
+        </ConfigAlert>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_400px]">
         {/* ── Cotización estándar ── */}
@@ -386,36 +486,31 @@ export function CreateGuideForm() {
             noValidate
           >
             <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nombre del remitente" name="senderName" value={form.senderName} error={errors.senderName} onChange={update} placeholder="Ej. Juan García" />
-              <Field label="Teléfono del remitente" name="senderPhone" value={form.senderPhone} error={errors.senderPhone} onChange={update} placeholder="+1 555 000 0000" />
-              <div className="md:col-span-2">
-                <Select label="Ciudad de origen" name="originCity" value={form.originCity} options={cities} error={errors.originCity} onChange={update} />
-              </div>
-            </div>
+            <AddressInput
+              sectionLabel="Remitente"
+              value={form.origin}
+              onChange={updateOrigin}
+              errors={originErrors()}
+            />
 
             <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nombre del destinatario" name="recipientName" value={form.recipientName} error={errors.recipientName} onChange={update} placeholder="Ej. María López" />
-              <Field label="Teléfono del destinatario" name="recipientPhone" value={form.recipientPhone} error={errors.recipientPhone} onChange={update} placeholder="+1 555 000 0001" />
-              <div className="md:col-span-2">
-                <Select label="Ciudad de destino" name="destinationCity" value={form.destinationCity} options={cities} error={errors.destinationCity} onChange={update} />
-              </div>
-              <div className="md:col-span-2">
-                <Field label="Dirección completa de entrega" name="destinationAddress" value={form.destinationAddress} error={errors.destinationAddress} onChange={update} placeholder="Calle, número, apartamento..." />
-              </div>
-            </div>
+            <AddressInput
+              sectionLabel="Destinatario"
+              value={form.destination}
+              onChange={updateDestination}
+              errors={destinationErrors()}
+            />
 
             <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Peso del paquete" name="weight" value={form.weight} type="number" error={errors.weight} onChange={update} placeholder="1" />
-              <Select label="Tipo de producto" name="productType" value={form.productType} options={productTypes} error={errors.productType} onChange={update} />
-              <Select label="Carrier" name="courier" value={form.courier} options={couriers.map((c) => c.nombre)} error={errors.courier} onChange={update} />
+              <NumberField label="Peso del paquete" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
+              <SelectField label="Tipo de producto" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
+              <SelectField label="Carrier" value={form.courier} options={couriers.map((c) => c.nombre)} onChange={(v) => updateField("courier", v)} error={errors.courier} />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <Select label="¿Contra entrega?" name="cashOnDelivery" value={form.cashOnDelivery} options={["no", "si"]} onChange={update} />
+              <SelectField label="¿Contra entrega?" value={form.cashOnDelivery} options={["no", "si"]} onChange={(v) => updateField("cashOnDelivery", v)} />
               {form.cashOnDelivery === "si" ? (
-                <Field label="Monto a cobrar" name="cashAmount" value={form.cashAmount} type="number" error={errors.cashAmount} onChange={update} placeholder="0.00" />
+                <NumberField label="Monto a cobrar" value={form.cashAmount} onChange={(v) => updateField("cashAmount", v)} placeholder="0.00" error={errors.cashAmount} />
               ) : null}
             </div>
 
@@ -450,35 +545,34 @@ export function CreateGuideForm() {
               </div>
 
               <SectionHeader icon={<User className="h-4 w-4" />} title="Remitente" />
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Nombre del remitente" name="senderName" value={form.senderName} error={errors.senderName} onChange={update} placeholder="Ej. Juan García" />
-                <Field label="Teléfono del remitente" name="senderPhone" value={form.senderPhone} error={errors.senderPhone} onChange={update} placeholder="+1 555 000 0000" />
-                <Select label="Ciudad de origen" name="originCity" value={form.originCity} options={cities} error={errors.originCity} onChange={update} />
-                <Field label="Estado (opcional)" name="originState" value={form.originState} error={errors.originState} onChange={update} placeholder="Ej. NY" />
-              </div>
+              <AddressInput
+                sectionLabel="Remitente"
+                value={form.origin}
+                onChange={updateOrigin}
+                requirePostal={false}
+                errors={originErrors()}
+              />
 
               <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Nombre del destinatario" name="recipientName" value={form.recipientName} error={errors.recipientName} onChange={update} placeholder="Ej. María López" />
-                <Field label="Teléfono del destinatario" name="recipientPhone" value={form.recipientPhone} error={errors.recipientPhone} onChange={update} placeholder="+1 555 000 0001" />
-                <Select label="Ciudad de destino" name="destinationCity" value={form.destinationCity} options={cities} error={errors.destinationCity} onChange={update} />
-                <Field label="Estado (opcional)" name="destinationState" value={form.destinationState} error={errors.destinationState} onChange={update} placeholder="Ej. IL" />
-                <div className="md:col-span-2">
-                  <Field label="Dirección completa de entrega" name="destinationAddress" value={form.destinationAddress} error={errors.destinationAddress} onChange={update} placeholder="Calle, número, apartamento..." />
-                </div>
-              </div>
+              <AddressInput
+                sectionLabel="Destinatario"
+                value={form.destination}
+                onChange={updateDestination}
+                requirePostal={false}
+                errors={destinationErrors()}
+              />
 
               <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
               <div className="grid gap-4 md:grid-cols-3">
-                <Field label="Peso" name="weight" value={form.weight} type="number" error={errors.weight} onChange={update} placeholder="1" />
-                <Select label="Unidad de peso" name="weightUnit" value={form.weightUnit} options={["lb", "oz"]} onChange={update} />
-                <Select label="Tipo de producto" name="productType" value={form.productType} options={productTypes} error={errors.productType} onChange={update} />
+                <NumberField label="Peso" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
+                <SelectField label="Unidad de peso" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
+                <SelectField label="Tipo de producto" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
               </div>
 
               <button
                 type="submit"
-                disabled={fetchingRates}
-                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-70 sm:w-fit"
+                disabled={fetchingRates || showConfigWarning}
+                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-50 sm:w-fit"
               >
                 <Zap className="mr-2 h-4 w-4" />
                 {fetchingRates ? "Buscando tarifas..." : "Buscar tarifas"}
@@ -505,24 +599,15 @@ export function CreateGuideForm() {
                     <strong>Guía real:</strong> Al confirmar se generará una guía de envío real y se descontará de tu saldo.
                   </p>
                 </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <Field
-                    label="ZIP / Código postal de origen *"
-                    name="originPostalCode"
-                    value={form.originPostalCode}
-                    error={errors.originPostalCode}
-                    onChange={update}
-                    placeholder="Ej. 10001"
-                  />
-                  <Field
-                    label="ZIP / Código postal de destino *"
-                    name="destinationPostalCode"
-                    value={form.destinationPostalCode}
-                    error={errors.destinationPostalCode}
-                    onChange={update}
-                    placeholder="Ej. 60601"
-                  />
-                </div>
+
+                {/* Address completeness check */}
+                {(!form.origin.postalCode || !form.destination.postalCode) && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    Completa ciudad, estado y ZIP en los datos de remitente y destinatario para generar la guía correctamente.
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={saving || !selectedApiRate}
@@ -544,7 +629,7 @@ export function CreateGuideForm() {
               <RateComparator
                 rates={standardRates}
                 selected={form.courier}
-                onSelect={(c) => update("courier", c)}
+                onSelect={(c) => updateField("courier", c)}
               />
               {selectedStandardRate ? (
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
@@ -596,6 +681,19 @@ export function CreateGuideForm() {
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
+
+function ConfigAlert({ type, children }: { type: "error" | "warning"; children: React.ReactNode }) {
+  const colors =
+    type === "error"
+      ? "border-red-200 bg-red-50 text-red-800"
+      : "border-amber-200 bg-amber-50 text-amber-800";
+  return (
+    <div className={`flex items-start gap-3 rounded-3xl border p-4 text-sm ${colors}`}>
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+      <div>{children}</div>
+    </div>
+  );
+}
 
 function ModeSelector({ mode, onChange }: { mode: QuoteMode; onChange: (m: QuoteMode) => void }) {
   const options: { value: QuoteMode; label: string; desc: string }[] = [
@@ -718,6 +816,10 @@ function AvailableRatesList({
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
       <h2 className="font-black text-slate-950">Tarifas disponibles</h2>
       <p className="mt-1 text-xs text-slate-400">Precio incluye envío, servicio y cargo de pago</p>
+      <div className="mt-1 flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <Info className="h-3.5 w-3.5 shrink-0" />
+        Tarifa estimada según dirección y paquete ingresados.
+      </div>
       <div className="mt-4 grid gap-3">
         {rates.map((rate) => {
           const isCheapest = !!rate.tags?.includes("cheapest");
@@ -895,6 +997,11 @@ function ConfirmModal({
           no puede deshacerse sin anular la guía.
         </p>
 
+        <p className="mt-2 text-xs text-slate-400">
+          Tarifa estimada según la dirección y el paquete ingresados. El precio final puede variar
+          si la dirección cambia al confirmar el label.
+        </p>
+
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
           <p className="font-black text-slate-950">{rate.serviceName}</p>
           <p className="text-slate-500">{carrierLabel}</p>
@@ -957,34 +1064,21 @@ function ConfirmModal({
   );
 }
 
-function Field({
-  label,
-  name,
-  value,
-  type = "text",
-  error,
-  placeholder,
-  onChange,
+function NumberField({
+  label, value, onChange, placeholder, error,
 }: {
-  label: string;
-  name: keyof FormState;
-  value: string;
-  type?: string;
-  error?: string;
-  placeholder?: string;
-  onChange: (name: keyof FormState, value: string) => void;
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-700">
       {label}
       <input
-        name={name}
         value={value}
-        type={type}
-        min={type === "number" ? "0" : undefined}
-        step={type === "number" ? "0.01" : undefined}
+        type="number"
+        min="0"
+        step="0.01"
         placeholder={placeholder}
-        onChange={(e) => onChange(name, e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"
       />
       {error ? <span className="text-xs font-semibold text-red-600">{error}</span> : null}
@@ -992,28 +1086,17 @@ function Field({
   );
 }
 
-function Select({
-  label,
-  name,
-  value,
-  options,
-  error,
-  onChange,
+function SelectField({
+  label, value, options, onChange, error,
 }: {
-  label: string;
-  name: keyof FormState;
-  value: string;
-  options: string[];
-  error?: string;
-  onChange: (name: keyof FormState, value: string) => void;
+  label: string; value: string; options: string[]; onChange: (v: string) => void; error?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-700">
       {label}
       <select
-        name={name}
         value={value}
-        onChange={(e) => onChange(name, e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"
       >
         {options.map((opt) => (
