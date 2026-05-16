@@ -1097,6 +1097,56 @@ Endpoints protegidos: `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/ap
 **Validaciones:** lint 0 errores, typecheck limpio, build exitoso.
 
 **Pendiente (fase posterior):**
-- `AddressMapPicker` con pin y geocodificación inversa.
 - Labels multi-provider (selección automática del proveedor ganador de deduplicación).
 - Activar Shippo rates reales.
+
+## Estado FASE 5.14 — Cotizador premium con mapa/pin y mejor UX de dirección
+
+**Archivos nuevos:**
+- `shipflow-web/lib/googleMapsUtils.ts`: `loadGoogleMapsScript()` y `parseAddressComponents()` — utilidades compartidas entre `AddressInput` y `AddressMapPicker`. Usan `(window as any)` internamente para acceso a globals de Google Maps sin dependencias npm.
+- `shipflow-web/components/AddressMapPicker.tsx`: componente "use client" con mapa interactivo. Carga Google Maps JS, muestra pin arrastrable, hace reverse geocoding al mover el pin o hacer clic en el mapa. Devuelve `StructuredAddress` parcial. Fallback visible si no carga.
+
+**Archivos modificados:**
+- `shipflow-web/components/AddressInput.tsx`:
+  - Importa `loadGoogleMapsScript` y `parseAddressComponents` desde `lib/googleMapsUtils.ts` (ya no duplica la lógica).
+  - Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: muestra dos pestañas — **"Buscar dirección"** (Places Autocomplete) y **"Seleccionar en mapa"** (AddressMapPicker).
+  - Sin key: solo formulario manual, sin cambios en funcionalidad.
+  - Al seleccionar en mapa: llena street1, city, state, postalCode, country; conserva name/phone/company/street2 del usuario.
+  - Badge de validación en pestaña "Buscar dirección" cuando `validationStatus === "needs_review"`.
+
+- `shipflow-web/components/CreateGuideForm.tsx`:
+  - `validateOnlineRates()`: ahora requiere `state` además de `city` para origen y destino.
+  - `validateOnlineLabel()`: ahora requiere `street1` para el remitente también.
+  - ConfigAlert de "sin integraciones": ya no menciona nombres internos de providers.
+  - Aviso suave de ZIP antes del botón "Buscar tarifas" (no bloquea, solo informa).
+  - Aviso de dirección incompleta antes del botón "Generar guía" (paso 2) ahora chequea también `street1`.
+  - Nuevo componente `AddressSummary`: muestra ciudad/estado/ZIP + badge "Completa ✓" (verde), "Revisar" (ámbar) o "Incompleta" (gris) después de cada `AddressInput` en ambos modos.
+
+**Flujo con mapa:**
+1. Usuario abre "Seleccionar en mapa" → ve mapa centrado en coords previas o New York.
+2. Hace clic en el mapa o arrastra el pin → se llama `Geocoder.geocode({ location })`.
+3. Si el geocoder devuelve `OK`: parsea `address_components` → llena street1, city, state, postalCode, country, lat, lng, formattedAddress, placeId.
+4. Si faltan campos postales: `validationStatus = "needs_review"` → badge "Revisar".
+5. Si todos los campos están presentes: `validationStatus = "complete"` → badge "Completa ✓".
+6. El usuario puede cambiar a la pestaña manual y editar cualquier campo individualmente.
+
+**Sin Google Maps key:**
+- Solo formulario manual.
+- No se muestra nada del mapa ni de las pestañas.
+- Funcionalidad idéntica a antes de FASE 5.14.
+
+**Validaciones:**
+- Antes de rates: city + state + country requeridos. ZIP opcional pero con advertencia.
+- Antes de label: street1 + city + state + postalCode + country en remitente y destinatario. Bloqueo con mensaje claro.
+
+**Mensajes de usuario usados:**
+- "Selecciona en el mapa o escribe la dirección..."
+- "Revisa los datos postales antes de continuar."
+- "El mapa ayuda a ubicar, pero la guía necesita dirección postal completa."
+- "Completa la dirección postal antes de generar la guía: calle, ciudad, estado, ZIP y país son obligatorios."
+- "El ZIP / Código postal mejora la precisión de la cotización. Puedes continuar sin él..."
+
+**No se usaron en mensajes de usuario:**
+- ShipStation, EasyPost, Shippo, Easyship, internal, provider, demo.
+
+**Validaciones:** lint, typecheck, build exitosos.

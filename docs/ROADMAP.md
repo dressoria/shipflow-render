@@ -459,6 +459,31 @@ Tareas completadas:
 
 Validaciones: lint 0 errores, typecheck limpio, build exitoso.
 
+## FASE 5.14 — Cotizador premium con mapa/pin y mejor UX de dirección (completada)
+
+Objetivo:
+
+- AddressMapPicker con pin arrastrable y reverse geocoding.
+- Tabs "Buscar dirección" / "Seleccionar en mapa" en AddressInput (solo con Google Maps key).
+- Resumen compacto de dirección con badge "Completa / Revisar" en el formulario.
+- Validación de rates exige city + state; label exige todos los campos postales incluida calle.
+- Mensajes de usuario claros sin nombres internos de providers.
+
+Tareas completadas:
+
+- `lib/googleMapsUtils.ts` (nuevo): loader idempotente de Google Maps JS y parser de `address_components` compartidos entre componentes.
+- `components/AddressMapPicker.tsx` (nuevo): mapa con pin arrastrable, reverse geocoding via `Geocoder`, `validationStatus` calculado.
+- `components/AddressInput.tsx`: tabs Buscar/Mapa con `AddressMapPicker` integrado. Sin key: solo formulario manual sin cambios.
+- `components/CreateGuideForm.tsx`: `validateOnlineRates` requiere `state`, `validateOnlineLabel` requiere `street1` del remitente, aviso suave de ZIP, `AddressSummary` en ambos modos, ConfigAlert sin nombres de providers.
+
+Pendiente:
+
+- Labels EasyPost reales.
+- Shippo rates reales.
+- Labels multi-provider (selección automática del ganador de deduplicación).
+
+Validaciones: lint, typecheck, build exitosos.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

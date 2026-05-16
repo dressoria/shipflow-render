@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, MapPin, Search } from "lucide-react";
+import { CheckCircle2, MapPin, Map, Search } from "lucide-react";
+import { loadGoogleMapsScript, parseAddressComponents } from "@/lib/googleMapsUtils";
+import { AddressMapPicker } from "@/components/AddressMapPicker";
 import type { StructuredAddress } from "@/lib/types";
 
-// ── Minimal Google Maps types (no @types/google.maps needed) ─────────────────
+// ── Minimal Google Maps types for Places Autocomplete ────────────────────────
 
 type GoogleAddressComponent = {
   long_name: string;
@@ -41,72 +43,6 @@ declare global {
   }
 }
 
-// ── Script loader (idempotent across multiple AddressInput instances) ─────────
-
-function loadGoogleMapsScript(apiKey: string, onReady: () => void): void {
-  if (typeof window === "undefined") return;
-
-  if (window.__gMapsLoaded) {
-    onReady();
-    return;
-  }
-
-  if (!window.__gMapsCallbacks) window.__gMapsCallbacks = [];
-  window.__gMapsCallbacks.push(onReady);
-
-  if (document.querySelector('script[data-gmaps-loader]')) return;
-
-  const script = document.createElement("script");
-  script.setAttribute("data-gmaps-loader", "1");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
-  script.async = true;
-  script.defer = true;
-  script.onload = () => {
-    window.__gMapsLoaded = true;
-    (window.__gMapsCallbacks ?? []).forEach((cb) => cb());
-    window.__gMapsCallbacks = [];
-  };
-  document.head.appendChild(script);
-}
-
-// ── Address component parser ──────────────────────────────────────────────────
-
-function parseGooglePlace(place: GooglePlace): Partial<StructuredAddress> {
-  const components = place.address_components ?? [];
-  const get = (type: string, useShort = false) =>
-    components.find((c) => c.types.includes(type))?.[useShort ? "short_name" : "long_name"] ?? "";
-
-  const streetNumber = get("street_number");
-  const route = get("route");
-  const street1 = [streetNumber, route].filter(Boolean).join(" ") || undefined;
-
-  const city =
-    get("locality") ||
-    get("sublocality_level_1") ||
-    get("administrative_area_level_2") ||
-    undefined;
-
-  const state = get("administrative_area_level_1", true) || undefined;
-  const postalCode = get("postal_code") || undefined;
-  const country = get("country", true) || "US";
-
-  const missing = !street1 || !city || !state || !postalCode;
-
-  return {
-    street1,
-    city,
-    state,
-    postalCode,
-    country,
-    latitude: place.geometry?.location?.lat(),
-    longitude: place.geometry?.location?.lng(),
-    formattedAddress: place.formatted_address,
-    placeId: place.place_id,
-    source: "google_places",
-    validationStatus: missing ? "needs_review" : "complete",
-  };
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export type AddressInputErrors = Partial<
@@ -121,15 +57,24 @@ type Props = {
   errors?: AddressInputErrors;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const HAS_GOOGLE_MAPS = Boolean(GOOGLE_MAPS_KEY);
 
-export function AddressInput({ sectionLabel, value, onChange, requirePostal = false, errors = {} }: Props) {
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function AddressInput({
+  sectionLabel,
+  value,
+  onChange,
+  requirePostal = false,
+  errors = {},
+}: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [mapsReady, setMapsReady] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [activeTab, setActiveTab] = useState<"search" | "map">("search");
 
   useEffect(() => {
     if (!HAS_GOOGLE_MAPS) return;
@@ -137,7 +82,7 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
   }, []);
 
   useEffect(() => {
-    if (!mapsReady || !searchRef.current || !window.google) return;
+    if (!mapsReady || !searchRef.current || !window.google || activeTab !== "search") return;
 
     const autocomplete = new window.google.maps.places.Autocomplete(searchRef.current, {
       types: ["address"],
@@ -146,7 +91,15 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
 
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
-      const parsed = parseGooglePlace(place);
+      const lat = place.geometry?.location?.lat() ?? 0;
+      const lng = place.geometry?.location?.lng() ?? 0;
+      const parsed = parseAddressComponents(
+        place.address_components ?? [],
+        { lat, lng },
+        place.formatted_address,
+        place.place_id,
+        "google_places",
+      );
       setSearchText(place.formatted_address ?? "");
       onChange({
         ...value,
@@ -158,10 +111,21 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapsReady]);
+  }, [mapsReady, activeTab]);
 
   function set(field: keyof StructuredAddress, val: string) {
     onChange({ ...value, [field]: val, source: "manual" });
+  }
+
+  function handleMapSelect(partial: Partial<StructuredAddress>) {
+    onChange({
+      ...value,
+      ...partial,
+      name: value.name,
+      phone: value.phone,
+      company: value.company,
+      street2: value.street2,
+    });
   }
 
   const isComplete = value.validationStatus === "complete";
@@ -175,7 +139,7 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
           label="Nombre"
           value={value.name ?? ""}
           onChange={(v) => set("name", v)}
-          placeholder={`Ej. Juan García`}
+          placeholder="Ej. Juan García"
           error={errors.name}
         />
         <InputField
@@ -187,34 +151,62 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
         />
       </div>
 
-      {/* Google Places search (only if API key configured) */}
+      {/* Tabs + search/map — only if Google Maps key is configured */}
       {HAS_GOOGLE_MAPS && (
-        <div className="grid gap-1">
-          <label className="text-sm font-bold text-slate-700">
-            Buscar dirección
-            {isComplete && (
-              <CheckCircle2 className="ml-1.5 inline-block h-3.5 w-3.5 text-green-500" />
-            )}
-          </label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              ref={searchRef}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder={mapsReady ? "Escribe para buscar dirección..." : "Cargando Google Maps..."}
-              disabled={!mapsReady}
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10 disabled:opacity-60"
+        <div className="grid gap-3">
+          {/* Tab switcher */}
+          <div className="flex gap-2">
+            <TabButton
+              active={activeTab === "search"}
+              icon={<Search className="h-3.5 w-3.5" />}
+              label="Buscar dirección"
+              onClick={() => setActiveTab("search")}
+            />
+            <TabButton
+              active={activeTab === "map"}
+              icon={<Map className="h-3.5 w-3.5" />}
+              label="Seleccionar en mapa"
+              onClick={() => setActiveTab("map")}
             />
           </div>
-          {isNeedsReview && (
-            <p className="text-xs font-semibold text-amber-600">
-              Dirección pendiente de revisión. Completa los campos faltantes.
-            </p>
+
+          {/* Search tab */}
+          {activeTab === "search" && (
+            <div className="grid gap-1">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={searchRef}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder={
+                    mapsReady
+                      ? "Selecciona en el mapa o escribe la dirección..."
+                      : "Cargando Google Maps..."
+                  }
+                  disabled={!mapsReady}
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10 disabled:opacity-60"
+                />
+              </div>
+              {isNeedsReview && (
+                <p className="text-xs font-semibold text-amber-600">
+                  Revisa los datos postales antes de continuar. Completa los campos faltantes.
+                </p>
+              )}
+              <p className="text-xs text-slate-400">
+                Los campos se llenan automáticamente al seleccionar. Puedes editarlos.
+              </p>
+            </div>
           )}
-          <p className="text-xs text-slate-400">
-            Los campos se llenan automáticamente al seleccionar. Puedes editarlos.
-          </p>
+
+          {/* Map tab */}
+          {activeTab === "map" && (
+            <AddressMapPicker
+              value={value}
+              onSelect={handleMapSelect}
+              apiKey={GOOGLE_MAPS_KEY}
+            />
+          )}
         </div>
       )}
 
@@ -269,18 +261,45 @@ export function AddressInput({ sectionLabel, value, onChange, requirePostal = fa
         />
       </div>
 
-      {/* Section status hint */}
+      {/* Status indicator */}
       {isComplete && (
         <div className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>{sectionLabel}: dirección verificada por Google</span>
+          <span>{sectionLabel}: dirección verificada</span>
         </div>
       )}
     </div>
   );
 }
 
-// ── Internal field ─────────────────────────────────────────────────────────────
+// ── Internal components ────────────────────────────────────────────────────────
+
+function TabButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-bold transition ${
+        active
+          ? "border-cyan-300 bg-cyan-50 text-[#0891B2]"
+          : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300 hover:bg-slate-100"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
 
 function InputField({
   label,

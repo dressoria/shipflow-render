@@ -397,7 +397,7 @@ Google Maps / Places:
 - La key debe restringirse por dominio HTTP en Google Cloud antes de producción.
 - Sin key: flujo manual idéntico al anterior.
 
-`AddressMapPicker` (mapa con pin de selección + reverse geocoding): pendiente FASE futura.
+`AddressMapPicker` (mapa con pin de selección + reverse geocoding): implementado en FASE 5.14. Ver sección siguiente.
 
 ## EasyPost rates reales FASE 5.12
 
@@ -435,6 +435,30 @@ shipflow-web/lib/logistics
 ```
 
 Los componentes deben consumir APIs internas estables, no proveedores logisticos directamente.
+
+## AddressMapPicker y UX de dirección FASE 5.14
+
+Nuevos archivos:
+- `lib/googleMapsUtils.ts` — utilidades compartidas: `loadGoogleMapsScript(apiKey, onReady)` (idempotente, single-script-tag) y `parseAddressComponents(components, coords, ...)` — parsea `address_components` de Google Maps a `Partial<StructuredAddress>`.
+- `components/AddressMapPicker.tsx` — componente cliente. Carga Google Maps JS, inicializa `Map`, `Marker` arrastrable y `Geocoder`. Al mover el pin o clicar en el mapa llama a `Geocoder.geocode({ location })` → parsea resultado → llama a `onSelect(partial)`. Fallback visual si Maps no carga.
+
+`AddressInput` actualizado:
+- Con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: muestra tabs **"Buscar dirección"** (Places Autocomplete) y **"Seleccionar en mapa"** (`AddressMapPicker`).
+- Sin key: solo formulario manual, sin cambios.
+- Ambos modos preservan `name`, `phone`, `company`, `street2` del usuario al actualizar la dirección.
+
+`CreateGuideForm` actualizado:
+- Nuevo sub-componente `AddressSummary`: badge visual de estado de dirección (Completa ✓ / Revisar / Incompleta) visible después de cada `AddressInput`.
+- `validateOnlineRates()` requiere `city + state` para origen y destino (antes solo `city`).
+- `validateOnlineLabel()` requiere `street1` del remitente además del destinatario.
+- Aviso suave de ZIP antes del botón "Buscar tarifas" (no bloquea).
+- Aviso de dirección incompleta antes de "Generar guía" chequea también `street1`.
+
+Decisiones de implementación:
+- No se instalaron paquetes npm; Google Maps JS se carga vía script dinámico.
+- Los tipos de Map/Marker/Geocoder son interfaces locales en `AddressMapPicker.tsx` (sin `@types/google.maps`).
+- El acceso a `window.__gMapsLoaded` / `window.__gMapsCallbacks` usa `(window as any)` en el módulo de utilidades para evitar conflictos entre declaraciones de módulos.
+- La key pública debe restringirse por HTTP referrer en Google Cloud Console antes de producción.
 
 ## Auth UX: verificación de correo FASE 5.13
 

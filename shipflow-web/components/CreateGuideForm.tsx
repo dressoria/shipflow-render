@@ -215,16 +215,19 @@ export function CreateGuideForm() {
   }
 
   function validateOnlineRates(): ErrorMap {
-    // For rate fetching: only need origin+destination city + weight
     const next: ErrorMap = {};
     if (!form.origin.city?.trim()) next["origin.city"] = "Campo requerido.";
+    if (!form.origin.state?.trim()) next["origin.state"] = "Estado requerido.";
     if (!form.destination.city?.trim()) next["destination.city"] = "Campo requerido.";
+    if (!form.destination.state?.trim()) next["destination.state"] = "Estado requerido.";
     if (Number(form.weight) <= 0) next.weight = "Ingresa un peso válido.";
     return next;
   }
 
   function validateOnlineLabel(): ErrorMap {
     const next = validateCommon(true);
+    if (!form.origin.street1?.trim())
+      next["origin.street1"] = "Calle requerida para generar la guía.";
     if (!form.destination.street1?.trim()) next["destination.street1"] = "Campo requerido.";
     if (!selectedApiRate) next.form = "Selecciona una tarifa antes de generar la guía.";
     return next;
@@ -501,8 +504,8 @@ export function CreateGuideForm() {
       )}
       {mode === "online" && showNoRatesWarning && (
         <ConfigAlert type="warning">
-          <strong>Sin proveedores de tarifas activos.</strong> Configura al menos una API key de
-          carrier (ShipStation, Shippo, EasyPost o Easyship) para ver tarifas reales.
+          <strong>Sin integraciones de transporte activas.</strong> Configura al menos una
+          integración de carrier en el servidor para ver tarifas reales.
         </ConfigAlert>
       )}
 
@@ -521,6 +524,7 @@ export function CreateGuideForm() {
               onChange={updateOrigin}
               errors={originErrors()}
             />
+            <AddressSummary addr={form.origin} />
 
             <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
             <AddressInput
@@ -529,6 +533,7 @@ export function CreateGuideForm() {
               onChange={updateDestination}
               errors={destinationErrors()}
             />
+            <AddressSummary addr={form.destination} />
 
             <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
             <div className="grid gap-4 md:grid-cols-3">
@@ -581,6 +586,7 @@ export function CreateGuideForm() {
                 requirePostal={false}
                 errors={originErrors()}
               />
+              <AddressSummary addr={form.origin} />
 
               <SectionHeader icon={<MapPin className="h-4 w-4" />} title="Destinatario" />
               <AddressInput
@@ -590,6 +596,7 @@ export function CreateGuideForm() {
                 requirePostal={false}
                 errors={destinationErrors()}
               />
+              <AddressSummary addr={form.destination} />
 
               <SectionHeader icon={<Package className="h-4 w-4" />} title="Paquete" />
               <div className="grid gap-4 md:grid-cols-3">
@@ -597,6 +604,13 @@ export function CreateGuideForm() {
                 <SelectField label="Unidad de peso" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
                 <SelectField label="Tipo de producto" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
               </div>
+
+              {(!form.origin.postalCode || !form.destination.postalCode) && (
+                <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  El ZIP / Código postal mejora la precisión de la cotización. Puedes continuar sin él, pero algunas tarifas pueden no estar disponibles.
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -630,10 +644,13 @@ export function CreateGuideForm() {
                 </div>
 
                 {/* Address completeness check */}
-                {(!form.origin.postalCode || !form.destination.postalCode) && (
+                {(!form.origin.street1?.trim() ||
+                  !form.origin.postalCode ||
+                  !form.destination.street1?.trim() ||
+                  !form.destination.postalCode) && (
                   <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    Completa ciudad, estado y ZIP en los datos de remitente y destinatario para generar la guía correctamente.
+                    Completa la dirección postal antes de generar la guía: calle, ciudad, estado, ZIP y país son obligatorios.
                   </div>
                 )}
 
@@ -1144,6 +1161,39 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between gap-4 rounded-2xl bg-white/80 px-4 py-3">
       <span className="text-slate-500">{label}</span>
       <span className="font-bold text-slate-950">{value}</span>
+    </div>
+  );
+}
+
+function AddressSummary({ addr }: { addr: StructuredAddress }) {
+  if (!addr.city) return null;
+  const isComplete = addr.validationStatus === "complete";
+  const isNeedsReview = addr.validationStatus === "needs_review";
+  const parts = [addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ");
+  const countryPart = addr.country && addr.country !== "US" ? ` · ${addr.country}` : "";
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs ${
+        isComplete
+          ? "border-green-200 bg-green-50"
+          : isNeedsReview
+            ? "border-amber-200 bg-amber-50"
+            : "border-slate-200 bg-slate-50"
+      }`}
+    >
+      <span className="truncate text-slate-600">{parts}{countryPart}</span>
+      <span
+        className={`shrink-0 font-bold ${
+          isComplete
+            ? "text-green-700"
+            : isNeedsReview
+              ? "text-amber-700"
+              : "text-slate-500"
+        }`}
+      >
+        {isComplete ? "Completa ✓" : isNeedsReview ? "Revisar" : "Incompleta"}
+      </span>
     </div>
   );
 }
