@@ -6,7 +6,7 @@ Este archivo es el punto de partida para futuros chats con Codex. Resume el esta
 
 ShipFlow es una plataforma de envios enfocada principalmente en Estados Unidos. El objetivo del producto es permitir que usuarios coticen envios, creen guias/labels, hagan tracking, manejen balance y que la plataforma agregue un margen pequeno por guia, por ejemplo USD 0.25 o USD 0.50.
 
-La integracion logistica prioritaria futura es ShipStation. Despues se espera poder conectar otros proveedores como Shippo, EasyPost, ShipEngine o integraciones directas con USPS, UPS, FedEx y DHL.
+La integracion logistica prioritaria actual es ShipStation/ShipEngine. Tambien existen rates reales para Shippo y Easyship, y EasyPost queda preparado/activo solo si existe API key. En fases futuras se completaran labels multi-provider e integraciones directas con USPS, UPS, FedEx y DHL si conviene.
 
 ## Estructura general
 
@@ -88,17 +88,18 @@ Real o parcialmente real:
 - Persistencia de balance como ledger simple de movimientos.
 - Persistencia de eventos de tracking.
 - Consulta de tracking externo preparada para carriers si existen endpoints y credenciales.
+- Cotizador web con flujo unico real en `/crear-guia`, usando `/api/rates` y `RateAggregator`.
+- Rates reales server-side para ShipEngine/ShipStation sandbox, Shippo y Easyship cuando sus variables estan configuradas.
+- Pricing server-side con `provider_cost`, margen ShipFlow y cargo de procesamiento.
+- Labels reales ShipStation V1 existen en backend legacy si esta configurado y se cumplen migraciones/RPC; no son automaticas para todos los providers.
 
 Demo/simulado:
 
-- Crear guia NO compra una label real.
-- Las guias usan tracking interno tipo `SF-...`.
-- Las tarifas se calculan localmente desde `couriers`, no desde un proveedor real.
-- La label web es imprimible/visual, no una label oficial del carrier.
+- La tabla `couriers` ya no debe usarse como cotizador visible de precios finales.
+- ShipEngine, Shippo, Easyship y EasyPost solo cotizan; sus labels siguen pendientes.
+- Si se usa flujo interno/mock de compatibilidad backend, las guias usan tracking interno tipo `SF-...`.
 - El PDF mobile es generado localmente, no emitido por ShipStation ni por un carrier.
 - El balance no esta conectado a pagos reales.
-- No existe ShipStation todavia.
-- Existe una primera capa `lib/logistics` con Adapter Pattern internal/mock; ShipStation solo esta preparado como skeleton sin llamadas reales.
 - No existe Dockerfile, docker-compose ni Nginx config.
 
 ## Riesgos criticos actuales
@@ -1243,3 +1244,52 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - Pricing engine FASE 5.9 no cambió.
 - RateAggregator, EasyPost, Shippo y ShipStation se mantienen.
 - No se ejecutaron migraciones, deploy ni commits.
+
+## Estado FASE 5.17 — Revisión final web y cierre FASE 5
+
+**Objetivo:** revisar la integración web completa antes de pasar a mobile/deploy.
+
+**Resultado:**
+- `/crear-guia` queda con un solo flujo de cotización real y sin cotización local visible.
+- No hay botón de generar guía antes de seleccionar una tarifa.
+- `AddressInput` conserva datos de contacto al seleccionar Places y mantiene fallback sin Google Maps.
+- Copy visible pendiente en navegación, envíos y guía imprimible fue normalizado a español.
+- `/api/rates` sigue protegido con `requireVerifiedUser`, valida US-only, dirección completa y dimensiones positivas.
+- `/api/config/status` solo expone booleans/counts, no nombres de integraciones ni secretos.
+- `/api/labels` mantiene guard para tarifas sin compra de labels implementada y evita fallback silencioso.
+- `createShipStationShipment` valida que `expectedCost` no sea menor que `pricingBreakdown.providerCost`.
+
+**Pendiente posterior a FASE 5:**
+- Labels multi-provider.
+- Pagos reales.
+- Storage permanente de PDFs de labels.
+- Mobile conectado al backend seguro.
+- Deploy final.
+
+## Estado FASE 5.18 — Corrección de adapters reales de rates
+
+**Objetivo:** alinear los adapters con pruebas directas confirmadas por API para que `/api/rates` devuelva tarifas reales desde proveedores configurados.
+
+**Cambios principales:**
+- `ShipStationAdapter` ahora soporta `SHIPSTATION_API_MODE=shipengine`.
+  - Usa `GET /carriers` y `POST /rates` en `https://api.shipengine.com/v1`.
+  - Autentica con header `API-Key`.
+  - En modo ShipEngine no exige `SHIPSTATION_API_SECRET`.
+  - Los rates ShipEngine quedan marcados `supportsLabels: false` porque la compra de labels ShipEngine no está implementada todavía.
+- `ShippoAdapter` conserva `POST /shipments/` con `async: false` y HTTP 201 como éxito.
+- `EasyshipAdapter` dejó de ser skeleton para rates:
+  - Usa `POST {EASYSHIP_BASE_URL}/2024-09/rates`.
+  - Autentica con Bearer token.
+  - Incluye item con `hs_code: "610910"` y no manda `courier_selection`.
+- `providerCapabilities` cuenta como activos:
+  - ShipEngine/ShipStation si `SHIPSTATION_API_MODE=shipengine` y existe `SHIPSTATION_API_KEY`.
+  - Shippo si existe `SHIPPO_API_KEY`.
+  - Easyship si existen `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
+  - EasyPost solo si existe `EASYPOST_API_KEY`.
+- `/api/rates` devuelve error claro si no hay integraciones activas o si todos los providers fallan/no devuelven rates.
+- La UI bloquea generación de guía si el rate trae `supportsLabels: false`.
+
+**No cambiado:**
+- No se implementó compra de labels ShipEngine, Shippo, Easyship ni EasyPost.
+- No se tocaron mobile, deploy, migraciones ni pricing engine.
+- No se muestran providers internos al usuario; la UI sigue mostrando carrier/servicio/precio.

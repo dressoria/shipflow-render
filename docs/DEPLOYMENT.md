@@ -53,17 +53,22 @@ Web privadas:
 ```text
 SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para RPC atomica y webhooks
 INTERNAL_API_SECRET
+SHIPSTATION_API_MODE             # opcional; usar shipengine para API ShipEngine/ShipStation sandbox
 SHIPSTATION_API_KEY              # REQUERIDA para rates/labels/void/webhooks
-SHIPSTATION_API_SECRET           # recomendada (Basic Auth key:secret)
-SHIPSTATION_BASE_URL             # opcional; default https://ssapi.shipstation.com
+SHIPSTATION_API_SECRET           # requerida solo en modo ShipStation V1 legacy (Basic Auth key:secret)
+SHIPSTATION_BASE_URL             # V1: https://ssapi.shipstation.com; ShipEngine: https://api.shipengine.com/v1
 SHIPSTATION_WEBHOOK_SECRET       # REQUERIDA para autenticar webhooks entrantes; generar con: openssl rand -hex 32
 EASYPOST_API_KEY                 # opcional; activa rates reales en el cotizador
 SHIPPO_API_KEY                   # opcional; activa rates reales en el cotizador
+EASYSHIP_API_KEY                 # opcional; activa rates reales Easyship
+EASYSHIP_BASE_URL                # requerida junto a EASYSHIP_API_KEY; sandbox: https://public-api-sandbox.easyship.com
 PAYMENT_PROVIDER_SECRET
 WEBHOOK_PAYMENT_SECRET
 ```
 
 Para que el cotizador muestre tarifas debe existir al menos una integración de cotización real configurada en servidor. `/api/config/status` expone solo booleans y `activeRateProviders`, nunca nombres ni secretos.
+
+FASE 5.18 deja los adapters de rates alineados con ShipEngine/ShipStation sandbox, Shippo test y Easyship sandbox. Antes de producción sigue pendiente validar `npm run lint`, `npm run typecheck` y `npm run build` en un entorno con npm disponible, además de configurar variables reales solo en servidor.
 
 Nota sobre webhooks: ShipStation requiere HTTPS para enviar webhooks. El servidor staging/produccion debe tener SSL configurado antes de registrar la URL del webhook en ShipStation Dashboard.
 

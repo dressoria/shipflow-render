@@ -223,7 +223,7 @@ La migracion `20260514_shipflow_security_logistics_foundation.sql` prepara:
 
 El endpoint `POST /api/shipments/create` queda preparado para usar esos campos si la migracion esta aplicada, pero mantiene fallback legacy si la DB local aun no tiene las columnas.
 
-No hay ShipStation ni providers externos todavia.
+Nota historica: en FASE 1C todavia no habia providers externos. El estado actual posterior a FASE 5.18 ya tiene rates reales mediante adapters server-side.
 
 ## Estabilizacion FASE 1D
 
@@ -262,12 +262,11 @@ Comportamiento:
 - `GET /api/balance` calcula balance desde `balance_movements`; no permite recargas.
 - `POST /api/tracking` mantiene compatibilidad sin token, pero valida carrier permitido; si recibe Bearer token, valida sesion.
 
-Limitaciones:
+Limitaciones actuales:
 
-- No hay ShipStation.
-- FASE 3 agrega adapters logisticos internal/mock; ShipStation aun no esta implementado real.
-- No hay transaccion SQL atomica/RPC.
-- No hay pagos reales ni refunds reales.
+- Labels multi-provider siguen pendientes; Shippo, Easyship y EasyPost solo cotizan.
+- ShipEngine/ShipStation sandbox cotiza en modo `shipengine`, pero labels ShipEngine no estan implementadas.
+- No hay pagos reales externos.
 - Mobile aun no consume estos endpoints para rates/labels.
 
 ## Logistics Layer FASE 3
@@ -291,6 +290,7 @@ Comportamiento actual:
 - `MockAdapter`/internal calcula rates desde `couriers`.
 - `MockAdapter` crea labels internas con tracking `SF-...`, `labelStatus = internal` y `labelUrl = null`.
 - `ShipStationAdapter.getRates()` implementado (FASE 4A): llama a `POST /shipments/getrates` en ShipStation V1 API.
+- `ShipStationAdapter.getRates()` tambien soporta modo `SHIPSTATION_API_MODE=shipengine` (FASE 5.18): `GET /carriers` + `POST /rates` con header `API-Key`.
 - `ShipStationAdapter.createLabel()` implementado (FASE 4B): flujo V1 `POST /orders/createorder` → `POST /orders/createlabelfororder`. Devuelve `LabelResult` con `providerShipmentId`, `providerLabelId`, `providerServiceCode`. `labelUrl = null` (V1 devuelve base64).
 - `ShipStationAdapter.voidLabel()` y `trackShipment()` devuelven error `NOT_IMPLEMENTED` (501).
 - `/api/rates` soporta `mode: "best_available"` para el cotizador visible y `provider: "shipstation"` como compatibilidad directa; no usa default local en el flujo visible.
@@ -447,6 +447,33 @@ Cambios clave:
 - País fijo en UI: Estados Unidos. Estado como select.
 - Dimensiones requeridas con defaults `1`.
 - Errores de no-rates ahora distinguen configuración, dirección, paquete y falla de integraciones.
+
+## Revisión final web FASE 5.17
+
+Revisión de cierre:
+
+- Textos visibles de `/crear-guia` no muestran providers internos ni opciones locales.
+- Navegación/copy visible corregidos a español donde afectaba el flujo principal.
+- `ShipmentsTable` no muestra `internal`; las guías internas se presentan como `Procesada`.
+- `PrintableGuide` muestra montos en español.
+- `AddressInput` mantiene nombre/teléfono al resolver una dirección con Places.
+- `/api/rates` conserva solo `mode: "best_available"` para el cotizador visible y no consulta `couriers` como fallback.
+- `/api/labels` devuelve 501 controlado para tarifas que aún no soportan compra de guía.
+
+## Adapters reales de rates FASE 5.18
+
+`RateAggregator` sigue siendo el punto único para cotizaciones reales. En FASE 5.18 se corrigieron los adapters para usar los endpoints validados directamente:
+
+- ShipStation en modo `SHIPSTATION_API_MODE=shipengine` usa ShipEngine: `GET /carriers` y `POST /rates` con header `API-Key`.
+- Shippo usa `POST /shipments/` con `Authorization: ShippoToken` y acepta HTTP 201 como éxito.
+- Easyship usa `POST /2024-09/rates` con Bearer token, item con `hs_code` y sin `courier_selection`.
+- EasyPost queda opcional; si no hay `EASYPOST_API_KEY`, no participa.
+
+`providerCapabilities.ts` decide qué providers reales están activos sin exponer nombres ni secretos al cliente. `/api/config/status` sigue devolviendo solo booleans y conteos.
+
+Los adapters devuelven `RateResult` normalizado con `providerCost`, carrier, servicio, `providerRateId`, moneda USD y entrega estimada. El pricing final se aplica después en `RateAggregator`, evitando doble markup.
+
+Los rates que pertenecen a providers sin compra de label implementada se marcan con `supportsLabels: false`; la UI no llama `/api/labels` para esas opciones.
 
 ## Arquitectura futura deseada
 

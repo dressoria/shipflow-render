@@ -1,18 +1,18 @@
 # Integracion logistica
 
-## Estado actual de providers (FASE 5.15)
+## Estado actual de providers (FASE 5.18)
 
 ### Arquitectura multi-provider
 
-FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. FASE 5.12 activó EasyPost rates reales. FASE 5.15 activó Shippo rates reales. La capa logistics ahora soporta:
+FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. FASE 5.12 activó EasyPost rates reales. FASE 5.15 activó Shippo rates reales. FASE 5.18 corrigió los adapters contra pruebas directas de APIs reales: ShipEngine/ShipStation sandbox, Shippo test y Easyship sandbox. La capa logistics ahora soporta:
 
 | Provider | Rates | Labels | Void | Tracking | Configurado |
 |---|---|---|---|---|---|
 | internal/mock | Sí (local) | Sí (local) | Sí | No | Siempre (fallback) |
-| shipstation | Sí (real) | Sí (real) | Sí (real) | No | Si SHIPSTATION_API_KEY+SECRET |
+| shipstation | Sí (real) | Sí (real en modo V1 legacy) | Sí (real en modo V1 legacy) | No | V1: `SHIPSTATION_API_KEY+SECRET`; ShipEngine: `SHIPSTATION_API_MODE=shipengine` + `SHIPSTATION_API_KEY` |
 | easypost | Sí (real) | Pendiente | No | Preparado | Si EASYPOST_API_KEY |
 | shippo | Sí (real) | Pendiente | No | Preparado | Si SHIPPO_API_KEY |
-| easyship | Preparado | Preparado | No | Preparado | No (skeleton) |
+| easyship | Sí (real) | Pendiente | No | Preparado | Si EASYSHIP_API_KEY + EASYSHIP_BASE_URL |
 
 ### RateAggregator
 
@@ -157,11 +157,51 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 
 Si no está configurada, `PROVIDER_CAPABILITIES.shippo.configured = false` y el `RateAggregator` omite Shippo automáticamente.
 
-### Adapters skeleton
+### ShipEngine / ShipStation sandbox — rates reales (FASE 5.18)
 
-- `EasyshipAdapter.ts` — listo para implementar. Requiere `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
+Cuando `SHIPSTATION_API_MODE=shipengine`, `ShipStationAdapter.getRates()` usa la API nueva de ShipEngine/ShipStation sandbox:
 
-Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
+- Base URL esperada: `https://api.shipengine.com/v1`.
+- Auth: header `API-Key: <SHIPSTATION_API_KEY>`.
+- Primero llama `GET /carriers`.
+- Filtra `carrier_ids` activos y con servicios capaces de cotizar.
+- Luego llama `POST /rates` con `rate_options.carrier_ids`.
+- No exige `SHIPSTATION_API_SECRET` en modo ShipEngine.
+
+**Normalización de rates ShipEngine:**
+```
+rate.rate_id → providerRateId
+rate.carrier_friendly_name || rate.carrier_code → courierName
+rate.service_type → serviceName
+rate.service_code → serviceCode
+rate.shipping_amount.amount → providerCost
+rate.delivery_days → estimatedTime
+rate.estimated_delivery_date → deliveryDate
+```
+
+En modo ShipEngine, los rates se marcan con `supportsLabels: false` porque la compra de labels ShipEngine no está implementada todavía. Esto evita que la UI intente comprar una label usando el flujo legacy V1.
+
+### Easyship — rates reales (FASE 5.18)
+
+`EasyshipAdapter.getRates()` implementado contra la API sandbox versionada:
+
+- Endpoint: `POST {EASYSHIP_BASE_URL}/2024-09/rates`.
+- Auth: `Authorization: Bearer <EASYSHIP_API_KEY>`.
+- No usa `courier_selection`.
+- Incluye `hs_code: "610910"` como fallback seguro para el item genérico.
+- Usa `incoterms: "DDU"` e `insurance.is_insured = false` para cotización doméstica USA.
+
+**Normalización de rates Easyship:**
+```
+rate.courier_service.id → providerRateId / serviceCode
+rate.courier_service.umbrella_name || name → courierName
+rate.courier_service.name → serviceName
+rate.total_charge → providerCost
+rate.currency → currency
+min_delivery_time/max_delivery_time → estimatedTime
+```
+
+**Labels:** No implementado. `createLabel()` y `voidLabel()` lanzan `ProviderUnavailableError`. La UI bloquea antes de llamar `/api/labels` si el rate indica `supportsLabels: false`.
 
 ### UI (FASE 5.16)
 
@@ -176,6 +216,14 @@ Los nombres de provider nunca se muestran al usuario. La UI muestra:
 - País fijo: Estados Unidos. Estado como select.
 - Paquete: peso, largo, ancho y alto obligatorios con defaults `1`.
 - La tabla `couriers` no se usa como cotizador visible de precios finales.
+
+### Revisión web (FASE 5.17)
+
+- Confirmado flujo único de cotización real en `/crear-guia`.
+- Confirmado que la UI filtra `internal`/`mock` antes de mostrar tarifas.
+- Confirmado que labels solo se intentan generar para tarifas con flujo implementado.
+- Confirmado que el desglose conserva `providerCost`, `platformMarkup`, `paymentFee`, `subtotal` y `customerPrice`.
+- Pendiente de producto: labels multi-provider para las integraciones que hoy solo cotizan.
 
 ### Label creation multi-provider (FASE 5.8)
 
@@ -512,8 +560,8 @@ Estado:
 
 - `MockAdapter`/internal esta activo para rates y labels internas.
 - `pricing.ts` prepara `provider_cost`, `platform_markup`, `customer_price` y `currency`.
-- `registry.ts` permite seleccionar `internal`, `mock` o `shipstation`.
-- `ShipStationAdapter` existe solo como skeleton; no hace llamadas externas reales.
+- `registry.ts` permite seleccionar `internal`, `mock`, `shipstation`, `shippo`, `easypost` o `easyship`.
+- `ShipStationAdapter`, `ShippoAdapter`, `EasyPostAdapter` y `EasyshipAdapter` cotizan server-side cuando estan configurados. La compra de labels multi-provider sigue pendiente salvo ShipStation V1 legacy.
 
 ## Endpoints futuros
 

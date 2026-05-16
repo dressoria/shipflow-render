@@ -88,10 +88,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL
 INTERNAL_API_SECRET
+SHIPSTATION_API_MODE
 SHIPSTATION_API_KEY
 SHIPSTATION_API_SECRET
 SHIPSTATION_BASE_URL
 SHIPSTATION_WEBHOOK_SECRET
+SHIPPO_API_KEY
+EASYPOST_API_KEY
+EASYSHIP_API_KEY
+EASYSHIP_BASE_URL
 USPS_API_URL
 USPS_API_KEY
 USPS_TRACKING_API_URL
@@ -136,6 +141,7 @@ cp shipflow-mobile/.env.example shipflow-mobile/.env
 - Las API keys privadas de proveedores logisticos, `SUPABASE_SERVICE_ROLE_KEY`, secretos internos y secretos de pagos/webhooks no deben usar prefijos `NEXT_PUBLIC_` ni `EXPO_PUBLIC_`.
 - Los archivos `.env`, `.env.local` y `.env.*` reales estan ignorados por Git; no commitear credenciales reales.
 - FASE 1B no agrega `SUPABASE_SERVICE_ROLE_KEY`; el endpoint web de crear guia usa token Bearer de usuario y RLS.
+- Para ShipEngine/ShipStation sandbox usar `SHIPSTATION_API_MODE=shipengine`, `SHIPSTATION_API_KEY` y `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`; en ese modo no se requiere `SHIPSTATION_API_SECRET` para cotizar.
 
 ## Estado actual
 

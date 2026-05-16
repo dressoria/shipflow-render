@@ -104,6 +104,7 @@ Estado FASE 2:
 - No guardar secretos reales en el repo.
 - No usar `service_role` en frontend ni mobile.
 - Si se usa service role en backend futuro, limitarlo a rutas server-side y auditar operaciones.
+- ShipEngine/ShipStation sandbox usa `SHIPSTATION_API_MODE=shipengine` y header server-side `API-Key`; esta key nunca debe exponerse en `NEXT_PUBLIC_*`.
 
 Archivos de ejemplo:
 
@@ -325,3 +326,11 @@ Usuarios no verificados (sin `email_confirmed_at` en Supabase Auth) no pueden ac
 - Dashboard > Authentication > Providers > Email > "Confirm email": activar en producción.
 - Si está desactivado (desarrollo): todos los usuarios quedan verificados inmediatamente.
 - Nunca activar "Auto Confirm" en producción.
+
+## Notas FASE 5.17
+
+- `/api/rates`, `/api/labels`, `/api/balance`, `/api/shipments` y `/api/shipments/[id]` siguen protegidos por `requireVerifiedUser`.
+- `/api/config/status` sigue siendo público, pero solo devuelve booleans/counts.
+- El cliente no muestra nombres internos de integraciones ni secrets.
+- Antes de comprar una guía, `createShipStationShipment` valida saldo y rechaza payloads donde `expectedCost < providerCost`.
+- `labelData` solo se mantiene en memoria para descarga inmediata; no se guarda en localStorage.

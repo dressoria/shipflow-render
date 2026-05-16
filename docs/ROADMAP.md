@@ -534,6 +534,53 @@ Pendiente:
 - Revisión final de compra de labels multi-provider.
 - Mobile seguirá en FASE 6.
 
+## FASE 5.17 — Revisión final web y limpieza de errores (completada)
+
+Objetivo:
+
+- Cerrar FASE 5 Web con auditoría de textos, flujo, validaciones y errores.
+
+Tareas completadas:
+
+- Auditoría de textos visibles para evitar referencias a providers internos, demo o cotización local.
+- Copy de navegación, tabla de envíos y guía imprimible ajustado.
+- Revisión de `/crear-guia`: un solo botón `Cotizar envío` antes de rates.
+- Revisión de `AddressInput`: manual, dirección pegada, Places opcional, mapa opcional y US-only.
+- Revisión de `/api/config/status`: solo booleans/counts.
+- Revisión de `/api/rates`: usuario verificado, US-only, dimensiones positivas y RateAggregator.
+- Revisión de `/api/labels`: guard 501 para tarifas sin label implementado; sin fallback silencioso.
+- Guard adicional: `expectedCost` no puede ser menor que `providerCost` cotizado.
+
+FASE 5 Web puede considerarse cerrada si lint/typecheck/build pasan en entorno local con npm disponible.
+
+Pendientes siguientes:
+
+- Labels multi-provider.
+- Pagos reales.
+- Storage permanente de labels.
+- Mobile backend seguro.
+- Deploy final.
+
+## FASE 5.18 — Adapters reales de rates (completada)
+
+Objetivo:
+
+- Corregir los adapters reales según pruebas directas de APIs para que `/api/rates` consulte proveedores activos sin volver a fallback local visible.
+
+Tareas completadas:
+
+- ShipEngine/ShipStation sandbox: modo `SHIPSTATION_API_MODE=shipengine`, auth `API-Key`, `GET /carriers` y `POST /rates`.
+- Shippo: `POST /shipments/` con `ShippoToken`, HTTP 201 considerado éxito, normalización de `rates[]`.
+- Easyship: `POST /2024-09/rates`, Bearer token, item con `hs_code`, sin `courier_selection`.
+- `/api/rates` devuelve errores claros cuando no hay integraciones activas o cuando no se encuentran tarifas reales.
+- La UI bloquea generación de guía para rates con `supportsLabels: false`.
+
+Pendiente:
+
+- Labels reales para ShipEngine, Shippo, Easyship y EasyPost.
+- EasyPost queda opcional hasta que exista `EASYPOST_API_KEY`.
+- Prueba manual completa en `/crear-guia` con credenciales sandbox configuradas en servidor.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:
