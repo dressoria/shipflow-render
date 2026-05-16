@@ -8,14 +8,7 @@ import {
 } from "@/lib/logistics/errors";
 import { applyMarkup } from "@/lib/logistics/pricing";
 import type { LogisticsAdapter } from "@/lib/logistics/adapters/LogisticsAdapter";
-import type {
-  CreateLabelInput,
-  LabelResult,
-  RateInput,
-  RateResult,
-  VoidLabelInput,
-  VoidLabelResult,
-} from "@/lib/logistics/types";
+import type { LabelResult, RateInput, RateResult, VoidLabelResult } from "@/lib/logistics/types";
 
 // Shippo API v1 — rates only. Label creation is not yet implemented.
 // Auth: Authorization: ShippoToken <SHIPPO_API_KEY>
@@ -135,6 +128,7 @@ function mapFromShippoRates(rates: ShippoRate[]): RateResult[] {
       return {
         provider: "shippo" as const,
         providerRateId: rate.object_id,
+        supportsLabels: false,
         serviceCode: rate.servicelevel.token ?? "",
         serviceName: rate.servicelevel.name ?? "",
         courierId: rate.provider ?? "",
@@ -146,6 +140,7 @@ function mapFromShippoRates(rates: ShippoRate[]): RateResult[] {
         platformMarkup: pricing.platformMarkup,
         customerPrice: pricing.customerPrice,
         estimatedTime,
+        deliveryDate: rate.arrives_by ?? undefined,
         pricing,
       };
     });
@@ -276,13 +271,13 @@ export class ShippoAdapter implements LogisticsAdapter {
     return mapped;
   }
 
-  async createLabel(_: CreateLabelInput): Promise<LabelResult> {
+  async createLabel(): Promise<LabelResult> {
     throw new ProviderUnavailableError(
       "Shippo label creation is not yet implemented. Only rates are supported in this version.",
     );
   }
 
-  async voidLabel(_: VoidLabelInput): Promise<VoidLabelResult> {
+  async voidLabel(): Promise<VoidLabelResult> {
     throw new ProviderUnavailableError(
       "Shippo void is not yet implemented.",
     );

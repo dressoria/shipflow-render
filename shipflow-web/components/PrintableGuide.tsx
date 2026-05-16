@@ -36,7 +36,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   }, [shipment?.trackingNumber, trackingNumber]);
 
   if (loading) {
-    return <GuideFrame><p className="text-center font-bold text-slate-600">Loading label...</p></GuideFrame>;
+    return <GuideFrame><p className="text-center font-bold text-slate-600">Cargando guía...</p></GuideFrame>;
   }
 
   if (!shipment) {
@@ -161,7 +161,7 @@ function QrCode({ cells, className = "" }: { cells: boolean[]; className?: strin
 function Barcode({ codeBlocks, trackingNumber }: { codeBlocks: string[]; trackingNumber: string }) {
   return (
     <section className="barcode-block min-w-0 border-y-2 border-slate-900 bg-white py-5 text-center print:py-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Barcode</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Código de barras</p>
       <div className="mx-auto mt-4 flex h-24 w-full max-w-4xl min-w-0 items-end justify-center gap-0.5 bg-white px-3 py-2 print:h-20 print:max-w-none">
         {codeBlocks.map((width, index) => (
           <span key={index} className={`${width} h-full bg-slate-950`} />
@@ -180,23 +180,23 @@ function PricingBlock({ shipment }: { shipment: Envio }) {
 
   if (hasPricingBreakdown) {
     const rows: Array<[string, string]> = [
-      ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
-      ["Amount to collect", formatCurrency(shipment.cashAmount)],
-      ["Shipping cost", formatCurrency(shipment.providerCost!)],
-      ["ShipFlow service charge", formatCurrency(shipment.platformMarkup ?? 0)],
-      ["Payment processing", formatCurrency(shipment.paymentFee!)],
-      ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+      ["Contra entrega", shipment.cashOnDelivery ? "Sí" : "No"],
+      ["Monto a cobrar", formatCurrency(shipment.cashAmount)],
+      ["Envío", formatCurrency(shipment.providerCost!)],
+      ["Cargo de servicio ShipFlow", formatCurrency(shipment.platformMarkup ?? 0)],
+      ["Cargo de procesamiento", formatCurrency(shipment.paymentFee!)],
+      ["Total pagado", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
     ];
-    return <InfoBlock title="Amounts" rows={rows} />;
+    return <InfoBlock title="Montos" rows={rows} />;
   }
 
   return (
     <InfoBlock
-      title="Amounts"
+      title="Montos"
       rows={[
-        ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
-        ["Amount to collect", formatCurrency(shipment.cashAmount)],
-        ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+        ["Contra entrega", shipment.cashOnDelivery ? "Sí" : "No"],
+        ["Monto a cobrar", formatCurrency(shipment.cashAmount)],
+        ["Total pagado", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
       ]}
     />
   );
@@ -210,7 +210,7 @@ function InfoBlock({ title, rows }: { title: string; rows: Array<[string, string
         {rows.map(([label, value]) => (
           <div key={label} className="grid min-w-0 gap-1 text-left sm:grid-cols-[160px_minmax(0,1fr)] print:grid-cols-[130px_minmax(0,1fr)]">
             <span className="guide-wrap text-sm font-semibold text-slate-500">{label}</span>
-            <span className="guide-wrap text-sm font-bold leading-6 text-slate-950">{value || "Not provided"}</span>
+            <span className="guide-wrap text-sm font-bold leading-6 text-slate-950">{value || "No especificado"}</span>
           </div>
         ))}
       </div>

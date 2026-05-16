@@ -95,6 +95,14 @@ function validateBody(body: ShipStationLabelBody) {
       { status: 400 },
     );
   }
+
+  const expectedCost = typeof body.expectedCost === "number" ? body.expectedCost : null;
+  const quotedProviderCost =
+    typeof body.pricingBreakdown?.providerCost === "number" ? body.pricingBreakdown.providerCost : null;
+
+  if (expectedCost != null && quotedProviderCost != null && expectedCost < quotedProviderCost) {
+    throw new Response("El precio total no puede ser menor al costo base de la tarifa.", { status: 400 });
+  }
 }
 
 async function checkMigrationAndIdempotency(

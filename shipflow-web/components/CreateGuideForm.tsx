@@ -291,7 +291,9 @@ export function CreateGuideForm() {
         router.push("/verifica-tu-correo");
         return;
       }
-      if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
+      if (msg.toLowerCase().includes("integraciones")) {
+        setRatesError("No hay integraciones de cotización real configuradas.");
+      } else if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
         setRatesError("El servidor no está configurado correctamente para cotizar.");
       } else if (msg.toLowerCase().includes("address") || msg.toLowerCase().includes("postal") || msg.toLowerCase().includes("zip")) {
         setRatesError("Revisa calle, ciudad, estado y ZIP.");
@@ -324,7 +326,12 @@ export function CreateGuideForm() {
     const rateProvider = selectedApiRate.provider;
 
     // Skeleton providers don't support label creation yet.
-    if (rateProvider === "shippo" || rateProvider === "easypost" || rateProvider === "easyship") {
+    if (
+      selectedApiRate.supportsLabels === false ||
+      rateProvider === "shippo" ||
+      rateProvider === "easypost" ||
+      rateProvider === "easyship"
+    ) {
       setErrors({ form: "Esta opción todavía no está disponible para generar guía. Selecciona otra tarifa." });
       return;
     }

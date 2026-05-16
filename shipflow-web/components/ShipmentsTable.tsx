@@ -29,7 +29,7 @@ const labelStatusTone: Record<string, "green" | "blue" | "amber" | "slate"> = {
 
 const labelStatusLabel: Record<string, string> = {
   purchased: "Comprada",
-  internal: "Interna",
+  internal: "Procesada",
   pending: "Pendiente",
   processing: "Procesando",
   voided: "Anulada",
@@ -51,7 +51,7 @@ export function ShipmentsTable() {
       const data = await getShipments();
       setShipments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load shipments.");
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los envíos.");
     } finally {
       setLoading(false);
     }
@@ -76,18 +76,18 @@ export function ShipmentsTable() {
     try {
       setVoidError(null);
       const result = await apiVoidLabel(shipmentId);
-      setVoidSuccess(result.message || "Label voided.");
+      setVoidSuccess(result.message || "Guía anulada.");
       setVoidingId(null);
       await load();
     } catch (err) {
-      setVoidError(err instanceof Error ? err.message : "Could not void this label.");
+      setVoidError(err instanceof Error ? err.message : "No se pudo anular esta guía.");
     }
   }
 
   if (loading) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold text-slate-500">Loading shipments...</p>
+        <p className="text-sm font-semibold text-slate-500">Cargando envíos...</p>
       </div>
     );
   }
@@ -105,7 +105,7 @@ export function ShipmentsTable() {
       <EmptyState
         icon={Truck}
         title="Todavía no hay envíos"
-        description="Create your first label to fill this table automatically."
+        description="Cotiza y genera tu primera guía para llenar esta tabla automáticamente."
       />
     );
   }

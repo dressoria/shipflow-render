@@ -8,14 +8,7 @@ import {
 } from "@/lib/logistics/errors";
 import { applyMarkup } from "@/lib/logistics/pricing";
 import type { LogisticsAdapter } from "@/lib/logistics/adapters/LogisticsAdapter";
-import type {
-  CreateLabelInput,
-  LabelResult,
-  RateInput,
-  RateResult,
-  VoidLabelInput,
-  VoidLabelResult,
-} from "@/lib/logistics/types";
+import type { LabelResult, RateInput, RateResult, VoidLabelResult } from "@/lib/logistics/types";
 
 // EasyPost API v2 — rates only. Label creation is not yet implemented.
 // Auth: Basic Auth with EASYPOST_API_KEY as username and empty password.
@@ -122,6 +115,7 @@ function mapFromEasyPostRates(rates: EPRate[]): RateResult[] {
       return {
         provider: "easypost" as const,
         providerRateId: rate.id,
+        supportsLabels: false,
         serviceCode: rate.service ?? "",
         serviceName: rate.service ?? "",
         courierId: rate.carrier ?? "",
@@ -133,6 +127,7 @@ function mapFromEasyPostRates(rates: EPRate[]): RateResult[] {
         platformMarkup: pricing.platformMarkup,
         customerPrice: pricing.customerPrice,
         estimatedTime,
+        deliveryDate: rate.delivery_date ?? undefined,
         pricing,
       };
     });
@@ -257,13 +252,13 @@ export class EasyPostAdapter implements LogisticsAdapter {
     return mapped;
   }
 
-  async createLabel(_: CreateLabelInput): Promise<LabelResult> {
+  async createLabel(): Promise<LabelResult> {
     throw new ProviderUnavailableError(
       "EasyPost label creation is not yet implemented. Only rates are supported in this version.",
     );
   }
 
-  async voidLabel(_: VoidLabelInput): Promise<VoidLabelResult> {
+  async voidLabel(): Promise<VoidLabelResult> {
     throw new ProviderUnavailableError(
       "EasyPost void is not yet implemented.",
     );

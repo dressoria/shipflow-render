@@ -94,22 +94,24 @@ export async function POST(request: Request) {
       const rateInput = parseExternalRateInput(body);
       const { rates, outcomes, queriedProviders, configuredCount } = await aggregateRates(rateInput);
       const failedCount = outcomes.filter((o) => !o.ok).length;
-      const diagnostic =
-        configuredCount === 0
-          ? "not_configured"
-          : rates.length === 0 && failedCount > 0
-            ? "providers_failed"
-            : rates.length === 0
-              ? "no_rates"
-              : undefined;
+
+      if (configuredCount === 0) {
+        return apiError("No hay integraciones de cotización real configuradas.", 503);
+      }
+
+      if (rates.length === 0) {
+        return apiError(
+          "No encontramos tarifas para esta ruta con los datos ingresados. Revisa dirección, ZIP y dimensiones.",
+          failedCount > 0 ? 424 : 404,
+        );
+      }
 
       return apiSuccess({
         mode: "best_available",
         rates,
         configuredCount,
         queriedProvidersCount: queriedProviders.length,
-        diagnostic,
-        message: rates.length > 0 ? "Rates available." : "No rates available.",
+        message: "Rates available.",
       });
     }
 
@@ -128,6 +130,6 @@ export async function POST(request: Request) {
 
     return apiError("Usa el cotizador de tarifas reales para obtener opciones disponibles.", 400);
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not calculate rates.");
+    return apiErrorFromUnknown(error, "No se pudieron calcular tarifas.");
   }
 }

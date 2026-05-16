@@ -11,9 +11,20 @@ export type ProviderCapabilities = {
 };
 
 function isShipStationConfigured(): boolean {
+  const mode = process.env.SHIPSTATION_API_MODE?.trim().toLowerCase();
   const key = process.env.SHIPSTATION_API_KEY?.trim();
+  if (mode === "shipengine") {
+    return Boolean(key && key.length > 4);
+  }
+
   const secret = process.env.SHIPSTATION_API_SECRET?.trim();
   return Boolean(key && secret && key.length > 4 && secret.length > 4);
+}
+
+function isEasyshipConfigured(): boolean {
+  const key = process.env.EASYSHIP_API_KEY?.trim();
+  const baseUrl = process.env.EASYSHIP_BASE_URL?.trim();
+  return Boolean(key && key.length > 4 && baseUrl?.startsWith("https://"));
 }
 
 export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabilities> = {
@@ -64,11 +75,11 @@ export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabiliti
   },
   easyship: {
     supportsRates: true,
-    supportsLabels: true,
+    supportsLabels: false, // labels not yet implemented — rates only (FASE 5.18)
     supportsVoid: false,
     supportsTracking: true,
     supportsAddressValidation: false,
-    configured: Boolean(process.env.EASYSHIP_API_KEY?.trim()?.length),
+    configured: isEasyshipConfigured(),
     priority: 4,
   },
 };

@@ -93,11 +93,16 @@ export function AddressInput({
   errors = {},
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
+  const valueRef = useRef(value);
   const [mapsReady, setMapsReady] = useState(false);
   const [searchText, setSearchText] = useState(value.formattedAddress ?? "");
   const [showManual, setShowManual] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     if (!HAS_GOOGLE_MAPS) return;
@@ -132,13 +137,14 @@ export function AddressInput({
 
       setAddressError(null);
       setSearchText(place.formatted_address ?? "");
+      const current = valueRef.current;
       onChange(
-        toUSAddress(value, {
+        toUSAddress(current, {
           ...parsed,
-          name: value.name,
-          phone: value.phone,
-          company: value.company,
-          street2: value.street2,
+          name: current.name,
+          phone: current.phone,
+          company: current.company,
+          street2: current.street2,
         }),
       );
     });

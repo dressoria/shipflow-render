@@ -14,13 +14,13 @@ import type {
   LabelResult,
   RateInput,
   RateResult,
-  TrackingInput,
   TrackingResult,
   VoidLabelInput,
   VoidLabelResult,
 } from "@/lib/logistics/types";
 
 type ShipStationConfig = {
+  apiMode: "legacy" | "shipengine";
   apiKey: string;
   apiSecret: string;
   baseUrl: string;
@@ -121,6 +121,51 @@ type ShipStationRateItem = {
   transitDays: number | null;
   deliveryDate: string | null;
   deliveryDateGuaranteed: boolean;
+};
+
+type ShipEngineService = {
+  service_code?: string;
+  name?: string;
+  supports_rates?: boolean;
+  send_rates?: boolean;
+};
+
+type ShipEngineCarrier = {
+  carrier_id?: string;
+  carrier_code?: string;
+  friendly_name?: string;
+  disabled_by_billing_plan?: boolean;
+  services?: ShipEngineService[];
+};
+
+type ShipEngineCarriersResponse = {
+  carriers?: ShipEngineCarrier[];
+};
+
+type ShipEngineMoney = {
+  amount?: string | number;
+  currency?: string;
+};
+
+type ShipEngineRateItem = {
+  rate_id?: string;
+  service_type?: string;
+  service_code?: string;
+  carrier_code?: string;
+  carrier_friendly_name?: string;
+  shipping_amount?: ShipEngineMoney;
+  delivery_days?: number | null;
+  estimated_delivery_date?: string | null;
+  validation_status?: string;
+  error_messages?: string[];
+};
+
+type ShipEngineRatesResponse = {
+  rate_response?: {
+    rates?: ShipEngineRateItem[];
+    invalid_rates?: unknown[];
+    errors?: unknown[];
+  };
 };
 
 function buildSSAddress(
@@ -249,14 +294,25 @@ function handleShipStationLabelHttpError(status: number): never {
 }
 
 function readConfig(): ShipStationConfig {
+  const apiMode =
+    process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine"
+      ? "shipengine"
+      : "legacy";
   const apiKey = process.env.SHIPSTATION_API_KEY?.trim() ?? "";
   const apiSecret = process.env.SHIPSTATION_API_SECRET?.trim() ?? "";
   const baseUrl =
-    process.env.SHIPSTATION_BASE_URL?.trim() ?? "https://ssapi.shipstation.com";
+    process.env.SHIPSTATION_BASE_URL?.trim() ??
+    (apiMode === "shipengine" ? "https://api.shipengine.com/v1" : "https://ssapi.shipstation.com");
 
   if (!apiKey) {
     throw new ProviderUnavailableError(
       "ShipStation is not configured: SHIPSTATION_API_KEY is missing.",
+    );
+  }
+
+  if (apiMode === "legacy" && !apiSecret) {
+    throw new ProviderUnavailableError(
+      "ShipStation legacy mode is not configured: SHIPSTATION_API_SECRET is missing.",
     );
   }
 
@@ -266,7 +322,7 @@ function readConfig(): ShipStationConfig {
     );
   }
 
-  return { apiKey, apiSecret, baseUrl };
+  return { apiMode, apiKey, apiSecret, baseUrl: baseUrl.replace(/\/$/, "") };
 }
 
 function buildAuthHeader(config: ShipStationConfig): string {
@@ -365,28 +421,273 @@ function mapFromShipStationRates(items: ShipStationRateItem[], carrierCode: stri
   });
 }
 
-function handleShipStationHttpError(status: number): never {
+function toShipEngineWeightUnit(unit: string | undefined): "pound" | "ounce" | "gram" {
+  if (unit === "oz") return "ounce";
+  if (unit === "kg") return "gram";
+  return "pound";
+}
+
+function toShipEngineDimensionUnit(unit: string | undefined): "inch" | "centimeter" {
+  if (unit === "cm") return "centimeter";
+  return "inch";
+}
+
+function hasRateService(carrier: ShipEngineCarrier): boolean {
+  const services = carrier.services ?? [];
+  if (services.length === 0) return true;
+  return services.some((service) => service.supports_rates !== false && service.send_rates !== false);
+}
+
+function activeShipEngineCarrierIds(carriers: ShipEngineCarrier[]): string[] {
+  return carriers
+    .filter((carrier) => {
+      return (
+        Boolean(carrier.carrier_id?.trim()) &&
+        carrier.disabled_by_billing_plan !== true &&
+        hasRateService(carrier)
+      );
+    })
+    .map((carrier) => carrier.carrier_id!.trim());
+}
+
+async function fetchShipEngineCarriers(config: ShipStationConfig): Promise<string[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/carriers`, {
+      method: "GET",
+      headers: {
+        "API-Key": config.apiKey,
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw new ProviderTimeoutError();
+    throw new ProviderUnavailableError(
+      "Could not reach ShipEngine carriers endpoint. Check network connectivity and SHIPSTATION_BASE_URL.",
+    );
+  }
+
+  if (!response.ok) {
+    handleShipStationHttpError(response.status, "shipengine");
+  }
+
+  let data: ShipEngineCarriersResponse;
+  try {
+    data = (await response.json()) as ShipEngineCarriersResponse;
+  } catch {
+    throw new ProviderUnavailableError("ShipEngine returned an unreadable carriers response.");
+  }
+
+  const carrierIds = activeShipEngineCarrierIds(data.carriers ?? []);
+  if (carrierIds.length === 0) {
+    throw new ProviderUnavailableError(
+      "ShipEngine returned no active carriers that can provide rates.",
+    );
+  }
+
+  return carrierIds;
+}
+
+function requireShipEngineAddress(input: RateInput): void {
+  const required = [
+    input.origin.line1,
+    input.origin.city,
+    input.origin.state,
+    input.origin.postalCode,
+    input.destination.line1,
+    input.destination.city,
+    input.destination.state,
+    input.destination.postalCode,
+  ];
+  if (required.some((value) => !value?.trim())) {
+    throw new InvalidAddressError(
+      "Complete street, city, state, and ZIP for origin and destination.",
+    );
+  }
+  if ((input.origin.country ?? "US") !== "US" || (input.destination.country ?? "US") !== "US") {
+    throw new InvalidAddressError("Only US domestic ShipEngine rates are supported right now.");
+  }
+}
+
+function buildShipEngineRatesPayload(input: RateInput, carrierIds: string[]) {
+  requireShipEngineAddress(input);
+
+  if (!Number.isFinite(input.parcel.weight) || input.parcel.weight <= 0) {
+    throw new InvalidPayloadError(
+      "parcel.weight must be a positive number for ShipEngine rates.",
+    );
+  }
+  if (
+    input.parcel.length == null ||
+    input.parcel.width == null ||
+    input.parcel.height == null ||
+    input.parcel.length <= 0 ||
+    input.parcel.width <= 0 ||
+    input.parcel.height <= 0
+  ) {
+    throw new InvalidPayloadError(
+      "parcel length, width, and height must be positive numbers for ShipEngine rates.",
+    );
+  }
+
+  return {
+    rate_options: {
+      carrier_ids: carrierIds,
+    },
+    shipment: {
+      validate_address: "no_validation",
+      ship_to: {
+        name: input.destination.name?.trim() || "Recipient",
+        phone: input.destination.phone?.trim() || "5555555555",
+        address_line1: input.destination.line1!.trim(),
+        address_line2: input.destination.line2?.trim() || undefined,
+        city_locality: input.destination.city.trim(),
+        state_province: input.destination.state!.trim(),
+        postal_code: input.destination.postalCode!.trim(),
+        country_code: "US",
+        address_residential_indicator: "yes",
+      },
+      ship_from: {
+        name: input.origin.name?.trim() || "Sender",
+        phone: input.origin.phone?.trim() || "5555555555",
+        address_line1: input.origin.line1!.trim(),
+        address_line2: input.origin.line2?.trim() || undefined,
+        city_locality: input.origin.city.trim(),
+        state_province: input.origin.state!.trim(),
+        postal_code: input.origin.postalCode!.trim(),
+        country_code: "US",
+        address_residential_indicator: "no",
+      },
+      packages: [
+        {
+          weight: {
+            value: input.parcel.weight,
+            unit: toShipEngineWeightUnit(input.parcel.weightUnit),
+          },
+          dimensions: {
+            unit: toShipEngineDimensionUnit(input.parcel.dimensionUnit),
+            length: input.parcel.length,
+            width: input.parcel.width,
+            height: input.parcel.height,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function mapFromShipEngineRates(items: ShipEngineRateItem[]): RateResult[] {
+  return items
+    .filter((item) => {
+      const amount = Number(item.shipping_amount?.amount);
+      const currency = item.shipping_amount?.currency?.toUpperCase();
+      return (
+        item.rate_id &&
+        Number.isFinite(amount) &&
+        amount > 0 &&
+        currency === "USD" &&
+        (item.error_messages?.length ?? 0) === 0
+      );
+    })
+    .map((item) => {
+      const providerCost = Number(Number(item.shipping_amount!.amount).toFixed(2));
+      const pricing = applyMarkup(providerCost, 0);
+      const days = item.delivery_days;
+      const estimatedTime = days != null ? `${days} day(s)` : undefined;
+
+      return {
+        provider: "shipstation" as const,
+        providerRateId: item.rate_id,
+        supportsLabels: false,
+        serviceCode: item.service_code ?? "",
+        serviceName: item.service_type ?? item.service_code ?? "",
+        courierId: item.carrier_code ?? "",
+        courierName: item.carrier_friendly_name ?? item.carrier_code ?? "",
+        shippingSubtotal: providerCost,
+        cashOnDeliveryCommission: 0,
+        total: pricing.customerPrice,
+        currency: "USD" as const,
+        platformMarkup: pricing.platformMarkup,
+        customerPrice: pricing.customerPrice,
+        estimatedTime,
+        deliveryDate: item.estimated_delivery_date ?? undefined,
+        pricing,
+      };
+    });
+}
+
+async function getShipEngineRates(input: RateInput, config: ShipStationConfig): Promise<RateResult[]> {
+  const carrierIds = await fetchShipEngineCarriers(config);
+  const payload = buildShipEngineRatesPayload(input, carrierIds);
+
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/rates`, {
+      method: "POST",
+      headers: {
+        "API-Key": config.apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw new ProviderTimeoutError();
+    throw new ProviderUnavailableError(
+      "Could not reach ShipEngine rates endpoint. Check network connectivity and SHIPSTATION_BASE_URL.",
+    );
+  }
+
+  if (!response.ok) {
+    handleShipStationHttpError(response.status, "shipengine");
+  }
+
+  let data: ShipEngineRatesResponse;
+  try {
+    data = (await response.json()) as ShipEngineRatesResponse;
+  } catch {
+    throw new ProviderUnavailableError("ShipEngine returned an unreadable rates response.");
+  }
+
+  const mapped = mapFromShipEngineRates(data.rate_response?.rates ?? []);
+  if (mapped.length === 0) {
+    throw new ProviderUnavailableError(
+      "ShipEngine returned no valid rates for the given address and package.",
+    );
+  }
+
+  return mapped;
+}
+
+function handleShipStationHttpError(status: number, mode: "legacy" | "shipengine" = "legacy"): never {
+  const providerName = mode === "shipengine" ? "ShipEngine" : "ShipStation";
   if (status === 401 || status === 403) {
     throw new ProviderAuthError(
-      "ShipStation rejected the request: check SHIPSTATION_API_KEY and SHIPSTATION_API_SECRET.",
+      mode === "shipengine"
+        ? "ShipEngine rejected the request: check SHIPSTATION_API_KEY."
+        : "ShipStation rejected the request: check SHIPSTATION_API_KEY and SHIPSTATION_API_SECRET.",
     );
   }
   if (status === 429) {
     throw new ProviderRateLimitError();
   }
-  if (status === 400) {
+  if (status === 400 || status === 422) {
     throw new InvalidPayloadError(
-      "ShipStation rejected the payload. Verify carrier code, postal codes, and weight.",
+      `${providerName} rejected the payload. Verify address, ZIP, dimensions, and weight.`,
     );
   }
   throw new ProviderUnavailableError(
-    `ShipStation returned an unexpected error (HTTP ${status}).`,
+    `${providerName} returned an unexpected error (HTTP ${status}).`,
   );
 }
 
 export class ShipStationAdapter implements LogisticsAdapter {
   async getRates(input: RateInput): Promise<RateResult[]> {
     const config = readConfig();
+
+    if (config.apiMode === "shipengine") {
+      return getShipEngineRates(input, config);
+    }
 
     const carrierCode = input.courier?.trim();
     if (!carrierCode) {
@@ -450,6 +751,11 @@ export class ShipStationAdapter implements LogisticsAdapter {
 
   async createLabel(input: CreateLabelInput): Promise<LabelResult> {
     const config = readConfig();
+    if (config.apiMode === "shipengine") {
+      throw new ProviderUnavailableError(
+        "ShipEngine label creation is not implemented yet. Select a rate from a provider with labels enabled.",
+      );
+    }
 
     const carrierCode = (input.carrierCode ?? input.courier)?.trim();
     const serviceCode = input.serviceCode?.trim();
@@ -585,6 +891,11 @@ export class ShipStationAdapter implements LogisticsAdapter {
 
   async voidLabel(input: VoidLabelInput): Promise<VoidLabelResult> {
     const config = readConfig();
+    if (config.apiMode === "shipengine") {
+      throw new ProviderUnavailableError(
+        "ShipEngine label void is not implemented yet.",
+      );
+    }
 
     const ssShipmentId = input.providerShipmentId?.trim();
     if (!ssShipmentId) {
@@ -655,7 +966,7 @@ export class ShipStationAdapter implements LogisticsAdapter {
     };
   }
 
-  async trackShipment(_input: TrackingInput): Promise<TrackingResult> {
+  async trackShipment(): Promise<TrackingResult> {
     throw new LogisticsError(
       "ShipStation tracking via adapter is not implemented yet.",
       "NOT_IMPLEMENTED",

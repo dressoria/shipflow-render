@@ -54,6 +54,7 @@ export type RateResult = {
   courierId: string;
   courierName: string;
   providerRateId?: string; // provider-specific rate ID; needed for label creation by some providers
+  supportsLabels?: boolean; // false when the provider/rate is rates-only in the current phase
   shippingSubtotal: number;
   cashOnDeliveryCommission: number;
   total: number;
@@ -61,6 +62,7 @@ export type RateResult = {
   platformMarkup: number;
   customerPrice: number;
   estimatedTime?: string;
+  deliveryDate?: string;
   pricing: PricingBreakdown;
   tags?: ("cheapest" | "fastest" | "recommended")[];
 };
