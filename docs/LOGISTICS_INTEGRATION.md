@@ -1,17 +1,17 @@
 # Integracion logistica
 
-## Estado actual de providers (FASE 5.12)
+## Estado actual de providers (FASE 5.15)
 
 ### Arquitectura multi-provider
 
-FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. FASE 5.12 activó EasyPost rates reales. La capa logistics ahora soporta:
+FASE 5.7 introdujo el motor multi-provider. FASE 5.8 corrigió el routing de provider en label creation. FASE 5.12 activó EasyPost rates reales. FASE 5.15 activó Shippo rates reales. La capa logistics ahora soporta:
 
 | Provider | Rates | Labels | Void | Tracking | Configurado |
 |---|---|---|---|---|---|
 | internal/mock | Sí (local) | Sí (local) | Sí | No | Siempre (fallback) |
 | shipstation | Sí (real) | Sí (real) | Sí (real) | No | Si SHIPSTATION_API_KEY+SECRET |
 | easypost | Sí (real) | Pendiente | No | Preparado | Si EASYPOST_API_KEY |
-| shippo | Preparado | Preparado | Preparado | Preparado | No (skeleton) |
+| shippo | Sí (real) | Pendiente | No | Preparado | Si SHIPPO_API_KEY |
 | easyship | Preparado | Preparado | No | Preparado | No (skeleton) |
 
 ### RateAggregator
@@ -112,9 +112,53 @@ EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 
 Si no está configurada, `PROVIDER_CAPABILITIES.easypost.configured = false` y el `RateAggregator` omite EasyPost automáticamente.
 
+### Shippo — rates reales (FASE 5.15)
+
+`ShippoAdapter.getRates()` implementado. Llama a `POST https://api.goshippo.com/shipments/` con `async: false`, que crea un Shipment en Shippo sin comprar un label y devuelve todos los rates disponibles según las carriers conectadas a la cuenta.
+
+**Autenticación:** Token propio de Shippo: `Authorization: ShippoToken <SHIPPO_API_KEY>`.
+
+**Campos requeridos:**
+- `origin.postalCode` y `destination.postalCode` → mapeados a campo `zip` de Shippo.
+- `parcel.weight > 0`.
+
+**Conversiones internas:**
+- Peso: unidad mapeada directo a `mass_unit` de Shippo (`lb`, `oz`, `kg`).
+- Dimensiones: `cm` o `in` mapeados directo a `distance_unit` de Shippo.
+
+**Normalización de rates:**
+```
+rate.provider → courierId/courierName (e.g. "USPS", "UPS", "FedEx", "DHL_EXPRESS")
+rate.servicelevel.token → serviceCode (e.g. "usps_priority", "ups_ground")
+rate.servicelevel.name → serviceName (e.g. "Priority Mail", "UPS Ground")
+parseFloat(rate.amount) → providerCost
+rate.object_id → providerRateId
+rate.estimated_days → estimatedTime ("N day(s)")
+```
+
+**Labels:** No implementado. `createLabel()` y `voidLabel()` lanzan `ProviderUnavailableError`. La UI bloquea antes de llamar `/api/labels` si el rate es de Shippo; el endpoint también devuelve 501.
+
+**Errores manejados:**
+
+| Situación | Clase de error | HTTP |
+|---|---|---|
+| SHIPPO_API_KEY faltante | `ProviderUnavailableError` | 503 |
+| 401/403 de Shippo | `ProviderAuthError` | 401 |
+| 429 rate limit | `ProviderRateLimitError` | 429 |
+| 400/422 payload inválido | `InvalidPayloadError` | 400 |
+| postalCode faltante | `InvalidAddressError` | 400 |
+| Sin rates devueltos | `ProviderUnavailableError` | 503 |
+| Timeout/network | `ProviderTimeoutError` / `ProviderUnavailableError` | 504/503 |
+
+**Variables:**
+```text
+SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
+
+Si no está configurada, `PROVIDER_CAPABILITIES.shippo.configured = false` y el `RateAggregator` omite Shippo automáticamente.
+
 ### Adapters skeleton
 
-- `ShippoAdapter.ts` — listo para implementar. Requiere `SHIPPO_API_KEY`.
 - `EasyshipAdapter.ts` — listo para implementar. Requiere `EASYSHIP_API_KEY` y `EASYSHIP_BASE_URL`.
 
 Cada skeleton implementa `LogisticsAdapter` y lanza `ProviderUnavailableError` en todos los métodos. El `RateAggregator` los ignorará mientras `configured = false`.
@@ -171,7 +215,7 @@ Internal path: via insert con fallback isMissingSchemaColumnError para instancia
 ### Pendiente antes de activar más providers externos
 
 - Implementar `EasyPostAdapter.createLabel()` y `voidLabel()` (rates ya activos).
-- Implementar `ShippoAdapter.getRates()`, `createLabel()`, `voidLabel()`.
+- Implementar `ShippoAdapter.createLabel()` y `voidLabel()` (rates ya activos desde FASE 5.15).
 - Implementar `EasyshipAdapter` ídem.
 - Definir modelo matemático final de ranking/margen.
 

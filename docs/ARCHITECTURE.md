@@ -410,6 +410,18 @@ Cambios:
 - Deduplicación: si ShipStation y EasyPost devuelven el mismo servicio/carrier, se muestra solo el más barato.
 - Labels: EasyPost bloqueado en UI (`handleConfirmed`) y en `/api/labels` (devuelve 501). Solo ShipStation compra labels reales.
 
+## Shippo rates reales FASE 5.15
+
+`ShippoAdapter.getRates()` implementado. Llama a `POST https://api.goshippo.com/shipments/` con `async: false` y auth `ShippoToken <SHIPPO_API_KEY>`. Activo cuando `SHIPPO_API_KEY` está configurado.
+
+Cambios:
+- `lib/logistics/adapters/ShippoAdapter.ts`: `getRates()` real; `createLabel()` y `voidLabel()` siguen en `ProviderUnavailableError`.
+- `lib/logistics/providerCapabilities.ts`: `supportsLabels: false`, `supportsVoid: false` para Shippo (corregidos — el skeleton los tenía como `true` por error).
+- El `RateAggregator` consulta ShipStation + EasyPost + Shippo en paralelo cuando sus keys están configuradas.
+- Normalización: `rate.provider` → `courierId/courierName` (USPS, UPS, FedEx, DHL); `rate.servicelevel.token` → `serviceCode`; `rate.servicelevel.name` → `serviceName`.
+- Deduplicación: si múltiples providers devuelven el mismo carrier/servicio/días, se muestra solo el más barato.
+- Labels: Shippo bloqueado en UI (`handleConfirmed`) y en `/api/labels` (devuelve 501). Solo ShipStation compra labels reales.
+
 ## Arquitectura futura deseada
 
 La arquitectura futura debe mover operaciones sensibles a backend:

@@ -476,13 +476,37 @@ Tareas completadas:
 - `components/AddressInput.tsx`: tabs Buscar/Mapa con `AddressMapPicker` integrado. Sin key: solo formulario manual sin cambios.
 - `components/CreateGuideForm.tsx`: `validateOnlineRates` requiere `state`, `validateOnlineLabel` requiere `street1` del remitente, aviso suave de ZIP, `AddressSummary` en ambos modos, ConfigAlert sin nombres de providers.
 
-Pendiente:
+Validaciones: lint, typecheck, build exitosos.
 
-- Labels EasyPost reales.
-- Shippo rates reales.
-- Labels multi-provider (selección automática del ganador de deduplicación).
+## FASE 5.15 — Shippo rates reales (completada)
+
+Objetivo:
+
+- Activar Shippo como tercer provider real de cotizaciones.
+- Labels siguen siendo solo ShipStation por ahora.
+
+Tareas completadas:
+
+- `lib/logistics/adapters/ShippoAdapter.ts`: `getRates()` real implementado. Llama a `POST https://api.goshippo.com/shipments/` con `async: false`. Auth: `ShippoToken <SHIPPO_API_KEY>`. Convierte unidades de peso y dimensiones directo (sin transformaciones intermedias). Normaliza rates de Shippo a `RateResult[]`.
+- `lib/logistics/providerCapabilities.ts`: Shippo corregido con `supportsLabels: false`, `supportsVoid: false` (rates únicamente — fix de error en skeleton que los tenía como `true`).
+- `.env.example`: comentario de `SHIPPO_API_KEY` actualizado para indicar que rates están activos.
+- `RateAggregator`: ya consultaba Shippo en `Promise.allSettled` — ahora tiene rates reales si `SHIPPO_API_KEY` está configurada.
+- Pipeline multi-provider: `repriceRate → deduplicateRates → rankRates` aplica también a rates de Shippo.
+- Bloqueo de labels Shippo en UI (`handleConfirmed`) y server (`/api/labels` → 501) — ya estaba implementado desde FASE 5.8.
+- UI: provider nunca visible. Solo carrier real (USPS, UPS, FedEx, DHL), precio final, entrega estimada.
+
+Variables requeridas:
+```text
+SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
 
 Validaciones: lint, typecheck, build exitosos.
+
+Pendiente (fase posterior):
+
+- Labels EasyPost reales (`EasyPostAdapter.createLabel()`, `voidLabel()`).
+- Labels Shippo reales (`ShippoAdapter.createLabel()`, `voidLabel()`).
+- Labels multi-provider (selección automática del ganador de deduplicación).
 
 ## FASE 6 - Mobile backend seguro
 

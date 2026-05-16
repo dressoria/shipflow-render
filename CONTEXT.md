@@ -1150,3 +1150,64 @@ Endpoints protegidos: `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/ap
 - ShipStation, EasyPost, Shippo, Easyship, internal, provider, demo.
 
 **Validaciones:** lint, typecheck, build exitosos.
+
+## Estado FASE 5.15 — Shippo rates reales (cotizaciones solamente)
+
+**Objetivo:** Activar Shippo como tercer provider real de rates, solo cotizaciones. Labels siguen bloqueadas.
+
+**Archivos modificados:**
+- `lib/logistics/adapters/ShippoAdapter.ts`: `getRates()` implementado con llamada real a `POST https://api.goshippo.com/shipments/` con `async: false`. `createLabel()` y `voidLabel()` siguen lanzando `ProviderUnavailableError`.
+- `lib/logistics/providerCapabilities.ts`: `supportsLabels: false`, `supportsVoid: false` para Shippo (corregidos; estaban como `true` por error en skeleton).
+- `.env.example`: comentario de `SHIPPO_API_KEY` actualizado para indicar que rates están activos.
+
+**Shippo API:**
+- Base URL: `https://api.goshippo.com`
+- Autenticación: `Authorization: ShippoToken <SHIPPO_API_KEY>` (diferente de Basic Auth; nunca exponer con NEXT_PUBLIC).
+- Endpoint: `POST /shipments/` con `async: false` → crea un Shipment (sin comprar label) y devuelve `rates[]` inmediatamente.
+- Peso: directo (`mass_unit`: "lb", "oz", "kg").
+- Dimensiones: directo (`distance_unit`: "in", "cm").
+- Dirección: usa `zip` (no `postalCode`).
+
+**Campos requeridos para rates Shippo:**
+- `origin.postalCode` y `destination.postalCode` (mapeados a `zip`).
+- `parcel.weight > 0`.
+- `street1` opcional (pasa como string vacío si no está disponible).
+
+**Normalización de rates:**
+- `provider: "shippo"`, `providerRateId: rate.object_id`.
+- `courierId/courierName = rate.provider` (USPS, UPS, FedEx, DHL — devuelto por Shippo).
+- `serviceCode = rate.servicelevel.token` (e.g. "usps_priority", "ups_ground").
+- `serviceName = rate.servicelevel.name` (e.g. "Priority Mail", "UPS Ground").
+- `providerCost = parseFloat(rate.amount)`.
+- `estimatedTime = "${estimated_days} day(s)"` si disponible.
+- Pasan por el pipeline completo: `repriceRate → deduplicateRates → rankRates`.
+
+**Flujo multi-provider con Shippo activo:**
+```
+POST /api/rates { mode: "best_available" }
+→ RateAggregator consulta ShipStation + EasyPost + Shippo en paralelo (Promise.allSettled)
+→ Si Shippo falla, los demás siguen respondiendo
+→ repriceRate() aplica markup + payment_fee a cada rate
+→ deduplicateRates() elige el proveedor más barato por carrier/servicio/días
+→ rankRates() asigna tags cheapest/fastest/recommended
+→ UI muestra carrier real (USPS, UPS, FedEx, DHL), precio total, entrega estimada
+→ Provider nunca visible en UI
+```
+
+**Bloqueo de labels Shippo:**
+- `CreateGuideForm.handleConfirmed()` verifica `selectedApiRate.provider === "shippo"` y muestra:
+  "Esta opción todavía no está disponible para generar guía. Selecciona otra tarifa."
+- `/api/labels` devuelve 501 si `provider: "shippo"` en el body.
+- No se compra nada.
+
+**Variable requerida:**
+```text
+SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
+```
+
+**Validaciones:** lint, typecheck, build exitosos.
+
+**Pendiente (fase posterior):**
+- `ShippoAdapter.createLabel()` y `voidLabel()` — labels reales con Shippo.
+- Labels multi-provider (selección automática del proveedor ganador de deduplicación).
+- `EasyPostAdapter.createLabel()` — labels reales con EasyPost.
