@@ -15,6 +15,7 @@ type AuthContextValue = {
   user: Usuario | null;
   loading: boolean;
   isAdmin: boolean;
+  emailVerified: boolean;
   login: (email: string, password: string) => Promise<Usuario>;
   register: (input: {
     email: string;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       isAdmin: user?.role === "admin",
+      emailVerified: user?.emailVerified ?? false,
       login: async (email, password) => {
         const nextUser = await loginUser({ email, password });
         setUser(nextUser);

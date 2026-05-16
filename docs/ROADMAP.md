@@ -437,6 +437,28 @@ EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 
 Validaciones: lint 0 errores, typecheck limpio, build exitoso.
 
+## FASE 5.13 — Auth UX: verificación de correo (completada)
+
+Objetivo:
+
+- UX clara cuando el usuario no ha confirmado su email.
+- Bloquear acciones sensibles hasta verificación.
+
+Tareas completadas:
+
+- `lib/types.ts`: `Usuario.emailVerified?: boolean` — nuevo campo.
+- `lib/services/authService.ts`: `loginUser()`, `createUser()`, `getCurrentUser()` propagan `emailVerified` desde `user.email_confirmed_at`.
+- `lib/services/authStatus.ts` (nuevo): `getEmailVerificationStatus()` y `resendVerificationEmail(email)` — helpers cliente.
+- `contexts/AuthContext.tsx`: expone `emailVerified: boolean` en el contexto.
+- `components/AuthCard.tsx`: registro → siempre a `/verifica-tu-correo`; login con email no verificado → `/verifica-tu-correo`.
+- `app/verifica-tu-correo/page.tsx` (nueva): página de verificación con botón "Ya verifiqué" (revalida sesión), reenvío de correo, manejo de rate limit amigable.
+- `lib/server/supabaseServer.ts`: `requireVerifiedUser()` — helper server-side que extiende `requireSupabaseUser()` con chequeo de `email_confirmed_at`. Lanza `Response("EMAIL_NOT_VERIFIED", 403)` si no está verificado.
+- Endpoints protegidos con `requireVerifiedUser`: `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/api/balance`, `/api/shipments`, `/api/shipments/[id]`.
+- `lib/services/apiClient.ts`: exporta `isEmailNotVerifiedError(error)`.
+- `components/CreateGuideForm.tsx`: muestra card de verificación si `!emailVerified`. Redirige a `/verifica-tu-correo` si la API responde `EMAIL_NOT_VERIFIED`.
+
+Validaciones: lint 0 errores, typecheck limpio, build exitoso.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

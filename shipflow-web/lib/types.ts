@@ -16,6 +16,7 @@ export type Usuario = {
   businessName?: string;
   role: UserRole;
   createdAt: string;
+  emailVerified?: boolean;
 };
 
 export type Envio = {

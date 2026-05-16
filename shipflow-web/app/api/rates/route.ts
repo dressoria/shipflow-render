@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { calculateInternalRates, type RateRequestInput } from "@/lib/server/shipments/createInternalShipment";
-import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { aggregateRates } from "@/lib/logistics/rateAggregator";
 import { InvalidPayloadError } from "@/lib/logistics/errors";
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { supabase } = await requireSupabaseUser(request);
+    const { supabase } = await requireVerifiedUser(request);
     const body = (await request.json()) as unknown;
 
     // ── Best available: aggregate rates from all configured providers ──────────

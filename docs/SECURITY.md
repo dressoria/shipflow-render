@@ -305,3 +305,23 @@ Prioridad:
 - `SUPABASE_SERVICE_ROLE_KEY` es una clave muy sensible. Solo debe existir en el entorno del servidor. Nunca en variables `NEXT_PUBLIC_*` ni en el cliente.
 - Las dos RPCs (`create_label_shipment_transaction`, `void_label_refund_transaction`) son `SECURITY DEFINER` y solo ejecutables por `service_role`. Nunca desde el cliente.
 - NO usar con dinero real hasta aplicar la migration `20260514_create_label_transaction_rpc.sql` y verificar con pruebas manuales completas.
+
+## Verificación de email (FASE 5.13)
+
+Usuarios no verificados (sin `email_confirmed_at` en Supabase Auth) no pueden acceder a ningún endpoint sensible.
+
+**Regla:** `requireVerifiedUser(request)` en `lib/server/supabaseServer.ts` chequea `user.email_confirmed_at` tras validar el JWT. Si el campo no existe, responde 403 con `error: "EMAIL_NOT_VERIFIED"`.
+
+**Endpoints protegidos:** `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/api/balance`, `/api/shipments`, `/api/shipments/[id]`.
+
+**Endpoints NO protegidos por verificación de email:**
+- `/api/config/status` — público, sin auth.
+- `/api/tracking` — consulta de tracking, sin auth requerida.
+- `/api/webhooks/shipstation` — autenticado por HMAC, no por JWT.
+
+**UI:** `CreateGuideForm` bloquea el formulario si `!emailVerified`. `AuthCard` redirige a `/verifica-tu-correo` al detectar usuario no verificado. La página de verificación permite reenvío de email con rate limit amigable.
+
+**Configuración en Supabase:**
+- Dashboard > Authentication > Providers > Email > "Confirm email": activar en producción.
+- Si está desactivado (desarrollo): todos los usuarios quedan verificados inmediatamente.
+- Nunca activar "Auto Confirm" en producción.

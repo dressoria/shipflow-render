@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { fromShipmentRow, type ShipmentRow } from "@/lib/server/shipments/createInternalShipment";
-import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 function parseLimit(value: string | null) {
   const limit = Number(value ?? 50);
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { supabase, user } = await requireSupabaseUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
     const url = new URL(request.url);
     const status = url.searchParams.get("status")?.trim();
     const trackingNumber = url.searchParams.get("tracking_number")?.trim();

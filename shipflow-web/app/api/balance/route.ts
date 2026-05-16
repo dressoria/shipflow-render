@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { getAvailableBalance } from "@/lib/server/shipments/createInternalShipment";
-import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 type BalanceMovementRow = {
   id: string;
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { supabase, user } = await requireSupabaseUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
     const url = new URL(request.url);
     const limit = parseLimit(url.searchParams.get("limit"));
     const balance = await getAvailableBalance(supabase, user.id);

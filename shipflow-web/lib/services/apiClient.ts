@@ -21,6 +21,10 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return json.data as T;
 }
 
+export function isEmailNotVerifiedError(error: unknown): boolean {
+  return error instanceof Error && error.message === "EMAIL_NOT_VERIFIED";
+}
+
 // ── Config status ───────────────────────────────────────────────────────────
 
 export type ConfigStatus = {

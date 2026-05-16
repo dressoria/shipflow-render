@@ -73,6 +73,7 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
       businessName: input.businessName,
       role: "user",
       createdAt: new Date().toISOString(),
+      emailVerified: !!data.user?.email_confirmed_at,
     };
 
     await supabase.from("profiles").upsert({
@@ -105,7 +106,8 @@ export async function loginUser(input: AuthInput): Promise<Usuario> {
 
     if (error) throw error;
 
-    return getProfile(data.user.id, data.user.email ?? input.email);
+    const profile = await getProfile(data.user.id, data.user.email ?? input.email);
+    return { ...profile, emailVerified: !!data.user.email_confirmed_at };
   }
 
   if (input.email === "admin@shipflow.local" && input.password !== "admin123") {
@@ -130,7 +132,8 @@ export async function getCurrentUser(): Promise<Usuario | null> {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
 
-    return getProfile(data.user.id, data.user.email ?? "");
+    const profile = await getProfile(data.user.id, data.user.email ?? "");
+    return { ...profile, emailVerified: !!data.user.email_confirmed_at };
   }
 
   const user = getUser();

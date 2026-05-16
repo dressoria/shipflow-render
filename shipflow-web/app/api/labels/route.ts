@@ -4,7 +4,7 @@ import {
   createShipStationShipment,
   type ShipStationLabelBody,
 } from "@/lib/server/shipments/createShipStationShipment";
-import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 // Providers with skeleton adapters — label creation not yet implemented.
 const SKELETON_LABEL_PROVIDERS = ["shippo", "easypost", "easyship"] as const;
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { supabase, user } = await requireSupabaseUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
     const body = (await request.json()) as unknown;
 
     const provider = extractProvider(body);

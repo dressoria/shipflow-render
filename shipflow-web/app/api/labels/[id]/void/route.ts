@@ -11,7 +11,7 @@ import {
   createServiceSupabaseClient,
   isServerSupabaseConfigured,
   isServiceRoleConfigured,
-  requireSupabaseUser,
+  requireVerifiedUser,
 } from "@/lib/server/supabaseServer";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const shipmentId = decodeURIComponent(id ?? "").trim();
     if (!shipmentId) return apiError("Shipment id is required.", 400);
 
-    const { supabase, user } = await requireSupabaseUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
 
     const { data: shipment, error: shipmentError } = await supabase
       .from("shipments")

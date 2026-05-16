@@ -80,3 +80,14 @@ export async function requireSupabaseUser(request: Request): Promise<{
 
   return { supabase, user: data.user };
 }
+
+export async function requireVerifiedUser(request: Request): Promise<{
+  supabase: SupabaseClient;
+  user: User;
+}> {
+  const result = await requireSupabaseUser(request);
+  if (!result.user.email_confirmed_at) {
+    throw new Response("EMAIL_NOT_VERIFIED", { status: 403 });
+  }
+  return result;
+}

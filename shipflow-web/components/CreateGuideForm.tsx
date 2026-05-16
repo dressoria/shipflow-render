@@ -2,11 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
   Download,
   Info,
+  MailCheck,
   Package,
   MapPin,
   User,
@@ -16,6 +18,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/Badge";
 import { AddressInput } from "@/components/AddressInput";
 import type { AddressInputErrors } from "@/components/AddressInput";
@@ -82,6 +85,9 @@ const productTypes = [
 ];
 
 export function CreateGuideForm() {
+  const router = useRouter();
+  const { emailVerified, loading: authLoading } = useAuth();
+
   const [mode, setMode] = useState<QuoteMode>("standard");
   const [form, setForm] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -344,7 +350,10 @@ export function CreateGuideForm() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "No se pudieron obtener tarifas.";
-      // Surface Supabase config errors clearly
+      if (msg === "EMAIL_NOT_VERIFIED") {
+        router.push("/verifica-tu-correo");
+        return;
+      }
       if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
         setRatesError("El servidor no está configurado correctamente. Verifica las variables de entorno de Supabase.");
       } else {
@@ -456,6 +465,26 @@ export function CreateGuideForm() {
     configStatus !== null && configStatus.supabaseConfigured && !configStatus.ratesConfigured;
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (!authLoading && !emailVerified) {
+    return (
+      <div className="flex flex-col items-center rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-pink-50 text-pink-500">
+          <MailCheck className="h-7 w-7" />
+        </span>
+        <h2 className="mt-4 text-xl font-bold text-slate-900">Verifica tu correo primero</h2>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+          Necesitas confirmar tu dirección de correo antes de poder cotizar o generar guías.
+        </p>
+        <button
+          onClick={() => router.push("/verifica-tu-correo")}
+          className="mt-6 inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-6 text-sm font-bold text-white shadow-lg shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3]"
+        >
+          Verificar correo
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6">

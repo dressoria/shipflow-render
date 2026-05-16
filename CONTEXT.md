@@ -1046,3 +1046,57 @@ EASYPOST_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - `EasyPostAdapter.createLabel()` — labels reales con EasyPost.
 - `EasyPostAdapter.voidLabel()`.
 - Activar Shippo como tercer provider o labels multi-provider.
+
+---
+
+## Estado FASE 5.13 — Auth UX: verificación de correo
+
+**Problema resuelto:** Usuarios no verificados podían llegar a `/crear-guia` y recibir errores de API confusos.
+
+**Solución implementada:**
+
+**Detección de email no verificado:**
+- `Usuario.emailVerified?: boolean` — campo nuevo en `lib/types.ts`.
+- `authService.ts` → `loginUser()`, `createUser()`, `getCurrentUser()` leen `user.email_confirmed_at` de Supabase y propagan `emailVerified`.
+- `AuthContext` expone `emailVerified: boolean` (falso si no está autenticado o no verificado).
+- `lib/services/authStatus.ts` — helper cliente para re-consultar estado (`getEmailVerificationStatus()`) y reenviar email (`resendVerificationEmail(email)`).
+
+**Flujo de login / registro:**
+- Registro → siempre redirige a `/verifica-tu-correo` (email_confirmed_at es null en registro nuevo).
+- Login + email no verificado → redirige a `/verifica-tu-correo`.
+- Login + email verificado → continúa a `?next` o `/dashboard` como antes.
+
+**Página `/verifica-tu-correo`:**
+- Muestra correo del usuario (obtenido de `supabase.auth.getUser()`).
+- Botón "Ya verifiqué mi correo" → re-consulta estado → si verificado, redirige a `/crear-guia`; si no, muestra mensaje amigable.
+- Botón "Reenviar correo" → llama a `supabase.auth.resend({ type: "signup", email })`.
+- Rate limit del reenvío maneja error de Supabase con mensaje amigable.
+- Si no hay sesión, redirige a `/login`. Si ya está verificado, redirige a `/dashboard`.
+
+**Bloqueo en `CreateGuideForm`:**
+- Si `!authLoading && !emailVerified`, muestra card "Verifica tu correo primero" con botón a `/verifica-tu-correo`.
+- Si la API devuelve `EMAIL_NOT_VERIFIED` (desincronización de estado), redirige a `/verifica-tu-correo`.
+
+**Bloqueo en backend (todos los endpoints protegidos):**
+```
+requireVerifiedUser(request)  // en lib/server/supabaseServer.ts
+→ requireSupabaseUser()       // valida sesión como antes
+→ if (!user.email_confirmed_at) throw new Response("EMAIL_NOT_VERIFIED", { status: 403 })
+```
+Endpoints protegidos: `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/api/balance`, `/api/shipments`, `/api/shipments/[id]`.
+
+**Error code en cliente:**
+- `apiClient.ts` exporta `isEmailNotVerifiedError(error)`.
+- El `apiFetch` lanza `new Error("EMAIL_NOT_VERIFIED")` cuando el servidor responde 403 con ese código.
+
+**Cómo configurar en Supabase Auth:**
+- En el dashboard de Supabase > Authentication > Email Templates: verifica que esté habilitado "Confirm email" en las settings.
+- Si `"Email confirmations"` está desactivado en Settings > Auth, todos los usuarios quedan verificados inmediatamente (ok para desarrollo).
+- En producción se recomienda activar la confirmación de email.
+
+**Validaciones:** lint 0 errores, typecheck limpio, build exitoso.
+
+**Pendiente (fase posterior):**
+- `AddressMapPicker` con pin y geocodificación inversa.
+- Labels multi-provider (selección automática del proveedor ganador de deduplicación).
+- Activar Shippo rates reales.

@@ -435,3 +435,12 @@ shipflow-web/lib/logistics
 ```
 
 Los componentes deben consumir APIs internas estables, no proveedores logisticos directamente.
+
+## Auth UX: verificación de correo FASE 5.13
+
+`requireVerifiedUser(request)` en `lib/server/supabaseServer.ts` extiende `requireSupabaseUser()` con un chequeo de `user.email_confirmed_at`. Si el campo no existe, lanza `Response("EMAIL_NOT_VERIFIED", 403)`.
+
+Todos los endpoints sensibles usan `requireVerifiedUser`:
+- `/api/rates`, `/api/labels`, `/api/labels/[id]/void`, `/api/balance`, `/api/shipments`, `/api/shipments/[id]`
+
+En cliente: `AuthContext` expone `emailVerified: boolean`. `CreateGuideForm` muestra una card de bloqueo si `!emailVerified`. `AuthCard` redirige a `/verifica-tu-correo` tras registro o login no verificado. La página `/verifica-tu-correo` permite reenvío de correo y re-validación de sesión.

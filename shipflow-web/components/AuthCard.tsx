@@ -45,12 +45,17 @@ export function AuthCard({ mode }: AuthCardProps) {
     setLoading(true);
     try {
       if (isLogin) {
-        await login(email, password);
+        const nextUser = await login(email, password);
+        if (!nextUser.emailVerified) {
+          router.push("/verifica-tu-correo");
+          return;
+        }
+        const nextUrl = new URLSearchParams(window.location.search).get("next") ?? "/dashboard";
+        router.push(nextUrl);
       } else {
         await register({ email, password, businessName: name });
+        router.push("/verifica-tu-correo");
       }
-      const nextUrl = new URLSearchParams(window.location.search).get("next") ?? "/dashboard";
-      router.push(nextUrl);
     } catch (error) {
       setErrors({
         form: error instanceof Error ? error.message : "No se pudo completar la acción.",
