@@ -29,11 +29,11 @@ export async function POST(request: Request) {
     const courier = body.courier?.trim();
 
     if (!trackingNumber || !courier) {
-      return apiError("Enter a tracking number and carrier to check shipment status.", 400);
+      return apiError("Ingresa número de tracking y transportista para consultar el estado.", 400);
     }
 
     if (!allowedCouriers.includes(normalizeCourier(courier))) {
-      return apiError("Unsupported carrier for live tracking.", 400);
+      return apiError("Este transportista todavía no está disponible para tracking.", 400);
     }
 
     const data = await getRealTracking(trackingNumber, courier);
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     return apiErrorFromUnknown(
       error,
       error instanceof Error
-        ? `We could not check this carrier right now: ${error.message}`
-        : "We could not check this carrier right now.",
+        ? `No pudimos consultar el estado en este momento: ${error.message}`
+        : "No pudimos consultar el estado en este momento.",
       502,
     );
   }

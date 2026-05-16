@@ -5,7 +5,7 @@ export default function BalancePage() {
   return (
     <DashboardShell
       title="Balance"
-      description="Add balance to pay for generated labels and shipment activity."
+      description="Revisa tu saldo disponible y los movimientos de tu cuenta."
     >
       <BalancePanel />
     </DashboardShell>

@@ -27,78 +27,78 @@ import { SectionHeading } from "@/components/SectionHeading";
 const features: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
     icon: Calculator,
-    title: "Multi-carrier rate shopping",
-    text: "Compare USPS, UPS, FedEx, and DHL before buying each label.",
+    title: "Cotización con varios transportistas",
+    text: "Compara USPS, UPS, FedEx y DHL antes de crear cada guía.",
   },
   {
     icon: Printer,
-    title: "Printable shipping labels",
-    text: "Generate clean labels with sender, recipient, carrier, barcode, and package details.",
+    title: "Guías listas para imprimir",
+    text: "Genera guías limpias con remitente, destinatario, transportista, código y paquete.",
   },
   {
     icon: MapPinned,
-    title: "Package tracking",
-    text: "Give customers one place to follow package movement and delivery status.",
+    title: "Tracking de paquetes",
+    text: "Da a tus clientes un lugar para consultar movimiento y estado de entrega.",
   },
   {
     icon: HandCoins,
-    title: "Competitive rates",
-    text: "Choose the best service by zone, package weight, speed, and carrier.",
+    title: "Tarifas competitivas",
+    text: "Elige el mejor servicio por zona, peso, velocidad y transportista.",
   },
   {
     icon: Wallet,
-    title: "Prepaid shipping balance",
-    text: "Pay labels from available balance without manual workflows on every shipment.",
+    title: "Saldo prepago",
+    text: "Paga guías con saldo disponible sin procesos manuales por envío.",
   },
   {
     icon: LayoutDashboard,
-    title: "Operations dashboard",
-    text: "Manage labels, tracking, balance, and admin controls from one workspace.",
+    title: "Panel operativo",
+    text: "Gestiona guías, tracking, saldo y operación desde un solo espacio.",
   },
 ];
 
 const workflow: Array<{ icon: LucideIcon; title: string; text: string }> = [
-  { icon: UserPlus, title: "Create your account", text: "Start with a simple seller workspace for your team." },
-  { icon: Wallet, title: "Add balance", text: "Fund labels and keep shipping spend visible." },
-  { icon: PackageCheck, title: "Create a label", text: "Enter package details and compare available carrier rates." },
-  { icon: Truck, title: "Pickup or drop-off", text: "Hand off packages through pickup, warehouse, or carrier locations." },
-  { icon: Bell, title: "Track delivery", text: "Follow status from your dashboard and share updates with buyers." },
+  { icon: UserPlus, title: "Crea tu cuenta", text: "Empieza con un espacio simple para tu equipo." },
+  { icon: Wallet, title: "Agrega saldo", text: "Mantén visible el gasto de envíos." },
+  { icon: PackageCheck, title: "Crea una guía", text: "Ingresa el paquete y compara tarifas disponibles." },
+  { icon: Truck, title: "Entrega o recolección", text: "Entrega paquetes en almacén, punto de transportista o recolección." },
+  { icon: Bell, title: "Consulta tracking", text: "Sigue estados desde el panel y comparte novedades." },
 ];
 
 const simpleRates = [
-  "No monthly commitment",
-  "No carrier portal switching",
-  "Pay per generated label",
-  "Rates depend on zones, weight, and carrier service",
+  "Sin compromiso mensual",
+  "Sin cambiar entre portales",
+  "Paga por guía generada",
+  "Las tarifas dependen de zona, peso y servicio",
 ];
 
 const heroBenefits = [
   "USPS, UPS, FedEx, DHL",
-  "Shipping labels",
-  "Package tracking",
-  "Built for U.S. ecommerce",
+  "Guías de envío",
+  "Tracking de paquetes",
+  "Hecho para ecommerce en EE. UU.",
 ];
 
 const benefitBand: Array<{ title: string; text: string }> = [
   {
-    title: "Multi-carrier rates",
-    text: "Compare carrier options before creating a label",
+    title: "Tarifas con varios transportistas",
+    text: "Compara opciones antes de crear una guía",
   },
   {
-    title: "Ecommerce ready",
-    text: "Built for sellers, warehouses, and small businesses",
+    title: "Listo para ecommerce",
+    text: "Pensado para vendedores, almacenes y pequeños negocios",
   },
   {
-    title: "Tracking updates",
-    text: "Centralize status for support teams and buyers",
+    title: "Actualizaciones de tracking",
+    text: "Centraliza estados para soporte y compradores",
   },
   {
-    title: "Pickup or drop-off",
-    text: "Support warehouse handoff and carrier counter workflows",
+    title: "Recolección o entrega",
+    text: "Soporta entrega en almacén o puntos de transportista",
   },
   {
-    title: "U.S. shipping network",
-    text: "Designed around domestic package operations",
+    title: "Red de envíos en EE. UU.",
+    text: "Diseñado para operación doméstica de paquetes",
   },
 ];
 
@@ -115,24 +115,24 @@ export default function Home() {
               <div className="flex flex-wrap items-center gap-3">
                 <Badge tone="blue" className="border border-white/20 bg-white/12 text-cyan-200 ring-cyan-300/30 backdrop-blur-xl">
                   <PackageCheck className="mr-2 h-3.5 w-3.5" />
-                  U.S. multi-carrier shipping
+                  Envíos con varios transportistas en EE. UU.
                 </Badge>
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-xs font-black text-white shadow-lg shadow-slate-950/20 backdrop-blur-xl">
-                  Ecommerce labels, rates, and tracking
+                  Guías, tarifas y tracking para ecommerce
                 </span>
               </div>
               <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[0.98] tracking-tight text-white sm:text-6xl lg:text-7xl">
-                Create shipping labels across the <span className="text-[#06B6D4] drop-shadow-[0_0_24px_rgba(6,182,212,0.32)]">U.S.</span> from one platform
+                Crea guías de envío en <span className="text-[#06B6D4] drop-shadow-[0_0_24px_rgba(6,182,212,0.32)]">EE. UU.</span> desde una sola plataforma
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-slate-200">
-                ShipFlow helps ecommerce sellers compare rates, create labels, manage balance, and track packages with USPS, UPS, FedEx, and DHL.
+                ShipFlow ayuda a vendedores ecommerce a comparar tarifas, crear guías, manejar saldo y consultar paquetes con USPS, UPS, FedEx y DHL.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button href="/registro" className="rounded-2xl sm:min-w-48">
-                  Create free account
+                  Crear cuenta gratis
                 </Button>
                 <Button href="/crear-guia" variant="secondary" icon={<ArrowRight className="h-4 w-4" />} className="rounded-2xl sm:min-w-44">
-                  Quote a shipment
+                  Cotizar envío
                 </Button>
               </div>
               <div className="mt-8 flex max-w-2xl flex-wrap gap-3">
@@ -162,9 +162,9 @@ export default function Home() {
         <section id="beneficios" className="bg-[#F8F9FC] py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="Features"
-              title="Everything sellers need to ship"
-              description="A complete shipping workflow for quoting, label creation, tracking, and customer support."
+              eyebrow="Beneficios"
+              title="Todo lo que necesitas para enviar"
+              description="Un flujo completo para cotizar, crear guías, consultar tracking y atender clientes."
             />
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((feature, index) => {
@@ -190,9 +190,9 @@ export default function Home() {
         <section id="couriers" className="bg-white py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="Carrier network"
-              title="Choose the best carrier for each shipment"
-              description="Compare USPS, UPS, FedEx, and DHL by cost, service level, and estimated transit time."
+              eyebrow="Red de transportistas"
+              title="Elige el mejor transportista para cada envío"
+              description="Compara USPS, UPS, FedEx y DHL por costo, servicio y tiempo estimado."
             />
             <div className="mt-10 rounded-[2rem] border border-cyan-100 bg-white p-4 shadow-2xl shadow-slate-950/10 sm:p-6">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -209,9 +209,9 @@ export default function Home() {
         <section id="como-funciona" className="bg-white py-16 sm:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
-              eyebrow="How it works"
-              title="From rate quote to package tracking"
-              description="A practical workflow for small businesses, D2C brands, and warehouse teams."
+              eyebrow="Cómo funciona"
+              title="De cotización a tracking"
+              description="Un flujo práctico para pequeños negocios, marcas D2C y equipos de almacén."
             />
             <div className="mt-12 grid gap-4 lg:grid-cols-5">
               {workflow.map((step, index) => {
@@ -236,13 +236,13 @@ export default function Home() {
             <MotionReveal>
               <Badge tone="green" className="bg-[#22C55E] text-slate-950 ring-green-200">
                 <CreditCard className="mr-2 h-3.5 w-3.5" />
-                Simple shipping spend
+                Gasto de envíos claro
               </Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
-                Pay per generated label, not per carrier portal
+                Paga por guía generada, sin saltar entre portales
               </h2>
               <p className="mt-5 leading-7 text-slate-300">
-                Rates depend on origin, destination, package weight, and carrier service. Add balance and use it when shipping orders.
+                Las tarifas dependen de origen, destino, peso del paquete y servicio. Agrega saldo y úsalo al enviar pedidos.
               </p>
             </MotionReveal>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -261,17 +261,17 @@ export default function Home() {
             <MotionReveal>
               <Badge tone="blue">
                 <Calculator className="mr-2 h-3.5 w-3.5" />
-                Rate preview
+                Vista de tarifas
               </Badge>
               <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-                Compare price, speed, and carrier before creating a label
+                Compara precio, velocidad y transportista antes de crear una guía
               </h2>
               <div className="mt-6 grid gap-3 text-sm text-slate-600">
                 {[
-                  "Zone and weight based shipping estimates",
-                  "Clear carrier comparison before purchase",
-                  "Tracking updates for your buyers",
-                  "Pickup, warehouse, or drop-off workflows",
+                  "Estimaciones por zona y peso",
+                  "Comparación clara antes de comprar",
+                  "Actualizaciones de tracking para tus compradores",
+                  "Recolección, almacén o entrega en punto",
                 ].map((text) => (
                   <div key={text} className="flex items-center gap-3">
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-50 text-[#06B6D4] shadow-sm">
@@ -291,19 +291,19 @@ export default function Home() {
         <section className="bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.18),transparent_28%),linear-gradient(135deg,#F8F9FC,#ffffff)] py-16 sm:py-24">
           <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
             <MotionReveal>
-              <Badge tone="green">Start free</Badge>
+              <Badge tone="green">Empieza gratis</Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-                Start creating shipping labels today
+                Empieza a crear guías de envío hoy
               </h2>
               <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">
-                Create an account, add balance, compare rates, and ship your first package in minutes.
+                Crea una cuenta, agrega saldo, compara tarifas y envía tu primer paquete en minutos.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button href="/registro" variant="dark" className="rounded-2xl">
-                  Create free account
+                  Crear cuenta gratis
                 </Button>
                 <Button href="/crear-guia" icon={<ArrowRight className="h-4 w-4" />} className="rounded-2xl">
-                  Quote a shipment
+                  Cotizar envío
                 </Button>
               </div>
             </MotionReveal>

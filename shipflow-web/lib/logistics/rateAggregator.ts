@@ -33,6 +33,22 @@ function repriceRate(rate: RateResult): RateResult {
   };
 }
 
+function isCustomerVisibleRate(rate: RateResult): boolean {
+  if (rate.provider === "internal" || rate.provider === "mock") return false;
+
+  const haystack = [
+    rate.provider,
+    rate.courierId,
+    rate.courierName,
+    rate.serviceCode,
+    rate.serviceName,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return !/\b(dummy|mock|internal|demo|test carrier)\b/.test(haystack);
+}
+
 export async function aggregateRates(input: RateInput): Promise<AggregatedRatesResult> {
   const eligible = AGGREGATION_PROVIDERS.filter((p) => {
     const caps = getProviderCapabilities(p);
@@ -60,7 +76,8 @@ export async function aggregateRates(input: RateInput): Promise<AggregatedRatesR
   // Collect raw rates from all successful providers.
   const rawRates = outcomes
     .filter((o): o is Extract<ProviderOutcome, { ok: true }> => o.ok)
-    .flatMap((o) => o.rates);
+    .flatMap((o) => o.rates)
+    .filter(isCustomerVisibleRate);
 
   // Pipeline: reprice → deduplicate → rank
   const priced = rawRates.map(repriceRate);

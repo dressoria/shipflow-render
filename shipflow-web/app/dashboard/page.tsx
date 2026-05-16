@@ -5,7 +5,7 @@ export default function DashboardPage() {
   return (
     <DashboardShell
       title="Dashboard"
-      description="Resumen operativo con KPIs, envíos y saldo conectados a la base principal."
+      description="Resumen de guías, costos estimados, envíos en tránsito y saldo disponible."
     >
       <DashboardOverview />
     </DashboardShell>

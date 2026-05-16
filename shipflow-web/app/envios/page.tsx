@@ -5,7 +5,7 @@ export default function ShipmentsPage() {
   return (
     <DashboardShell
       title="Envíos"
-      description="Lista funcional de envíos guardados en la base principal cuando Supabase está activo."
+      description="Consulta tus guías creadas, estados, costos y acciones disponibles."
     >
       <ShipmentsTable />
     </DashboardShell>

@@ -3,9 +3,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ShipFlow | Multi-carrier shipping across the U.S.",
+  title: "ShipFlow | Envíos en Estados Unidos",
   description:
-    "Platform to compare rates, create shipping labels, and track packages across the United States.",
+    "Plataforma para comparar tarifas, crear guías y consultar paquetes en Estados Unidos.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className="min-h-screen font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>

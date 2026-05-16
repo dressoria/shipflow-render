@@ -113,7 +113,7 @@ export function AddressInput({
     if (!mapsReady || !searchRef.current || !window.google) return;
 
     const autocomplete = new window.google.maps.places.Autocomplete(searchRef.current, {
-      types: ["address"],
+      types: ["geocode"],
       fields: ["address_components", "geometry", "formatted_address", "place_id"],
       componentRestrictions: { country: "us" },
     });
@@ -183,15 +183,19 @@ export function AddressInput({
     }
 
     setAddressError(null);
-    onChange(
-      toUSAddress(value, {
-        ...partial,
-        name: value.name,
-        phone: value.phone,
-        company: value.company,
-        street2: value.street2,
-      }),
-    );
+    const next = toUSAddress(value, {
+      ...partial,
+      name: value.name,
+      phone: value.phone,
+      company: value.company,
+      street2: value.street2,
+    });
+    setSearchText(next.formattedAddress || [next.street1, next.city, next.state, next.postalCode].filter(Boolean).join(", "));
+    if (next.validationStatus === "needs_review") {
+      setAddressError("Revisa el ZIP o completa la dirección manualmente.");
+      setShowManual(true);
+    }
+    onChange(next);
   }
 
   const complete = value.validationStatus === "complete" || isComplete(value);

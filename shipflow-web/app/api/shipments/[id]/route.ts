@@ -9,7 +9,7 @@ import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/su
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!isServerSupabaseConfigured) {
-    return apiError("Supabase is not configured on the server.", 503);
+    return apiError("El servidor no está configurado correctamente.", 503);
   }
 
   try {

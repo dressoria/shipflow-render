@@ -36,7 +36,7 @@ export function AdminOverview() {
     <>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total usuarios" value={stats.totalUsers.toString()} detail="perfiles" icon={Users} />
-        <StatCard label="Total shipments" value={stats.totalShipments.toString()} detail="labels" icon={PackageCheck} />
+        <StatCard label="Total envíos" value={stats.totalShipments.toString()} detail="guías" icon={PackageCheck} />
         <StatCard label="Pendientes" value={stats.pendingShipments.toString()} detail="por despachar" icon={Truck} />
         <StatCard label="Saldo recargado" value={formatCurrency(stats.totalRecharged)} detail="histórico" icon={CircleDollarSign} tone="green" />
       </div>

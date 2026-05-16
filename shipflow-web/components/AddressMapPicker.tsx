@@ -120,9 +120,9 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
           );
           onSelect(parsed);
           if (parsed.validationStatus === "needs_review") {
-            setStatusMsg("Revisa los datos postales. Algunos campos pueden estar incompletos.");
+            setStatusMsg("Dirección aplicada. Revisa el ZIP o completa la dirección manualmente.");
           } else {
-            setStatusMsg("Dirección encontrada. Puedes editar los campos si es necesario.");
+            setStatusMsg("Dirección aplicada automáticamente. Puedes editar los campos si es necesario.");
           }
         } else {
           onSelect({
@@ -131,7 +131,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
             source: "map_pin",
             validationStatus: "needs_review",
           });
-          setStatusMsg("No se encontró dirección exacta. Completa los campos manualmente.");
+          setStatusMsg("No se encontró una dirección postal completa. Completa los campos manualmente.");
         }
       });
     }
@@ -181,7 +181,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
         </p>
       )}
       <p className="text-xs text-slate-400">
-        El mapa ayuda a ubicar, pero la guía necesita dirección postal completa. Revisa los campos tras seleccionar.
+        Al seleccionar una ubicación, los campos de dirección se actualizan automáticamente.
       </p>
     </div>
   );

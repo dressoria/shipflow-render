@@ -9,7 +9,6 @@ import { StatCard } from "@/components/StatCard";
 import { formatDate } from "@/lib/forms";
 import { getAvailableBalance } from "@/lib/services/balanceService";
 import { getShipments } from "@/lib/services/shipmentService";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import type { Envio } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -54,10 +53,10 @@ export function DashboardOverview() {
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Guías creadas" value={shipments.length.toString()} detail="+18% semana" icon={PackageCheck} />
-        <StatCard label="Costo estimado" value={formatCurrency(total)} detail={isSupabaseConfigured ? "Supabase" : "fallback"} icon={CircleDollarSign} tone="green" />
-        <StatCard label="En tránsito" value={inTransit.toString()} detail="activo" icon={Truck} />
-        <StatCard label="Saldo" value={formatCurrency(balance)} detail={isSupabaseConfigured ? "conectado" : "fallback"} icon={Activity} tone="green" />
+        <StatCard label="Guías creadas" value={shipments.length.toString()} detail="Sin comparación" icon={PackageCheck} />
+        <StatCard label="Costo estimado" value={formatCurrency(total)} detail="Total acumulado" icon={CircleDollarSign} tone="green" />
+        <StatCard label="En tránsito" value={inTransit.toString()} detail="Guías activas" icon={Truck} />
+        <StatCard label="Saldo" value={formatCurrency(balance)} detail="Disponible" icon={Activity} tone="green" />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_340px]">
@@ -65,9 +64,7 @@ export function DashboardOverview() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
             <div>
               <h2 className="font-black text-slate-950">Envíos recientes</h2>
-              <p className="text-sm text-slate-500">
-                {isSupabaseConfigured ? "Datos sincronizados con Supabase." : "Datos del modo fallback."}
-              </p>
+              <p className="text-sm text-slate-500">Actividad reciente de tus guías.</p>
             </div>
             <Badge tone="blue">Actualizado ahora</Badge>
           </div>
@@ -96,8 +93,8 @@ export function DashboardOverview() {
             <div className="p-5">
               <EmptyState
                 icon={Truck}
-                title="No labels yet"
-                description="Create a label to see activity in the dashboard."
+                title="Aún no hay guías creadas"
+                description="Crea tu primera guía para ver actividad en el panel."
               />
             </div>
           )}

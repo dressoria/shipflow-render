@@ -5,6 +5,31 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeCarrier(s: string): string {
+  const normalized = s.toLowerCase();
+  if (normalized.includes("stamps") || normalized.includes("usps")) return "usps";
+  if (normalized.includes("fedex")) return "fedex";
+  if (normalized.includes("ups")) return "ups";
+  if (normalized.includes("dhl")) return "dhl";
+  return normalize(s);
+}
+
+function normalizeService(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\busps\b/g, "")
+    .replace(/\bstamps\.?com\b/g, "")
+    .replace(/\bvia\b/g, "")
+    .replace(/\bfedex\b/g, "")
+    .replace(/\bups\b/g, "")
+    .replace(/\bdhl\b/g, "")
+    .replace(/\bmail\b/g, "")
+    .replace(/\bpackage\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 // Extracts a day-count string from estimatedTime (e.g. "3 day(s)" → "3").
 function extractDays(estimatedTime?: string): string {
   if (!estimatedTime) return "x";
@@ -15,8 +40,8 @@ function extractDays(estimatedTime?: string): string {
 // Group key: normalized carrier + normalized service + estimated days.
 // Rates with the same key represent equivalent options across providers.
 function groupKey(rate: RateResult): string {
-  const carrier = normalize(rate.courierName || rate.courierId);
-  const service = normalize(rate.serviceName || rate.serviceCode);
+  const carrier = normalizeCarrier(rate.courierName || rate.courierId);
+  const service = normalizeService(rate.serviceName || rate.serviceCode);
   const days = extractDays(rate.estimatedTime);
   return `${carrier}__${service}__${days}`;
 }

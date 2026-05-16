@@ -27,7 +27,7 @@ function extractProvider(body: unknown): string | undefined {
 
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured) {
-    return apiError("Supabase is not configured on the server.", 503);
+    return apiError("El servidor no está configurado correctamente.", 503);
   }
 
   try {

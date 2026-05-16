@@ -5,7 +5,7 @@ export default function AdminShipmentsPage() {
   return (
     <AdminShell
       title="Envíos"
-      description="All shipping labels created inside the platform."
+      description="Todas las guías creadas dentro de la plataforma."
     >
       <AdminShipmentsView />
     </AdminShell>

@@ -22,7 +22,7 @@ function parseLimit(value: string | null) {
 
 export async function GET(request: Request) {
   if (!isServerSupabaseConfigured) {
-    return apiError("Supabase is not configured on the server.", 503);
+    return apiError("El servidor no está configurado correctamente.", 503);
   }
 
   try {

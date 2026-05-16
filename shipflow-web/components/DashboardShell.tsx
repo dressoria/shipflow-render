@@ -18,7 +18,6 @@ import { Button } from "@/components/Button";
 import { BrandName } from "@/components/BrandName";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 const menu = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
@@ -83,9 +82,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
                 <BarChart3 className="h-5 w-5 text-[#22C55E]" />
               </span>
               <div>
-              <p className="text-sm font-bold">
-                {isSupabaseConfigured ? "Supabase activo" : "Modo fallback"}
-              </p>
+              <p className="text-sm font-bold">Sistema operativo</p>
                 <p className="text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Saldo por envío"}</p>
               </div>
             </div>

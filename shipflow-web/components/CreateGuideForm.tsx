@@ -227,7 +227,7 @@ export function CreateGuideForm() {
 
     if (configStatus && !configStatus.supabaseConfigured) {
       setRatesError(
-        "El servidor no está configurado para cotizar. Revisa la configuración de Supabase.",
+        "El servidor no está listo para cotizar. Revisa la configuración del entorno.",
       );
       return;
     }
@@ -278,7 +278,7 @@ export function CreateGuideForm() {
           dimensionUnit: form.dimensionUnit,
         },
       });
-      const visibleRates = result.rates.filter((rate) => rate.provider !== "internal" && rate.provider !== "mock");
+      const visibleRates = result.rates.filter(isCustomerVisibleRate);
       if (!visibleRates.length) {
         setRatesError(noRatesMessage(result));
       } else {
@@ -455,7 +455,7 @@ export function CreateGuideForm() {
     <div className="grid gap-6">
       {showConfigWarning && (
         <ConfigAlert type="error">
-          <strong>El servidor no está listo para cotizar.</strong> Revisa la configuración de Supabase.
+          <strong>El servidor no está listo para cotizar.</strong> Revisa la configuración del entorno.
         </ConfigAlert>
       )}
       {showNoRatesWarning && (
@@ -610,7 +610,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 }
 
 const CARRIER_DISPLAY: Record<string, string> = {
-  stamps_com: "USPS via Stamps.com",
+  stamps_com: "USPS",
   ups: "UPS",
   fedex: "FedEx",
   dhl_express: "DHL Express",
@@ -619,6 +619,12 @@ const CARRIER_DISPLAY: Record<string, string> = {
 };
 
 function displayCarrier(courierId: string, courierName: string): string {
+  const raw = `${courierId} ${courierName}`.toLowerCase();
+  if (raw.includes("stamps") || raw.includes("usps")) return "USPS";
+  if (raw.includes("fedex")) return "FedEx";
+  if (raw.includes("ups")) return "UPS";
+  if (raw.includes("dhl")) return "DHL";
+
   return (
     CARRIER_DISPLAY[courierId.toLowerCase()] ??
     CARRIER_DISPLAY[courierName.toLowerCase()] ??
@@ -634,6 +640,22 @@ function formatDelivery(estimatedTime?: string): string | null {
     return `Entrega en ${n} día${n !== 1 ? "s" : ""}`;
   }
   return estimatedTime;
+}
+
+function isCustomerVisibleRate(rate: RateResult): boolean {
+  if (rate.provider === "internal" || rate.provider === "mock") return false;
+
+  const haystack = [
+    rate.provider,
+    rate.courierId,
+    rate.courierName,
+    rate.serviceCode,
+    rate.serviceName,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return !/\b(dummy|mock|internal|demo|test carrier)\b/.test(haystack);
 }
 
 function AvailableRatesList({
@@ -763,7 +785,7 @@ function GuideSummary({
         </button>
       </div>
       <div className="mt-5 grid gap-3 text-sm">
-        <SummaryRow label="Carrier" value={summary.courier} />
+        <SummaryRow label="Transportista" value={summary.courier} />
         <SummaryRow label="Ruta" value={`${summary.originCity} → ${summary.destinationCity}`} />
         <SummaryRow label="Total" value={formatCurrency(displayPrice)} />
       </div>
@@ -832,7 +854,7 @@ function ConfirmModal({
 
         <p className="mt-2 text-xs text-slate-400">
           Tarifa estimada según la dirección y el paquete ingresados. El precio final puede variar
-          si la dirección cambia al confirmar el label.
+          si la dirección cambia al confirmar la guía.
         </p>
 
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
@@ -851,13 +873,13 @@ function ConfirmModal({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Cargo de servicio ShipFlow</span>
+                <span className="text-slate-500">Servicio</span>
                 <span className="font-bold text-slate-950">
                   {formatCurrency(pricing.platformMarkup)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Cargo de procesamiento de pago</span>
+                <span className="text-slate-500">Cargo de pago</span>
                 <span className="font-bold text-slate-950">
                   {formatCurrency(pricing.paymentFee)}
                 </span>

@@ -43,10 +43,10 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
     return (
       <GuideFrame>
         <div className="text-center">
-          <h1 className="text-2xl font-black text-slate-950">Label not found</h1>
-          <p className="mt-2 text-slate-500">Check the tracking number or return to shipments.</p>
+          <h1 className="text-2xl font-black text-slate-950">Guía no encontrada</h1>
+          <p className="mt-2 text-slate-500">Revisa el número de tracking o vuelve a envíos.</p>
           <Link href="/envios" className="print-hidden mt-6 inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white">
-            Back to shipments
+            Volver a envíos
           </Link>
         </div>
       </GuideFrame>
@@ -58,16 +58,16 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
       <div className="print-hidden mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <Link href="/envios" className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to shipments
+          Volver a envíos
         </Link>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20">
             <Printer className="mr-2 h-4 w-4" />
-            Print
+            Imprimir
           </button>
           <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20">
             <Download className="mr-2 h-4 w-4" />
-            Download PDF
+            Descargar PDF
           </button>
         </div>
       </div>
@@ -81,11 +81,11 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               </span>
               <div className="min-w-0">
                 <p className="guide-wrap text-xl"><BrandName /></p>
-                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipping label</p>
+                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Guía de envío</p>
               </div>
             </div>
             <div className="min-w-0 text-left md:text-right print:text-right">
-              <p className="guide-wrap text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Tracking number</p>
+              <p className="guide-wrap text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Número de tracking</p>
               <h1 className="guide-wrap mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{shipment.trackingNumber}</h1>
               <Badge tone={shipment.status === "Pendiente" ? "amber" : shipment.status === "Entregado" ? "green" : "blue"} className="mt-2">
                 {shipment.status}
@@ -96,29 +96,29 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
 
           <div className="grid min-w-0 gap-4 p-6">
             <InfoBlock
-              title="Sender"
+              title="Remitente"
               rows={[
-                ["Name", shipment.senderName],
-                ["Phone", shipment.senderPhone],
-                ["City", shipment.originCity],
+                ["Nombre", shipment.senderName],
+                ["Teléfono", shipment.senderPhone],
+                ["Ciudad", shipment.originCity],
               ]}
             />
             <InfoBlock
-              title="Recipient"
+              title="Destinatario"
               rows={[
-                ["Name", shipment.recipientName],
-                ["Phone", shipment.recipientPhone],
-                ["City", shipment.destinationCity],
+                ["Nombre", shipment.recipientName],
+                ["Teléfono", shipment.recipientPhone],
+                ["Ciudad", shipment.destinationCity],
               ]}
             />
-            <InfoBlock title="Delivery address" rows={[["Address", shipment.destinationAddress]]} />
+            <InfoBlock title="Dirección de entrega" rows={[["Dirección", shipment.destinationAddress]]} />
             <InfoBlock
-              title="Package and carrier"
+              title="Paquete y transportista"
               rows={[
-                ["Product", shipment.productType],
-                ["Weight", `${shipment.weight} kg`],
-                ["Carrier", shipment.courier],
-                ["Date", formatDate(shipment.date)],
+                ["Producto", shipment.productType],
+                ["Peso", `${shipment.weight} kg`],
+                ["Transportista", shipment.courier],
+                ["Fecha", formatDate(shipment.date)],
               ]}
             />
             <PricingBlock shipment={shipment} />
@@ -127,12 +127,12 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
           </div>
 
           <footer className="border-t-2 border-slate-900 px-6 py-4">
-            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Shipment instructions</h2>
+            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Instrucciones de envío</h2>
             <ul className="mt-2 grid min-w-0 gap-1 text-left text-xs font-semibold leading-5 text-slate-700 sm:grid-cols-2 print:grid-cols-2">
-              <li className="guide-wrap">Ship the sealed package with this label visible.</li>
-              <li className="guide-wrap">Validate recipient details before handoff.</li>
-              <li className="guide-wrap">Collect COD only when indicated on the label.</li>
-              <li className="guide-wrap">Use the tracking number for updates in ShipFlow.</li>
+              <li className="guide-wrap">Entrega el paquete cerrado con esta guía visible.</li>
+              <li className="guide-wrap">Valida los datos del destinatario antes de entregar.</li>
+              <li className="guide-wrap">Cobra contra entrega solo si la guía lo indica.</li>
+              <li className="guide-wrap">Usa el número de tracking para consultar actualizaciones.</li>
             </ul>
           </footer>
         </section>

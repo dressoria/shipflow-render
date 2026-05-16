@@ -5,7 +5,7 @@ export default function TrackingPage() {
   return (
     <DashboardShell
       title="Tracking"
-      description="Search by tracking number and check carrier status when live data is available."
+      description="Consulta el estado de tus guías cuando tengan número de tracking."
     >
       <TrackingSearch />
     </DashboardShell>
