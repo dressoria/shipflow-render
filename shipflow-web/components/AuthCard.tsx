@@ -33,11 +33,11 @@ export function AuthCard({ mode }: AuthCardProps) {
     const password = required(form.get("password"));
     const nextErrors: Record<string, string> = {};
 
-    if (!isLogin && !name) nextErrors.name = "Ingresa el nombre comercial.";
-    if (!email) nextErrors.email = "Ingresa tu correo.";
-    if (email && !isEmail(email)) nextErrors.email = "Ingresa un correo válido.";
-    if (!password) nextErrors.password = "Ingresa tu contraseña.";
-    if (password && password.length < 6) nextErrors.password = "Usa al menos 6 caracteres.";
+    if (!isLogin && !name) nextErrors.name = "Enter your business name.";
+    if (!email) nextErrors.email = "Enter your email.";
+    if (email && !isEmail(email)) nextErrors.email = "Enter a valid email.";
+    if (!password) nextErrors.password = "Enter your password.";
+    if (password && password.length < 6) nextErrors.password = "Use at least 6 characters.";
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -58,7 +58,7 @@ export function AuthCard({ mode }: AuthCardProps) {
       }
     } catch (error) {
       setErrors({
-        form: error instanceof Error ? error.message : "No se pudo completar la acción.",
+        form: error instanceof Error ? error.message : "We could not complete this action.",
       });
       setLoading(false);
     }
@@ -74,32 +74,32 @@ export function AuthCard({ mode }: AuthCardProps) {
           <BrandName />
         </Link>
         <h1 className="mt-8 text-3xl font-black tracking-tight text-slate-950">
-          {isLogin ? "Ingresa a tu cuenta" : "Crea tu cuenta gratis"}
+          {isLogin ? "Sign in to your account" : "Create your free account"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {isLogin
             ? "Access the dashboard to review your shipments."
-            : "Crea tu acceso y prepara tu operación."}
+            : "Create access and get your shipping operation ready."}
         </p>
         <form onSubmit={handleSubmit} className="mt-7 grid gap-4" noValidate>
           {!isLogin ? (
             <Field
               name="name"
-              label="Nombre comercial"
-              placeholder="Mi tienda online"
+              label="Business name"
+              placeholder="My online store"
               error={errors.name}
             />
           ) : null}
           <Field
             name="email"
-            label="Correo"
+            label="Email"
             type="email"
-            placeholder="hola@tienda.ec"
+            placeholder="hello@store.com"
             error={errors.email}
           />
           <Field
             name="password"
-            label="Contraseña"
+            label="Password"
             type="password"
             placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
             error={errors.password}
@@ -109,15 +109,15 @@ export function AuthCard({ mode }: AuthCardProps) {
             disabled={loading}
             className="mt-2 inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Validando..." : isLogin ? "Entrar al panel" : "Crear cuenta gratis"}
+            {loading ? "Checking..." : isLogin ? "Enter dashboard" : "Create free account"}
             {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
           </button>
           {errors.form ? <span className="text-sm font-semibold text-red-600">{errors.form}</span> : null}
         </form>
         <p className="mt-6 text-center text-sm text-slate-600">
-          {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}{" "}
+          {isLogin ? "No account yet?" : "Already have an account?"}{" "}
           <Link href={isLogin ? "/registro" : "/login"} className="font-bold text-[#FF1493]">
-            {isLogin ? "Regístrate" : "Ingresa"}
+            {isLogin ? "Sign up" : "Sign in"}
           </Link>
         </p>
       </div>

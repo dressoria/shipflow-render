@@ -17,11 +17,11 @@ import { BrandName } from "@/components/BrandName";
 import { useAuth } from "@/hooks/useAuth";
 
 const menu = [
-  { label: "Resumen", href: "/admin", icon: LayoutDashboard },
-  { label: "Usuarios", href: "/admin/usuarios", icon: Users },
-  { label: "Envíos", href: "/admin/envios", icon: Truck },
+  { label: "Overview", href: "/admin", icon: LayoutDashboard },
+  { label: "Users", href: "/admin/usuarios", icon: Users },
+  { label: "Shipments", href: "/admin/envios", icon: Truck },
   { label: "Couriers", href: "/admin/couriers", icon: Warehouse },
-  { label: "Saldo", href: "/admin/saldo", icon: CreditCard },
+  { label: "Balance", href: "/admin/saldo", icon: CreditCard },
 ];
 
 export function AdminShell({
@@ -52,7 +52,7 @@ export function AdminShell({
                 href="/dashboard"
                 className="hidden h-11 items-center rounded-2xl border border-pink-100 bg-white/85 px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-pink-50 sm:inline-flex"
               >
-                Panel usuario
+                User dashboard
               </Link>
               <button
                 type="button"
@@ -60,7 +60,7 @@ export function AdminShell({
                 className="inline-flex h-11 items-center justify-center rounded-2xl border border-pink-100 bg-white/85 px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-pink-50"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Salir
+                Sign out
               </button>
             </div>
           </div>
@@ -73,7 +73,7 @@ export function AdminShell({
                   <PackageCheck className="h-5 w-5 text-[#22C55E]" />
                 </span>
                 <div>
-                  <p className="text-sm font-bold">Administrador</p>
+                  <p className="text-sm font-bold">Administrator</p>
                   <p className="text-xs text-slate-300">{user?.email}</p>
                 </div>
               </div>
@@ -101,7 +101,7 @@ export function AdminShell({
           <main>
             <div className="mb-6">
               <p className="text-sm font-black uppercase tracking-[0.18em] text-[#FF1493]">
-                Administración
+                Admin
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                 {title}

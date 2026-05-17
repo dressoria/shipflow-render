@@ -5,7 +5,7 @@ export default function DashboardPage() {
   return (
     <DashboardShell
       title="Dashboard"
-      description="Resumen de guías, costos estimados, envíos en tránsito y saldo disponible."
+      description="Overview of shipments, estimated costs, in-transit packages, and available balance."
     >
       <DashboardOverview />
     </DashboardShell>

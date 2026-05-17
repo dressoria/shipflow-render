@@ -9,9 +9,9 @@ const quoteOptions: Array<{
   tag: string;
   icon: LucideIcon;
 }> = [
-  { name: "USPS", time: "2-5 días", price: "Según ruta", tag: "Mejor economía", icon: CheckCircle2 },
-  { name: "UPS", time: "1-5 días", price: "Según ruta", tag: "Red terrestre", icon: ShieldCheck },
-  { name: "FedEx", time: "1-4 días", price: "Según ruta", tag: "Opción rápida", icon: Clock3 },
+  { name: "USPS", time: "2-5 days", price: "By route", tag: "Best economy", icon: CheckCircle2 },
+  { name: "UPS", time: "1-5 days", price: "By route", tag: "Ground network", icon: ShieldCheck },
+  { name: "FedEx", time: "1-4 days", price: "By route", tag: "Fast option", icon: Clock3 },
 ];
 
 export function QuotePreview() {
@@ -21,10 +21,10 @@ export function QuotePreview() {
       <div className="relative overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-slate-950/15">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-950 px-5 py-4 text-white">
           <div>
-            <p className="text-sm font-bold">Cotizador</p>
-            <p className="text-xs text-slate-300">Comparación inteligente de tarifas</p>
+            <p className="text-sm font-bold">Shipping desk</p>
+            <p className="text-xs text-slate-300">Smart rate comparison</p>
           </div>
-          <Badge tone="green">Tarifas</Badge>
+          <Badge tone="green">Rates</Badge>
         </div>
 
         <div className="grid gap-4 p-5">
@@ -34,7 +34,7 @@ export function QuotePreview() {
                 <MapPin className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs text-slate-500">Origen</p>
+                <p className="text-xs text-slate-500">From</p>
                 <p className="font-bold text-slate-950">New York, NY</p>
               </div>
             </div>
@@ -43,7 +43,7 @@ export function QuotePreview() {
                 <Package className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs text-slate-500">Destino</p>
+                <p className="text-xs text-slate-500">To</p>
                 <p className="font-bold text-slate-950">Chicago, IL</p>
               </div>
             </div>
@@ -76,7 +76,7 @@ export function QuotePreview() {
           ))}
 
           <button className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#06B6D4] text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:bg-[#0891B2]">
-            Generar guía
+            Get rates
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

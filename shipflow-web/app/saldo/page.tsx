@@ -5,7 +5,7 @@ export default function BalancePage() {
   return (
     <DashboardShell
       title="Balance"
-      description="Revisa tu saldo disponible y los movimientos de tu cuenta."
+      description="Review available balance and account activity."
     >
       <BalancePanel />
     </DashboardShell>

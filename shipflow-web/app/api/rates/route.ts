@@ -82,7 +82,7 @@ function parseExternalRateInput(body: ShipStationRateBody | AggregatedRateBody):
 
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured) {
-    return apiError("El servidor no está configurado correctamente.", 503);
+    return apiError("Server is not configured correctly.", 503);
   }
 
   try {
@@ -96,12 +96,12 @@ export async function POST(request: Request) {
       const failedCount = outcomes.filter((o) => !o.ok).length;
 
       if (configuredCount === 0) {
-        return apiError("No hay integraciones de cotización real configuradas.", 503);
+        return apiError("No real rate integrations are configured yet.", 503);
       }
 
       if (rates.length === 0) {
         return apiError(
-          "No encontramos tarifas para esta ruta con los datos ingresados. Revisa dirección, ZIP y dimensiones.",
+          "We could not find rates for this route with the details entered. Review the address, ZIP, and dimensions.",
           failedCount > 0 ? 424 : 404,
         );
       }

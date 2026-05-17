@@ -64,8 +64,8 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
   const [statusMsg, setStatusMsg] = useState<string | null>(
     () =>
       value.latitude && value.longitude
-        ? "Mueve el pin o haz clic en el mapa para ajustar la ubicación."
-        : "Haz clic en el mapa o arrastra el pin para seleccionar la ubicación.",
+        ? "Move the pin or click the map to adjust the location."
+        : "Click the map or drag the pin to select the location.",
   );
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
       position: center,
       map,
       draggable: true,
-      title: "Arrastra para ubicar",
+      title: "Drag to place",
       animation: gmaps.Animation?.DROP,
     });
 
@@ -120,9 +120,9 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
           );
           onSelect(parsed);
           if (parsed.validationStatus === "needs_review") {
-            setStatusMsg("Dirección aplicada. Revisa el ZIP o completa la dirección manualmente.");
+            setStatusMsg("Address applied. Review the ZIP or complete the address manually.");
           } else {
-            setStatusMsg("Dirección aplicada automáticamente. Puedes editar los campos si es necesario.");
+            setStatusMsg("Address applied automatically. You can edit the fields if needed.");
           }
         } else {
           onSelect({
@@ -131,7 +131,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
             source: "map_pin",
             validationStatus: "needs_review",
           });
-          setStatusMsg("No se encontró una dirección postal completa. Completa los campos manualmente.");
+          setStatusMsg("We could not find a complete postal address. Complete the fields manually.");
         }
       });
     }
@@ -156,7 +156,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
       <div className="flex h-56 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
         <div className="flex flex-col items-center gap-2 text-slate-400">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-sm">Cargando mapa...</span>
+          <span className="text-sm">Loading map...</span>
         </div>
       </div>
     );
@@ -171,7 +171,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
       {geocoding && (
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          <span>Obteniendo dirección...</span>
+          <span>Getting address...</span>
         </div>
       )}
       {statusMsg && !geocoding && (
@@ -181,7 +181,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
         </p>
       )}
       <p className="text-xs text-slate-400">
-        Al seleccionar una ubicación, los campos de dirección se actualizan automáticamente.
+        When you select a location, the address fields update automatically.
       </p>
     </div>
   );

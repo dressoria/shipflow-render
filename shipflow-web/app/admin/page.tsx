@@ -4,8 +4,8 @@ import { AdminShell } from "@/components/AdminShell";
 export default function AdminPage() {
   return (
     <AdminShell
-      title="Dashboard Admin"
-      description="Métricas generales, últimos envíos y usuarios registrados."
+      title="Admin Dashboard"
+      description="General metrics, recent shipments, and registered users."
     >
       <AdminOverview />
     </AdminShell>

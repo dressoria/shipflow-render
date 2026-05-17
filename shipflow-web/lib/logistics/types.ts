@@ -65,6 +65,21 @@ export type RateResult = {
   deliveryDate?: string;
   pricing: PricingBreakdown;
   tags?: ("cheapest" | "fastest" | "recommended")[];
+  metadata?: Record<string, unknown>; // Internal-only provider metadata needed to revalidate/purchase later.
+};
+
+// Future real-label flow contract:
+// The frontend may send this selection as a hint, but the backend must revalidate
+// or recalculate the rate before purchasing. Never trust client-sent costs.
+export type SelectedRateForLabelRequest = {
+  provider: LogisticsProvider;
+  providerRateId?: string;
+  courierId: string;
+  serviceCode: LogisticsServiceCode;
+  quotedCurrency: "USD";
+  quotedCustomerPrice: number;
+  quotedProviderCost?: number;
+  pricingBreakdown?: PricingBreakdown;
 };
 
 export type CreateLabelInput = RateInput & {

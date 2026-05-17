@@ -7,10 +7,10 @@ import { BrandName } from "@/components/BrandName";
 import { Button } from "@/components/Button";
 
 const nav = [
-  { label: "Beneficios", href: "#beneficios" },
-  { label: "Transportistas", href: "#couriers" },
-  { label: "Cómo funciona", href: "#como-funciona" },
-  { label: "Precios", href: "#pagos" },
+  { label: "Benefits", href: "#beneficios" },
+  { label: "Carriers", href: "#couriers" },
+  { label: "How it works", href: "#como-funciona" },
+  { label: "Pricing", href: "#pagos" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -37,16 +37,16 @@ export function Header() {
 
         <div className="hidden items-center gap-3 md:flex">
           <Button href="/login" variant="ghost">
-            Iniciar sesión
+            Sign in
           </Button>
-          <Button href="/registro" className="rounded-2xl">Crear cuenta</Button>
+          <Button href="/registro" className="rounded-2xl">Create account</Button>
         </div>
 
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           className="grid h-10 w-10 place-items-center rounded-2xl border border-cyan-200 bg-white/80 text-slate-700 md:hidden"
-          aria-label="Abrir menú"
+          aria-label="Open menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -68,10 +68,10 @@ export function Header() {
           </nav>
           <div className="mt-4 grid gap-3">
             <Button href="/registro" className="w-full">
-              Crear cuenta
+              Create account
             </Button>
             <Button href="/login" variant="secondary" className="w-full">
-              Iniciar sesión
+              Sign in
             </Button>
           </div>
         </div>

@@ -14,24 +14,24 @@ export function Footer() {
             <BrandName className="text-white" />
           </div>
           <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
-            Envíos con varios transportistas para ecommerce, pequeños negocios y equipos operativos en Estados Unidos.
+            Multi-carrier shipping for ecommerce, small businesses, and operations teams across the United States.
           </p>
         </div>
         <div>
-          <p className="font-bold">Producto</p>
+          <p className="font-bold">Product</p>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <Link href="/crear-guia" className="hover:text-white">Cotizar envío</Link>
-            <Link href="/envios" className="hover:text-white">Envíos</Link>
+            <Link href="/crear-guia" className="hover:text-white">Get rates</Link>
+            <Link href="/envios" className="hover:text-white">Shipments</Link>
             <Link href="/tracking" className="hover:text-white">Tracking</Link>
           </div>
         </div>
         <div>
-          <p className="font-bold">Contacto</p>
+          <p className="font-bold">Contact</p>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <a href="mailto:support@shipflow.local" className="hover:text-white">
               support@shipflow.local
             </a>
-            <Link href="/registro" className="hover:text-white">Crear cuenta gratis</Link>
+            <Link href="/registro" className="hover:text-white">Create free account</Link>
           </div>
         </div>
       </div>

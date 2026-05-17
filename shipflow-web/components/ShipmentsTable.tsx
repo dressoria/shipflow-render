@@ -28,14 +28,21 @@ const labelStatusTone: Record<string, "green" | "blue" | "amber" | "slate"> = {
 };
 
 const labelStatusLabel: Record<string, string> = {
-  purchased: "Comprada",
-  internal: "Procesada",
-  pending: "Pendiente",
-  processing: "Procesando",
-  voided: "Anulada",
-  refunded: "Reembolsada",
-  failed: "Fallida",
+  purchased: "Purchased",
+  internal: "Processed",
+  pending: "Pending",
+  processing: "Processing",
+  voided: "Voided",
+  refunded: "Refunded",
+  failed: "Failed",
 };
+
+function displayShipmentStatus(status: Envio["status"]) {
+  if (status === "Entregado") return "Delivered";
+  if (status === "En tránsito") return "In transit";
+  if (status === "Pendiente") return "Pending";
+  return status;
+}
 
 export function ShipmentsTable() {
   const [shipments, setShipments] = useState<Envio[]>([]);
@@ -51,7 +58,7 @@ export function ShipmentsTable() {
       const data = await getShipments();
       setShipments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudieron cargar los envíos.");
+      setError(err instanceof Error ? err.message : "We could not load shipments.");
     } finally {
       setLoading(false);
     }
@@ -76,18 +83,18 @@ export function ShipmentsTable() {
     try {
       setVoidError(null);
       const result = await apiVoidLabel(shipmentId);
-      setVoidSuccess(result.message || "Guía anulada.");
+      setVoidSuccess(result.message || "Label voided.");
       setVoidingId(null);
       await load();
     } catch (err) {
-      setVoidError(err instanceof Error ? err.message : "No se pudo anular esta guía.");
+      setVoidError(err instanceof Error ? err.message : "We could not void this label.");
     }
   }
 
   if (loading) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold text-slate-500">Cargando envíos...</p>
+        <p className="text-sm font-semibold text-slate-500">Loading shipments...</p>
       </div>
     );
   }
@@ -104,8 +111,8 @@ export function ShipmentsTable() {
     return (
       <EmptyState
         icon={Truck}
-        title="Todavía no hay envíos"
-        description="Cotiza y genera tu primera guía para llenar esta tabla automáticamente."
+        title="No shipments yet"
+        description="Get rates and create your first shipment to fill this table automatically."
       />
     );
   }
@@ -122,36 +129,36 @@ export function ShipmentsTable() {
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
         <div className="overflow-x-auto">
           <div className="grid min-w-[1100px] grid-cols-[1.2fr_1.2fr_1fr_0.8fr_0.8fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
-            <span>Guía / Estado</span>
-            <span>Destinatario</span>
-            <span>Transportista</span>
-            <span>Guía</span>
-            <span>Precio</span>
-            <span>Fecha</span>
-            <span>Acciones</span>
+            <span>Shipment / Status</span>
+            <span>Recipient</span>
+            <span>Carrier</span>
+            <span>Label</span>
+            <span>Price</span>
+            <span>Date</span>
+            <span>Actions</span>
           </div>
           {shipments.map((shipment) => (
             <div key={shipment.id} className="grid min-w-[1100px] grid-cols-[1.2fr_1.2fr_1fr_0.8fr_0.8fr_1fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
-              {/* Guía / Estado */}
+              {/* Shipment / Status */}
               <div>
                 <p className="font-black text-slate-950 tabular-nums">{shipment.trackingNumber}</p>
                 <Badge tone={statusTone[shipment.status] ?? "amber"} className="mt-1">
-                  {shipment.status}
+                  {displayShipmentStatus(shipment.status)}
                 </Badge>
               </div>
 
-              {/* Destinatario */}
+              {/* Recipient */}
               <div>
                 <span className="text-slate-700">{shipment.recipientName}</span>
                 <p className="text-xs text-slate-400">{shipment.destinationCity}</p>
               </div>
 
-              {/* Transportista */}
+              {/* Carrier */}
               <div>
                 <span className="text-slate-700">{shipment.courier}</span>
               </div>
 
-              {/* Estado de guía */}
+              {/* Label status */}
               <div>
                 {shipment.labelStatus ? (
                   <Badge tone={labelStatusTone[shipment.labelStatus] ?? "slate"}>
@@ -165,21 +172,21 @@ export function ShipmentsTable() {
                 ) : null}
               </div>
 
-              {/* Precio */}
+              {/* Price */}
               <span className="font-bold text-slate-950">
                 {formatCurrency(shipment.customerPrice ?? shipment.value)}
               </span>
 
-              {/* Fecha */}
+              {/* Date */}
               <span className="text-slate-600">{formatDate(shipment.date)}</span>
 
-              {/* Acciones */}
+              {/* Actions */}
               <div className="flex flex-wrap items-start gap-2">
                 <Link
                   href={`/guia/${shipment.trackingNumber}`}
                   className="rounded-2xl bg-pink-50 px-3 py-1.5 text-xs font-black text-[#FF1493]"
                 >
-                  Ver guía
+                  View label
                 </Link>
 
                 {canVoid(shipment) ? (
@@ -187,7 +194,7 @@ export function ShipmentsTable() {
                     <div className="grid gap-1">
                       <div className="flex items-center gap-1 rounded-2xl bg-amber-50 px-3 py-1.5">
                         <AlertTriangle className="h-3 w-3 text-amber-600" />
-                        <span className="text-xs font-bold text-amber-700">¿Anular?</span>
+                        <span className="text-xs font-bold text-amber-700">Void?</span>
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -195,7 +202,7 @@ export function ShipmentsTable() {
                           onClick={() => confirmVoid(shipment.id)}
                           className="rounded-xl bg-red-100 px-2 py-1 text-xs font-black text-red-700 hover:bg-red-200"
                         >
-                          Sí
+                          Yes
                         </button>
                         <button
                           type="button"
@@ -215,7 +222,7 @@ export function ShipmentsTable() {
                       onClick={() => startVoid(shipment.id)}
                       className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-red-50 hover:text-red-700"
                     >
-                      Anular
+                      Void
                     </button>
                   )
                 ) : null}

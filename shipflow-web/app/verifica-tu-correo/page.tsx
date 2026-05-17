@@ -39,11 +39,11 @@ export default function VerificaTuCorreoPage() {
       } else if (status === "no_session") {
         router.replace("/login");
       } else {
-        setResendError("Tu correo todavía no ha sido verificado. Revisa tu bandeja de entrada y spam.");
+        setResendError("Your email has not been verified yet. Check your inbox and spam folder.");
         setCheckLoading(false);
       }
     } catch {
-      setResendError("No pudimos verificar tu estado. Intenta de nuevo.");
+      setResendError("We could not verify your status. Try again.");
       setCheckLoading(false);
     }
   }
@@ -56,13 +56,13 @@ export default function VerificaTuCorreoPage() {
       await resendVerificationEmail(email);
       setResendState("sent");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "No se pudo reenviar el correo.";
+      const msg = err instanceof Error ? err.message : "We could not resend the email.";
       const isRateLimit =
         msg.toLowerCase().includes("rate") || msg.toLowerCase().includes("limit") || msg.toLowerCase().includes("429");
       setResendError(
         isRateLimit
-          ? "Espera unos minutos antes de solicitar otro correo."
-          : "Si tu correo existe, te enviaremos un nuevo enlace.",
+          ? "Wait a few minutes before requesting another email."
+          : "If your email exists, we will send a new link.",
       );
       setResendState("error");
     }
@@ -83,10 +83,10 @@ export default function VerificaTuCorreoPage() {
             <MailCheck className="h-8 w-8" />
           </span>
           <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-950">
-            Verifica tu correo
+            Verify your email
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Te enviamos un enlace de confirmación. Revisa tu bandeja de entrada y la carpeta de spam.
+            We sent you a confirmation link. Check your inbox and spam folder.
           </p>
           {email ? (
             <p className="mt-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
@@ -104,10 +104,10 @@ export default function VerificaTuCorreoPage() {
             {checkLoading ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Verificando...
+                Checking...
               </>
             ) : (
-              "Ya verifiqué mi correo"
+              "I already verified my email"
             )}
           </button>
 
@@ -117,16 +117,16 @@ export default function VerificaTuCorreoPage() {
             className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {resendState === "loading"
-              ? "Enviando..."
+              ? "Sending..."
               : resendState === "sent"
-                ? "Correo enviado"
-                : "Reenviar correo de verificación"}
+                ? "Email sent"
+                : "Resend verification email"}
           </button>
         </div>
 
         {resendState === "sent" ? (
           <p className="mt-4 text-center text-sm text-green-600 font-semibold">
-            Si tu correo existe, recibirás un nuevo enlace en breve.
+            If your email exists, you will receive a new link shortly.
           </p>
         ) : null}
 
@@ -135,9 +135,9 @@ export default function VerificaTuCorreoPage() {
         ) : null}
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          ¿Tienes otra cuenta?{" "}
+          Have another account?{" "}
           <Link href="/login" className="font-bold text-[#FF1493]">
-            Ingresar
+            Sign in
           </Link>
         </p>
       </div>

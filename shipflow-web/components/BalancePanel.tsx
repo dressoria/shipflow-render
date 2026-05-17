@@ -35,30 +35,30 @@ export function BalancePanel() {
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
             <CreditCard className="h-6 w-6 text-[#22C55E]" />
           </span>
-          <Badge tone="green">Operativo</Badge>
+          <Badge tone="green">Operational</Badge>
         </div>
-        <p className="mt-8 text-sm text-slate-300">Saldo disponible</p>
+        <p className="mt-8 text-sm text-slate-300">Available balance</p>
         <p className="mt-2 text-5xl font-black">
           {loading ? "—" : formatCurrency(balance)}
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-300">
-          Usa este saldo para pagar guías, envíos y movimientos de tu cuenta.
+          Use this balance for labels, shipments, and account activity.
         </p>
         <p className="mt-7 rounded-2xl bg-white/10 px-4 py-3 text-center text-xs font-semibold text-slate-300">
-          Las recargas se habilitarán desde el flujo de pagos.
+          Top-ups will be enabled through the payment flow.
         </p>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="font-black text-slate-950">Historial de movimientos</h2>
-          <Badge tone="blue">{movements.length} movimientos</Badge>
+          <h2 className="font-black text-slate-950">Balance activity</h2>
+          <Badge tone="blue">{movements.length} movements</Badge>
         </div>
         <div className="mt-4 grid gap-3">
           {loading ? (
-            <p className="text-sm text-slate-500">Cargando...</p>
+            <p className="text-sm text-slate-500">Loading...</p>
           ) : movements.length === 0 ? (
-            <p className="text-sm text-slate-500">Aún no hay movimientos de saldo.</p>
+            <p className="text-sm text-slate-500">No balance activity yet.</p>
           ) : (
             movements.map((movement) => (
               <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">

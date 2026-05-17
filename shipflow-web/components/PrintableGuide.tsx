@@ -10,6 +10,13 @@ import { getShipmentByTrackingNumber } from "@/lib/services/shipmentService";
 import type { Envio } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
+function displayShipmentStatus(status: Envio["status"]) {
+  if (status === "Entregado") return "Delivered";
+  if (status === "En tránsito") return "In transit";
+  if (status === "Pendiente") return "Pending";
+  return status;
+}
+
 export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   const [shipment, setShipment] = useState<Envio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,17 +43,17 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   }, [shipment?.trackingNumber, trackingNumber]);
 
   if (loading) {
-    return <GuideFrame><p className="text-center font-bold text-slate-600">Cargando guía...</p></GuideFrame>;
+    return <GuideFrame><p className="text-center font-bold text-slate-600">Loading label...</p></GuideFrame>;
   }
 
   if (!shipment) {
     return (
       <GuideFrame>
         <div className="text-center">
-          <h1 className="text-2xl font-black text-slate-950">Guía no encontrada</h1>
-          <p className="mt-2 text-slate-500">Revisa el número de tracking o vuelve a envíos.</p>
+          <h1 className="text-2xl font-black text-slate-950">Label not found</h1>
+          <p className="mt-2 text-slate-500">Review the tracking number or go back to shipments.</p>
           <Link href="/envios" className="print-hidden mt-6 inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white">
-            Volver a envíos
+            Back to shipments
           </Link>
         </div>
       </GuideFrame>
@@ -58,16 +65,16 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
       <div className="print-hidden mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <Link href="/envios" className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Volver a envíos
+          Back to shipments
         </Link>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20">
             <Printer className="mr-2 h-4 w-4" />
-            Imprimir
+            Print
           </button>
           <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20">
             <Download className="mr-2 h-4 w-4" />
-            Descargar PDF
+            Download PDF
           </button>
         </div>
       </div>
@@ -81,14 +88,14 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               </span>
               <div className="min-w-0">
                 <p className="guide-wrap text-xl"><BrandName /></p>
-                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Guía de envío</p>
+                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipping label</p>
               </div>
             </div>
             <div className="min-w-0 text-left md:text-right print:text-right">
-              <p className="guide-wrap text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Número de tracking</p>
+              <p className="guide-wrap text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Tracking number</p>
               <h1 className="guide-wrap mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{shipment.trackingNumber}</h1>
               <Badge tone={shipment.status === "Pendiente" ? "amber" : shipment.status === "Entregado" ? "green" : "blue"} className="mt-2">
-                {shipment.status}
+                {displayShipmentStatus(shipment.status)}
               </Badge>
             </div>
             <QrCode cells={qrCells} className="hidden md:block print:block" />
@@ -96,29 +103,29 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
 
           <div className="grid min-w-0 gap-4 p-6">
             <InfoBlock
-              title="Remitente"
+              title="Sender"
               rows={[
-                ["Nombre", shipment.senderName],
-                ["Teléfono", shipment.senderPhone],
-                ["Ciudad", shipment.originCity],
+                ["Name", shipment.senderName],
+                ["Phone", shipment.senderPhone],
+                ["City", shipment.originCity],
               ]}
             />
             <InfoBlock
-              title="Destinatario"
+              title="Recipient"
               rows={[
-                ["Nombre", shipment.recipientName],
-                ["Teléfono", shipment.recipientPhone],
-                ["Ciudad", shipment.destinationCity],
+                ["Name", shipment.recipientName],
+                ["Phone", shipment.recipientPhone],
+                ["City", shipment.destinationCity],
               ]}
             />
-            <InfoBlock title="Dirección de entrega" rows={[["Dirección", shipment.destinationAddress]]} />
+            <InfoBlock title="Delivery address" rows={[["Address", shipment.destinationAddress]]} />
             <InfoBlock
-              title="Paquete y transportista"
+              title="Package and carrier"
               rows={[
-                ["Producto", shipment.productType],
-                ["Peso", `${shipment.weight} kg`],
-                ["Transportista", shipment.courier],
-                ["Fecha", formatDate(shipment.date)],
+                ["Product", shipment.productType],
+                ["Weight", `${shipment.weight} kg`],
+                ["Carrier", shipment.courier],
+                ["Date", formatDate(shipment.date)],
               ]}
             />
             <PricingBlock shipment={shipment} />
@@ -127,12 +134,12 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
           </div>
 
           <footer className="border-t-2 border-slate-900 px-6 py-4">
-            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Instrucciones de envío</h2>
+            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Shipping instructions</h2>
             <ul className="mt-2 grid min-w-0 gap-1 text-left text-xs font-semibold leading-5 text-slate-700 sm:grid-cols-2 print:grid-cols-2">
-              <li className="guide-wrap">Entrega el paquete cerrado con esta guía visible.</li>
-              <li className="guide-wrap">Valida los datos del destinatario antes de entregar.</li>
-              <li className="guide-wrap">Cobra contra entrega solo si la guía lo indica.</li>
-              <li className="guide-wrap">Usa el número de tracking para consultar actualizaciones.</li>
+              <li className="guide-wrap">Hand off the sealed package with this label visible.</li>
+              <li className="guide-wrap">Validate recipient details before handoff.</li>
+              <li className="guide-wrap">Collect cash on delivery only if the label indicates it.</li>
+              <li className="guide-wrap">Use the tracking number to check updates.</li>
             </ul>
           </footer>
         </section>
@@ -161,7 +168,7 @@ function QrCode({ cells, className = "" }: { cells: boolean[]; className?: strin
 function Barcode({ codeBlocks, trackingNumber }: { codeBlocks: string[]; trackingNumber: string }) {
   return (
     <section className="barcode-block min-w-0 border-y-2 border-slate-900 bg-white py-5 text-center print:py-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Código de barras</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Barcode</p>
       <div className="mx-auto mt-4 flex h-24 w-full max-w-4xl min-w-0 items-end justify-center gap-0.5 bg-white px-3 py-2 print:h-20 print:max-w-none">
         {codeBlocks.map((width, index) => (
           <span key={index} className={`${width} h-full bg-slate-950`} />
@@ -180,23 +187,23 @@ function PricingBlock({ shipment }: { shipment: Envio }) {
 
   if (hasPricingBreakdown) {
     const rows: Array<[string, string]> = [
-      ["Contra entrega", shipment.cashOnDelivery ? "Sí" : "No"],
-      ["Monto a cobrar", formatCurrency(shipment.cashAmount)],
-      ["Envío", formatCurrency(shipment.providerCost!)],
-      ["Cargo de servicio ShipFlow", formatCurrency(shipment.platformMarkup ?? 0)],
-      ["Cargo de procesamiento", formatCurrency(shipment.paymentFee!)],
-      ["Total pagado", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+      ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
+      ["Amount to collect", formatCurrency(shipment.cashAmount)],
+      ["Shipping", formatCurrency(shipment.providerCost!)],
+      ["ShipFlow service fee", formatCurrency(shipment.platformMarkup ?? 0)],
+      ["Payment fee", formatCurrency(shipment.paymentFee!)],
+      ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
     ];
-    return <InfoBlock title="Montos" rows={rows} />;
+    return <InfoBlock title="Amounts" rows={rows} />;
   }
 
   return (
     <InfoBlock
-      title="Montos"
+      title="Amounts"
       rows={[
-        ["Contra entrega", shipment.cashOnDelivery ? "Sí" : "No"],
-        ["Monto a cobrar", formatCurrency(shipment.cashAmount)],
-        ["Total pagado", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
+        ["Cash on delivery", shipment.cashOnDelivery ? "Yes" : "No"],
+        ["Amount to collect", formatCurrency(shipment.cashAmount)],
+        ["Total paid", formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)],
       ]}
     />
   );
@@ -210,7 +217,7 @@ function InfoBlock({ title, rows }: { title: string; rows: Array<[string, string
         {rows.map(([label, value]) => (
           <div key={label} className="grid min-w-0 gap-1 text-left sm:grid-cols-[160px_minmax(0,1fr)] print:grid-cols-[130px_minmax(0,1fr)]">
             <span className="guide-wrap text-sm font-semibold text-slate-500">{label}</span>
-            <span className="guide-wrap text-sm font-bold leading-6 text-slate-950">{value || "No especificado"}</span>
+            <span className="guide-wrap text-sm font-bold leading-6 text-slate-950">{value || "Not specified"}</span>
           </div>
         ))}
       </div>

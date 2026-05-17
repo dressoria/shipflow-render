@@ -16,13 +16,13 @@ import {
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!isServerSupabaseConfigured) {
-    return apiError("El servidor no está configurado correctamente.", 503);
+    return apiError("Server is not configured correctly.", 503);
   }
 
   try {
     const { id } = await context.params;
     const shipmentId = decodeURIComponent(id ?? "").trim();
-    if (!shipmentId) return apiError("El ID del envío es requerido.", 400);
+    if (!shipmentId) return apiError("Shipment ID is required.", 400);
 
     const { supabase, user } = await requireVerifiedUser(request);
 
@@ -34,11 +34,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .maybeSingle<ShipmentRow>();
 
     if (shipmentError) throw shipmentError;
-    if (!shipment) return apiError("Envío no encontrado.", 404);
+    if (!shipment) return apiError("Shipment not found.", 404);
 
     // Already voided — return current state idempotently.
     if (shipment.label_status === "voided") {
-      return apiError("La guía ya está anulada.", 409);
+      return apiError("This label is already voided.", 409);
     }
 
     const provider = shipment.provider ?? "internal";
@@ -47,7 +47,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (provider === "shipstation") {
       if (shipment.label_status !== "purchased") {
         return apiError(
-          "Esta guía no se puede anular en su estado actual.",
+          "This label cannot be voided in its current state.",
           409,
         );
       }
@@ -55,7 +55,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       // Require service_role for atomic refund persistence.
       if (!isServiceRoleConfigured) {
         return apiError(
-          "El servidor no está listo para anular guías con reembolso automático.",
+          "The server is not ready to void labels with automatic refunds.",
           503,
         );
       }
@@ -74,7 +74,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           shipment: fromShipmentRow(shipment),
           labelStatus: "voided",
           refunded: true,
-          message: "La guía ya fue anulada y reembolsada.",
+          message: "This label was already voided and refunded.",
         });
       }
 
@@ -114,13 +114,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
         if (isRpcNotFoundError(voidRpcError)) {
           return apiError(
-            `La guía fue anulada, pero el reembolso requiere revisión manual. Contacta soporte con tracking: ${shipment.tracking_number ?? shipmentId}.`,
+            `The label was voided, but the refund requires manual review. Contact support with tracking: ${shipment.tracking_number ?? shipmentId}.`,
             500,
           );
         }
 
         return apiError(
-          `La guía fue anulada, pero el reembolso requiere revisión manual. Contacta soporte con tracking: ${shipment.tracking_number ?? shipmentId}.`,
+          `The label was voided, but the refund requires manual review. Contact support with tracking: ${shipment.tracking_number ?? shipmentId}.`,
           500,
         );
       }
@@ -137,14 +137,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         shipment: updatedShipment ? fromShipmentRow(updatedShipment) : fromShipmentRow(shipment),
         labelStatus: voidResult.labelStatus,
         refunded: voidResult.refunded,
-        message: voidResult.refunded ? "Guía anulada y reembolsada." : "Guía anulada.",
+        message: voidResult.refunded ? "Label voided and refunded." : "Label voided.",
       });
     }
 
     // ── Internal/mock label void ────────────────────────────────────────────
     if (shipment.label_status && !["internal", "pending", null].includes(shipment.label_status)) {
       return apiError(
-        "Esta guía no se puede anular en su estado actual.",
+        "This label cannot be voided in its current state.",
         409,
       );
     }
@@ -158,7 +158,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .single<ShipmentRow>();
 
     if (updateError && isMissingSchemaColumnError(updateError)) {
-      return apiError("Anular guías requiere completar la configuración de base de datos.", 501);
+      return apiError("Voiding labels requires completing the database configuration.", 501);
     }
 
     if (updateError) throw updateError;
@@ -173,12 +173,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       shipment: updatedShipment ? fromShipmentRow(updatedShipment) : fromShipmentRow(shipment),
       labelStatus: voidResult.labelStatus,
       refunded: voidResult.refunded,
-      message: "Guía anulada.",
+      message: "Label voided.",
     });
   } catch (error) {
     if (!(error instanceof Response)) {
-      return apiError("No se pudo anular esta guía.", 500);
+      return apiError("We could not void this label.", 500);
     }
-    return apiErrorFromUnknown(error, "No se pudo anular esta guía.");
+    return apiErrorFromUnknown(error, "We could not void this label.");
   }
 }

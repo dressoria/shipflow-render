@@ -78,8 +78,8 @@ export function AdminCouriersManager() {
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Badge tone={courier.activo ? "green" : "slate"}>{courier.activo ? "Activo" : "Inactivo"}</Badge>
-                  <Badge tone={courier.permiteContraEntrega ? "blue" : "slate"}>{courier.permiteContraEntrega ? "Contra entrega" : "Sin contra entrega"}</Badge>
+                  <Badge tone={courier.activo ? "green" : "slate"}>{courier.activo ? "Active" : "Inactive"}</Badge>
+                  <Badge tone={courier.permiteContraEntrega ? "blue" : "slate"}>{courier.permiteContraEntrega ? "COD" : "No COD"}</Badge>
                   <Badge tone="slate">Base {formatCurrency(courier.precioBase)}</Badge>
                   <Badge tone="slate">Kg {formatCurrency(courier.precioPorKg)}</Badge>
                 </div>
@@ -87,7 +87,7 @@ export function AdminCouriersManager() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => updateCourier(courier.id, { activo: !courier.activo }).then(refresh)} className="h-10 rounded-2xl border border-slate-200 px-3 text-sm font-bold text-slate-700">
-                  {courier.activo ? "Desactivar" : "Activar"}
+                  {courier.activo ? "Deactivate" : "Activate"}
                 </button>
                 <button onClick={() => startEdit(courier)} className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 text-[#FF1493]"><Pencil className="h-4 w-4" /></button>
                 <button onClick={() => deleteCourier(courier.id).then(refresh)} className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 text-red-600"><Trash2 className="h-4 w-4" /></button>
@@ -98,31 +98,31 @@ export function AdminCouriersManager() {
       </div>
 
       <form onSubmit={submit} className="h-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-        <h2 className="font-black text-slate-950">{editing ? "Editar courier" : "Crear courier"}</h2>
+        <h2 className="font-black text-slate-950">{editing ? "Edit courier" : "Create courier"}</h2>
         <div className="mt-5 grid gap-3">
-          <Field label="Nombre" value={form.nombre} onChange={(value) => update("nombre", value)} />
+          <Field label="Name" value={form.nombre} onChange={(value) => update("nombre", value)} />
           <Field label="Logo URL" value={form.logoUrl} onChange={(value) => update("logoUrl", value)} />
-          <Field label="Cobertura" value={form.cobertura} onChange={(value) => update("cobertura", value)} />
+          <Field label="Coverage" value={form.cobertura} onChange={(value) => update("cobertura", value)} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Precio base" type="number" value={String(form.precioBase)} onChange={(value) => update("precioBase", Number(value))} />
-            <Field label="Precio por kg" type="number" value={String(form.precioPorKg)} onChange={(value) => update("precioPorKg", Number(value))} />
+            <Field label="Base price" type="number" value={String(form.precioBase)} onChange={(value) => update("precioBase", Number(value))} />
+            <Field label="Price per kg" type="number" value={String(form.precioPorKg)} onChange={(value) => update("precioPorKg", Number(value))} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Comisión contra entrega" type="number" value={String(form.comisionContraEntrega)} onChange={(value) => update("comisionContraEntrega", Number(value))} />
-            <Field label="Tiempo estimado" value={form.tiempoEstimado} onChange={(value) => update("tiempoEstimado", value)} />
+            <Field label="COD commission" type="number" value={String(form.comisionContraEntrega)} onChange={(value) => update("comisionContraEntrega", Number(value))} />
+            <Field label="Estimated time" value={form.tiempoEstimado} onChange={(value) => update("tiempoEstimado", value)} />
           </div>
           <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm font-bold text-slate-700">
             <input type="checkbox" checked={form.activo} onChange={(event) => update("activo", event.target.checked)} />
-            Activo
+            Active
           </label>
           <label className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm font-bold text-slate-700">
             <input type="checkbox" checked={form.permiteContraEntrega} onChange={(event) => update("permiteContraEntrega", event.target.checked)} />
-            Permite contra entrega
+            Allows COD
           </label>
-          <textarea value={form.notas} onChange={(event) => update("notas", event.target.value)} placeholder="Notas" className="min-h-24 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none focus:border-pink-400" />
+          <textarea value={form.notas} onChange={(event) => update("notas", event.target.value)} placeholder="Notes" className="min-h-24 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none focus:border-pink-400" />
           <button className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20">
             <PlusCircle className="mr-2 h-4 w-4" />
-            {editing ? "Guardar cambios" : "Crear courier"}
+            {editing ? "Save changes" : "Create courier"}
           </button>
         </div>
       </form>

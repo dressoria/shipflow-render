@@ -4,6 +4,7 @@ import {
   createShipStationShipment,
   type ShipStationLabelBody,
 } from "@/lib/server/shipments/createShipStationShipment";
+import { assertShipEngineLabelPurchaseNotImplemented } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 // Providers with skeleton adapters — label creation not yet implemented.
@@ -25,9 +26,17 @@ function extractProvider(body: unknown): string | undefined {
   return undefined;
 }
 
+function isShipEngineMode() {
+  return process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine";
+}
+
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured) {
-    return apiError("El servidor no está configurado correctamente.", 503);
+    return apiError("Server is not configured correctly.", 503);
+  }
+
+  if (process.env.ENABLE_REAL_LABEL_PURCHASE !== "true") {
+    return apiError("Label purchase is currently disabled. Rate comparison is available.", 403);
   }
 
   try {
@@ -39,20 +48,23 @@ export async function POST(request: Request) {
     // Reject skeleton providers explicitly — no silent fallback to ShipStation.
     if (provider && SKELETON_LABEL_PROVIDERS.includes(provider as typeof SKELETON_LABEL_PROVIDERS[number])) {
       return apiError(
-        "La generación de guía para esta tarifa todavía no está disponible.",
+        "Label generation for this rate is not available yet.",
         501,
       );
     }
 
     if (isShipStationLabelRequest(body)) {
+      if (isShipEngineMode()) {
+        assertShipEngineLabelPurchaseNotImplemented();
+      }
       const result = await createShipStationShipment(supabase, user.id, body);
       return apiSuccess(result, 201);
     }
 
-    // Default: internal/mock label creation
+    // Default: internal label creation. This path is still guarded by ENABLE_REAL_LABEL_PURCHASE.
     const result = await createInternalShipment(supabase, user.id, body as CreateInternalShipmentInput);
     return apiSuccess(result, 201);
   } catch (error) {
-    return apiErrorFromUnknown(error, "No se pudo generar esta guía.");
+    return apiErrorFromUnknown(error, "We could not create this label.");
   }
 }

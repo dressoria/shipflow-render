@@ -4,8 +4,8 @@ import { AdminShell } from "@/components/AdminShell";
 export default function AdminBalancePage() {
   return (
     <AdminShell
-      title="Saldo"
-      description="Movimientos de recarga y consumo registrados."
+      title="Balance"
+      description="Registered top-up and usage activity."
     >
       <AdminBalanceView />
     </AdminShell>

@@ -19,5 +19,6 @@ export async function GET() {
     ratesConfigured: aggregationProviders.length > 0,
     googleMapsConfigured,
     activeRateProviders: aggregationProviders.length,
+    labelPurchaseEnabled: process.env.ENABLE_REAL_LABEL_PURCHASE === "true",
   });
 }

@@ -27,6 +27,13 @@ const realStatusTone: Record<StandardTrackingStatus, "blue" | "green" | "amber" 
   cancelado: "slate",
 };
 
+function displayShipmentStatus(status: Envio["status"]) {
+  if (status === "Entregado") return "Delivered";
+  if (status === "En tránsito") return "In transit";
+  if (status === "Pendiente") return "Pending";
+  return status;
+}
+
 type TrackingApiResponse = {
   success: boolean;
   data: TrackingStatus | null;
@@ -44,7 +51,7 @@ export function TrackingSearch() {
 
   async function loadTracking(foundShipment: Envio) {
     setRealTracking(null);
-    setTrackingMessage("Consultando estado de la guía...");
+    setTrackingMessage("Checking shipment status...");
     setLoadingRealTracking(true);
 
     try {
@@ -59,7 +66,7 @@ export function TrackingSearch() {
       const data = (await response.json()) as TrackingApiResponse;
 
       if (!response.ok || !data.success || !data.data) {
-        throw new Error(data.error ?? "No pudimos consultar el estado en este momento.");
+        throw new Error(data.error ?? "We could not check shipment status right now.");
       }
 
       await saveRealTrackingEvents(foundShipment.id, data.data);
@@ -67,11 +74,11 @@ export function TrackingSearch() {
       setRealTracking(data.data);
       setTrackingMessage(
         data.data.isReal
-          ? "Información recibida del transportista."
-          : "Aún no hay eventos reales para esta guía.",
+          ? "Carrier information received."
+          : "No real tracking events yet for this shipment.",
       );
     } catch (error) {
-      setTrackingMessage(error instanceof Error ? error.message : "No pudimos consultar el estado en este momento.");
+      setTrackingMessage(error instanceof Error ? error.message : "We could not check shipment status right now.");
     } finally {
       setLoadingRealTracking(false);
     }
@@ -106,7 +113,7 @@ export function TrackingSearch() {
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
         <form onSubmit={handleSubmit} className="grid gap-4">
           <label className="grid gap-2 text-sm font-bold text-slate-700">
-            Número de tracking
+            Tracking number
             <input
               value={guide}
               onChange={(event) => setGuide(event.target.value)}
@@ -116,10 +123,10 @@ export function TrackingSearch() {
           </label>
           <button className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:bg-[#0891B2]">
             <Search className="mr-2 h-4 w-4" />
-            Buscar guía
+            Search shipment
           </button>
           <button type="button" onClick={loadFirstGuide} className="text-sm font-bold text-[#06B6D4]">
-            Usar primera guía guardada
+            Use first saved shipment
           </button>
         </form>
       </div>
@@ -128,44 +135,44 @@ export function TrackingSearch() {
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm text-slate-500">Guía</p>
+              <p className="text-sm text-slate-500">Shipment</p>
               <h2 className="mt-1 text-3xl font-black text-slate-950">{shipment.trackingNumber}</h2>
             </div>
             <Badge tone={realTracking ? realStatusTone[realTracking.status] : statusTone[shipment.status]}>
-              {realTracking?.statusLabel ?? shipment.status}
+              {realTracking?.statusLabel ?? displayShipmentStatus(shipment.status)}
             </Badge>
           </div>
           <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4">
             <div className="flex items-center gap-2">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#06B6D4]">
                 {loadingRealTracking
-                  ? "Consultando estado..."
+                  ? "Checking status..."
                   : realTracking?.isReal
-                  ? "Tracking actualizado"
-                  : "Sin eventos reales recientes"}
+                  ? "Tracking updated"
+                  : "No recent real events"}
               </p>
               {!loadingRealTracking && realTracking?.isReal && (
                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-black text-green-700">
-                  Actualizado
+                  Updated
                 </span>
               )}
             </div>
             <p className="mt-2 text-sm font-semibold text-slate-600">
-              {trackingMessage || "No pudimos consultar el estado en este momento."}
+              {trackingMessage || "We could not check shipment status right now."}
             </p>
             {!loadingRealTracking && !realTracking?.isReal && (
               <p className="mt-1 text-xs text-slate-400">
-                El tracking se actualizará cuando existan eventos reales asociados a la guía.
+                Tracking will update when real events are associated with this shipment.
               </p>
             )}
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Info label="Ruta" value={`${shipment.originCity} -> ${shipment.destinationCity}`} />
-            <Info label="Transportista" value={realTracking?.courier ?? shipment.courier} />
-            <Info label="Destinatario" value={shipment.recipientName} />
-            <Info label="Valor" value={formatCurrency(shipment.value)} />
-            <Info label="Ciudad actual" value={realTracking?.currentLocation ?? shipment.destinationCity} />
-            <Info label="Última actualización" value={realTracking?.lastUpdate ? formatDate(realTracking.lastUpdate) : formatDate(shipment.date)} />
+            <Info label="Route" value={`${shipment.originCity} -> ${shipment.destinationCity}`} />
+            <Info label="Carrier" value={realTracking?.courier ?? shipment.courier} />
+            <Info label="Recipient" value={shipment.recipientName} />
+            <Info label="Value" value={formatCurrency(shipment.value)} />
+            <Info label="Current city" value={realTracking?.currentLocation ?? shipment.destinationCity} />
+            <Info label="Last update" value={realTracking?.lastUpdate ? formatDate(realTracking.lastUpdate) : formatDate(shipment.date)} />
           </div>
           <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5">
             {realTracking?.events.length ? (
@@ -190,7 +197,7 @@ export function TrackingSearch() {
                   </div>
                 </div>
               )) : (
-                <p className="text-sm text-slate-500">Aún no hay eventos de tracking.</p>
+                <p className="text-sm text-slate-500">No tracking events yet.</p>
               )
             )}
           </div>
@@ -198,14 +205,14 @@ export function TrackingSearch() {
       ) : searched ? (
         <EmptyState
           icon={MapPinned}
-          title="Guía no encontrada"
-          description="Revisa el número de tracking o crea una guía para consultar su estado."
+          title="Shipment not found"
+          description="Review the tracking number or create a shipment before checking status."
         />
       ) : (
         <EmptyState
           icon={MapPinned}
-          title="Busca una guía"
-          description="Ingresa un número de tracking creado en la plataforma para ver su estado."
+          title="Search a shipment"
+          description="Enter a tracking number created in ShipFlow to view its status."
         />
       )}
     </div>

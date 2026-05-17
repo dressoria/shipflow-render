@@ -132,7 +132,7 @@ export function parsePastedUSAddress(input: string): Partial<StructuredAddress> 
 
 export function parseAddressComponents(
   components: GoogleAddressComponent[],
-  coords: { lat: number; lng: number },
+  coords: { lat: number; lng: number } = { lat: 0, lng: 0 },
   formattedAddress?: string,
   placeId?: string,
   source: StructuredAddress["source"] = "google_places",

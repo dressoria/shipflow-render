@@ -21,10 +21,10 @@ import { useAuth } from "@/hooks/useAuth";
 
 const menu = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Cotizar envío", href: "/crear-guia", icon: PlusCircle },
-  { label: "Envíos", href: "/envios", icon: Truck },
+  { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
+  { label: "Shipments", href: "/envios", icon: Truck },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
-  { label: "Saldo", href: "/saldo", icon: CreditCard },
+  { label: "Balance", href: "/saldo", icon: CreditCard },
 ];
 
 type DashboardShellProps = {
@@ -50,10 +50,10 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           </Link>
           <div className="hidden h-11 min-w-72 items-center gap-3 rounded-2xl border border-pink-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm md:flex">
             <Search className="h-4 w-4" />
-            Buscar guía, cliente o ciudad
+            Search shipment, customer, or city
           </div>
           <Button href="/crear-guia" icon={<PlusCircle className="h-4 w-4" />} className="rounded-2xl">
-            Cotizar envío
+            Get rates
           </Button>
           {isAdmin ? (
             <Link
@@ -70,7 +70,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             className="inline-flex h-11 items-center justify-center rounded-2xl border border-pink-100 bg-white/85 px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-pink-50"
           >
             <LogOut className="mr-2 h-4 w-4" />
-            Salir
+            Sign out
           </button>
         </div>
       </header>
@@ -82,8 +82,8 @@ export function DashboardShell({ title, description, children }: DashboardShellP
                 <BarChart3 className="h-5 w-5 text-[#22C55E]" />
               </span>
               <div>
-              <p className="text-sm font-bold">Sistema operativo</p>
-                <p className="text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Saldo por envío"}</p>
+              <p className="text-sm font-bold">System operational</p>
+                <p className="text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Shipping balance"}</p>
               </div>
             </div>
           </div>
@@ -124,7 +124,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF1493]">
-                Panel
+                Dashboard
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                 {title}

@@ -27,8 +27,8 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-slate-950 text-[#22C55E]">
             <ShieldCheck className="h-6 w-6" />
           </span>
-          <p className="mt-4 font-black text-slate-950">Validando acceso admin</p>
-          <p className="mt-2 text-sm text-slate-500">Revisando permisos del usuario.</p>
+          <p className="mt-4 font-black text-slate-950">Validating admin access</p>
+          <p className="mt-2 text-sm text-slate-500">Checking user permissions.</p>
         </div>
       </div>
     );

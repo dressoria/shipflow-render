@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronUp, Info, Map, Search } from "lucide-react";
 import {
   loadGoogleMapsScript,
@@ -93,6 +93,7 @@ export function AddressInput({
   errors = {},
 }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
   const [mapsReady, setMapsReady] = useState(false);
   const [searchText, setSearchText] = useState(value.formattedAddress ?? "");
@@ -131,7 +132,7 @@ export function AddressInput({
       );
 
       if ((parsed.country ?? "US") !== "US") {
-        setAddressError("Por ahora solo aceptamos envíos dentro de Estados Unidos.");
+        setAddressError("For now, ShipFlow only supports shipments within the United States.");
         return;
       }
 
@@ -147,6 +148,51 @@ export function AddressInput({
           street2: current.street2,
         }),
       );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapsReady]);
+
+  useEffect(() => {
+    if (!mapsReady || !cityRef.current || !window.google) return;
+
+    const cityAutocomplete = new window.google.maps.places.Autocomplete(cityRef.current, {
+      types: ["(cities)"],
+      fields: ["address_components", "geometry", "formatted_address", "place_id"],
+      componentRestrictions: { country: "us" },
+    });
+
+    cityAutocomplete.addListener("place_changed", () => {
+      const place = cityAutocomplete.getPlace();
+      const lat = place.geometry?.location?.lat() ?? undefined;
+      const lng = place.geometry?.location?.lng() ?? undefined;
+      const parsed = parseAddressComponents(
+        place.address_components ?? [],
+        lat != null && lng != null ? { lat, lng } : undefined,
+        place.formatted_address,
+        place.place_id,
+        "google_places",
+      );
+
+      if ((parsed.country ?? "US") !== "US") {
+        setAddressError("For now, ShipFlow only supports shipments within the United States.");
+        return;
+      }
+
+      const current = valueRef.current;
+      const next = toUSAddress(current, {
+        city: parsed.city ?? current.city,
+        state: parsed.state ?? current.state,
+        postalCode: parsed.postalCode ?? current.postalCode,
+        country: "US",
+        latitude: parsed.latitude ?? current.latitude,
+        longitude: parsed.longitude ?? current.longitude,
+        formattedAddress: parsed.formattedAddress ?? current.formattedAddress,
+        placeId: parsed.placeId ?? current.placeId,
+        source: "google_places",
+      });
+      next.validationStatus = isComplete(next) ? "complete" : "needs_review";
+      setAddressError(next.postalCode ? null : "ZIP is required for accurate rates. Enter it manually.");
+      onChange(next);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsReady]);
@@ -170,7 +216,7 @@ export function AddressInput({
       street2: value.street2,
     });
     setAddressError(
-      next.validationStatus === "complete" ? null : "Revisa ciudad, estado y ZIP.",
+      next.validationStatus === "complete" ? null : "Review city, state, and ZIP.",
     );
     onChange(next);
     if (next.validationStatus !== "complete") setShowManual(true);
@@ -178,7 +224,7 @@ export function AddressInput({
 
   function handleMapSelect(partial: Partial<StructuredAddress>) {
     if ((partial.country ?? "US") !== "US") {
-      setAddressError("Por ahora solo aceptamos envíos dentro de Estados Unidos.");
+      setAddressError("For now, ShipFlow only supports shipments within the United States.");
       return;
     }
 
@@ -192,7 +238,7 @@ export function AddressInput({
     });
     setSearchText(next.formattedAddress || [next.street1, next.city, next.state, next.postalCode].filter(Boolean).join(", "));
     if (next.validationStatus === "needs_review") {
-      setAddressError("Revisa el ZIP o completa la dirección manualmente.");
+      setAddressError("Review the ZIP or complete the address manually.");
       setShowManual(true);
     }
     onChange(next);
@@ -206,14 +252,14 @@ export function AddressInput({
     <div className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         <InputField
-          label="Nombre"
+          label="Name"
           value={value.name ?? ""}
           onChange={(v) => set("name", v)}
-          placeholder="Ej. Juan García"
+          placeholder="Jane Smith"
           error={errors.name}
         />
         <InputField
-          label="Teléfono"
+          label="Phone"
           value={value.phone ?? ""}
           onChange={(v) => set("phone", v)}
           placeholder="+1 555 000 0000"
@@ -223,7 +269,7 @@ export function AddressInput({
 
       <div className="grid gap-2">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
-          Busca o pega la dirección
+          Search or paste address
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -243,18 +289,18 @@ export function AddressInput({
               onClick={parseSearchText}
               className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50"
             >
-              Revisar
+              Review
             </button>
           </div>
         </label>
 
         {HAS_GOOGLE_MAPS ? (
           <p className="text-xs text-slate-400">
-            Puedes seleccionar una sugerencia, pegar una dirección completa o usar el mapa.
+            Select a suggestion, paste a full address, or use the map.
           </p>
         ) : (
           <p className="text-xs text-slate-400">
-            Mapa disponible al configurar Google Maps. También puedes pegar una dirección completa.
+            Map available after Google Maps is configured. You can still paste a full address.
           </p>
         )}
         {addressError ? <p className="text-xs font-semibold text-amber-700">{addressError}</p> : null}
@@ -272,7 +318,7 @@ export function AddressInput({
             {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
             <span>{sectionLabel}: {summary}</span>
           </div>
-          {needsReview ? <p className="mt-1">Revisa ciudad, estado y ZIP.</p> : null}
+          {needsReview ? <p className="mt-1">Review city, state, and ZIP.</p> : null}
         </div>
       ) : null}
 
@@ -283,7 +329,7 @@ export function AddressInput({
           className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
         >
           {showManual ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          Editar datos manualmente
+          Edit manually
         </button>
 
         {HAS_GOOGLE_MAPS ? (
@@ -293,7 +339,7 @@ export function AddressInput({
             className="inline-flex items-center gap-1.5 rounded-2xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-bold text-[#0891B2] hover:bg-cyan-100"
           >
             <Map className="h-3.5 w-3.5" />
-            Seleccionar en mapa
+            Pick on map
           </button>
         ) : null}
       </div>
@@ -306,38 +352,39 @@ export function AddressInput({
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <InputField
-              label="Dirección / Calle"
+              label="Street address"
               value={value.street1}
               onChange={(v) => set("street1", v)}
-              placeholder="Ej. 123 Main St"
+              placeholder="123 Main St"
               error={errors.street1}
             />
           </div>
           <InputField
-            label="Apartamento / Suite (opcional)"
+            label="Apartment / Suite (optional)"
             value={value.street2 ?? ""}
             onChange={(v) => set("street2", v)}
-            placeholder="Ej. Apt 4B"
+            placeholder="Apt 4B"
           />
           <InputField
-            label="Ciudad"
+            label="City"
             value={value.city}
             onChange={(v) => set("city", v)}
-            placeholder="Ej. Mountain View"
+            placeholder="Mountain View"
             error={errors.city}
+            inputRef={cityRef}
           />
           <StateSelect value={value.state} onChange={(v) => set("state", v)} error={errors.state} />
           <InputField
             label={requirePostal ? "ZIP *" : "ZIP"}
             value={value.postalCode}
             onChange={(v) => set("postalCode", v)}
-            placeholder="Ej. 94041"
+            placeholder="94041"
             error={errors.postalCode}
           />
           <label className="grid gap-2 text-sm font-bold text-slate-700">
-            País
+            Country
             <input
-              value="Estados Unidos"
+              value="United States"
               disabled
               className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-500"
             />
@@ -359,13 +406,13 @@ function StateSelect({
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-700">
-      Estado
+      State
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10"
       >
-        <option value="">Selecciona estado</option>
+        <option value="">Select state</option>
         {US_STATE_CODES.map((code) => (
           <option key={code} value={code}>
             {code}
@@ -383,17 +430,20 @@ function InputField({
   onChange,
   placeholder,
   error,
+  inputRef,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   error?: string;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-700">
       {label}
       <input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

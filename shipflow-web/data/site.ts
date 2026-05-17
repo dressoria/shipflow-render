@@ -62,12 +62,12 @@ export const faqs = [
   {
     question: "Is ShipFlow connected to real carriers?",
     answer:
-      "The platform keeps the Supabase workflow ready and includes prepared carrier connectors. Official credentials can be added per carrier.",
+      "ShipFlow can compare real carrier rates when server-side carrier credentials are configured. Label purchase is enabled only after the secure label flow is explicitly turned on.",
   },
   {
     question: "Can sellers create labels from mobile?",
     answer:
-      "Yes. The web and mobile apps share Supabase data for labels, tracking, balance, and admin workflows.",
+      "Mobile support is planned. For now, the secure rate comparison and label flow are focused on the web app.",
   },
   {
     question: "Does wallet balance charge real money?",
