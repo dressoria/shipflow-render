@@ -581,6 +581,38 @@ Pendiente:
 - EasyPost queda opcional hasta que exista `EASYPOST_API_KEY`.
 - Prueba manual completa en `/crear-guia` con credenciales sandbox configuradas en servidor.
 
+## FASE 5.20B — Real label flow design (completada)
+
+Objetivo:
+
+- Diseñar el flujo real de labels sin comprar labels ni activar providers de compra.
+
+Tareas completadas:
+
+- ShipEngine queda seleccionado como primer provider objetivo para labels reales.
+- `ENABLE_REAL_LABEL_PURCHASE` sigue siendo el guard global: si no es `"true"`, `/api/labels` no compra, no descuenta balance y no crea shipment definitivo.
+- ShipEngine labels quedan `planned` y `supportsLabels: false`.
+- Shippo y Easyship quedan rates-only.
+- Se prepara stub seguro `ShipEngineLabelAdapter` que no llama endpoints reales de compra.
+- Se documenta contrato futuro `SelectedRateForLabelRequest`.
+
+## FASE 5.20C — ShipEngine sandbox label purchase
+
+Estado: implementada en codigo, pendiente de prueba manual sandbox por humano.
+
+- Implementar compra sandbox de labels ShipEngine detrás de `ENABLE_REAL_LABEL_PURCHASE=true`.
+- Revalidar rate server-side antes de compra.
+- Validar saldo/precio/dirección/paquete en backend.
+- Persistir via RPC transaccional.
+- Mantener void/refund ShipEngine bloqueado hasta implementarlo y probarlo.
+
+Pendiente posterior:
+
+- Prueba manual con ShipEngine TEST key.
+- Ajuste opcional de RPC para aceptar `provider_rate_id` y `label_url` dentro de la misma transaccion.
+- Implementar void ShipEngine y refund confirmado.
+- Storage permanente de label PDFs si `label_url` del provider no es suficiente para retencion.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

@@ -1293,3 +1293,49 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - No se implementó compra de labels ShipEngine, Shippo, Easyship ni EasyPost.
 - No se tocaron mobile, deploy, migraciones ni pricing engine.
 - No se muestran providers internos al usuario; la UI sigue mostrando carrier/servicio/precio.
+
+## Estado FASE 5.20B — Diseño de labels reales y selección de provider
+
+**Objetivo:** preparar el flujo real de labels sin comprar labels todavía.
+
+**Decisión:** el primer provider objetivo para labels reales será **ShipEngine** usando la API moderna configurada con `SHIPSTATION_API_MODE=shipengine`, `SHIPSTATION_API_KEY` y `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`.
+
+**Estado actual:**
+- Rates reales: ShipEngine/ShipStation API nueva, Shippo y Easyship.
+- Labels reales: bloqueadas por defecto con `ENABLE_REAL_LABEL_PURCHASE !== "true"`.
+- ShipEngine labels: planificadas, no implementadas.
+- Shippo/Easyship: rates-only.
+- EasyPost: pendiente hasta tener API key.
+- ShipStation V1 legacy: existe flujo antiguo, pero no es el objetivo principal nuevo.
+
+**Guards:**
+- `/api/labels` corta antes de validar auth/body/proveedor si `ENABLE_REAL_LABEL_PURCHASE !== "true"`.
+- Con el flag apagado no se llama provider, no se descuenta balance y no se crea shipment definitivo.
+- Si el flag se activa accidentalmente en modo `shipengine`, `ShipEngineLabelAdapter` falla con error controlado porque compra de labels ShipEngine no está implementada.
+- `providerCapabilities.ts` marca ShipEngine como `supportsRates: true`, `supportsLabels: false`, `labelImplementation: "planned"`.
+
+**Contrato recomendado para selected rate:**
+- El frontend puede enviar `provider`, `providerRateId`, `courierId`, `serviceCode`, `quotedCustomerPrice`, `quotedProviderCost` y `pricingBreakdown` como snapshot.
+- El backend NO debe confiar en costos enviados por cliente para comprar labels.
+- Antes de comprar un label real, el backend debe revalidar/recalcular rate, dirección, paquete, saldo, pricing y provider.
+
+**Próxima fase recomendada:** FASE 5.20C — implementar compra sandbox de label ShipEngine detrás de `ENABLE_REAL_LABEL_PURCHASE=true`, con revalidación server-side y sin habilitar producción.
+
+## Estado FASE 5.20C — ShipEngine sandbox label purchase
+
+**Objetivo:** implementar compra de labels ShipEngine sandbox detrás del guard `ENABLE_REAL_LABEL_PURCHASE`.
+
+**Cambios principales:**
+- `/api/labels` sigue bloqueando con `403` si `ENABLE_REAL_LABEL_PURCHASE !== "true"` antes de parsear compra o llamar providers.
+- Solo se permite compra de label para ShipEngine (`provider: "shipstation"` + `SHIPSTATION_API_MODE=shipengine`).
+- Shippo, Easyship y EasyPost siguen rates-only.
+- ShipStation V1 legacy queda bloqueado en esta fase para evitar compras accidentales por el flujo anterior.
+- `ShipEngineLabelAdapter` implementa `POST /labels/rates/{rate_id}` con `API-Key`, `label_format: pdf`, `label_layout: 4x6`, `display_scheme: label`.
+- `createShipEngineShipment.ts` revalida rates server-side antes de comprar, verifica saldo, compra label y persiste con RPC transaccional.
+- `provider_rate_id` y `label_url` se completan con update server-side posterior a la RPC porque la RPC existente no acepta esos parametros.
+- Void/refund ShipEngine sigue bloqueado: "Void is not supported for this label yet."
+
+**Limitaciones:**
+- No se ejecutaron migraciones.
+- No se compro ningun label durante la fase.
+- Para probar sandbox manualmente se requiere `ENABLE_REAL_LABEL_PURCHASE=true` solo en entorno local/test y ShipEngine TEST key.

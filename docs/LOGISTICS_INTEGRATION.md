@@ -586,7 +586,89 @@ Estado FASE 2/3/4A/4B/4D:
 - `POST /api/labels/[id]/void` actualizado en FASE 4D: para provider shipstation, llama void real en ShipStation y refund atomico via RPC. Para labels internas, sigue siendo void local limitado.
 - `POST /api/webhooks/shipstation` sigue pendiente (FASE 5).
 
-ADVERTENCIA: `POST /api/labels` con `provider: "shipstation"` compra un label REAL. Requiere migracion FASE 1C aplicada, `SUPABASE_SERVICE_ROLE_KEY` configurado y migration `20260514_create_label_transaction_rpc.sql` aplicada. Seguir `docs/SHIPSTATION_REAL_TEST_CHECKLIST.md` antes de usar en produccion.
+ADVERTENCIA actualizada FASE 5.20B: `POST /api/labels` esta bloqueado por defecto si `ENABLE_REAL_LABEL_PURCHASE !== "true"`. Con el guard apagado no compra labels, no descuenta balance y no crea shipment definitivo. No activar el flag hasta completar una fase dedicada de labels reales.
+
+## FASE 5.20B - Diseño de labels reales
+
+Decision principal:
+
+- Primer provider objetivo: **ShipEngine** (API moderna de ShipStation).
+- Motivo: ya existen rates sandbox validados con `GET /carriers` y `POST /rates`, auth `API-Key`, carriers multi-carrier y `providerRateId` (`rate_id`).
+- Shippo y Easyship quedan rates-only.
+- EasyPost queda pendiente.
+- ShipStation V1 legacy queda como referencia heredada, no como camino principal nuevo.
+
+Estado de capabilities:
+
+- ShipEngine via `provider: "shipstation"` + `SHIPSTATION_API_MODE=shipengine`:
+  - `supportsRates: true`
+  - `supportsLabels: false`
+  - `supportsVoid: false`
+  - `labelImplementation: "planned"`
+- Shippo:
+  - `supportsRates: true`
+  - `supportsLabels: false`
+- Easyship:
+  - `supportsRates: true`
+  - `supportsLabels: false`
+- EasyPost:
+  - activo solo si existe `EASYPOST_API_KEY`; labels pendientes.
+
+Contrato futuro de compra de label:
+
+```text
+frontend selected rate snapshot
+→ POST /api/labels
+→ backend valida sesión/email
+→ backend revalida providerRateId/rate con provider
+→ backend recalcula pricing
+→ backend valida saldo
+→ provider purchase
+→ RPC transaccional shipment + tracking_event + balance_movement
+```
+
+Regla crítica: el backend nunca debe confiar ciegamente en `customerPrice`, `providerCost` o `pricingBreakdown` enviados por el frontend. Esos campos sirven como snapshot/auditoría, pero la compra real debe revalidarse server-side.
+
+Preparación técnica:
+
+- `ShipEngineLabelAdapter.ts` existe como stub seguro y lanza error controlado: compra de labels ShipEngine no implementada.
+- `SelectedRateForLabelRequest` documenta el shape mínimo de selección futura.
+- `RateResult.metadata` queda reservado para metadata interna mínima que ayude a revalidar o comprar sin exponer secrets.
+
+Próxima fase:
+
+- FASE 5.20C — Implementar compra sandbox de label ShipEngine detrás de `ENABLE_REAL_LABEL_PURCHASE=true`.
+
+## FASE 5.20C - ShipEngine sandbox label purchase
+
+Estado:
+
+- Implementado en codigo, pero protegido por `ENABLE_REAL_LABEL_PURCHASE`.
+- No se debe activar en produccion.
+- No se compro ningun label durante la implementacion.
+
+Flujo:
+
+```text
+/api/labels
+→ guard ENABLE_REAL_LABEL_PURCHASE
+→ requireVerifiedUser
+→ solo provider shipstation + SHIPSTATION_API_MODE=shipengine
+→ revalidar /rates server-side
+→ elegir rate_id fresco por match exacto o carrier/service compatible
+→ validar saldo con pricing server-side
+→ POST /labels/rates/{rate_id}
+→ RPC create_label_shipment_transaction
+→ update server-side de provider_rate_id + label_url
+```
+
+Notas:
+
+- ShipEngine purchase usa `API-Key`, no Basic Auth.
+- Shippo, Easyship y EasyPost siguen sin compra de labels.
+- ShipStation V1 legacy queda bloqueado desde `/api/labels` en esta fase.
+- La RPC actual no recibe `provider_rate_id` ni `label_url`, por eso se completan despues con service_role. Una futura migracion puede agregar esos parametros al RPC para que todo quede en una sola transaccion.
+- Void ShipEngine no esta implementado; `/api/labels/[id]/void` devuelve mensaje controlado.
 
 ## Pricing futuro
 

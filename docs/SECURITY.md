@@ -334,3 +334,23 @@ Usuarios no verificados (sin `email_confirmed_at` en Supabase Auth) no pueden ac
 - El cliente no muestra nombres internos de integraciones ni secrets.
 - Antes de comprar una guía, `createShipStationShipment` valida saldo y rechaza payloads donde `expectedCost < providerCost`.
 - `labelData` solo se mantiene en memoria para descarga inmediata; no se guarda en localStorage.
+
+## Notas FASE 5.20B — Guard de labels reales
+
+- La compra/generación real de labels queda bloqueada por defecto con `ENABLE_REAL_LABEL_PURCHASE`.
+- Si `ENABLE_REAL_LABEL_PURCHASE !== "true"`, `/api/labels` responde `403` antes de parsear body, llamar providers, descontar balance o crear shipments.
+- No usar `ENABLE_REAL_LABEL_PURCHASE=true` en local/servidor hasta implementar y probar una fase explicita de labels reales.
+- El primer provider objetivo sera ShipEngine. En modo `SHIPSTATION_API_MODE=shipengine`, `ShipEngineLabelAdapter` aun es stub y falla de forma controlada.
+- Shippo y Easyship siguen rates-only; no deben poder comprar labels ni hacer void.
+- El backend debe revalidar rate/precio/saldo antes de comprar labels. El frontend solo envia una seleccion/snapshot, no una fuente confiable de precio.
+- Void/refund solo debe ejecutarse si existe un label real `label_status = purchased` y el provider soporta void confirmado.
+
+## Notas FASE 5.20C — Compra sandbox ShipEngine
+
+- El guard `ENABLE_REAL_LABEL_PURCHASE` permanece obligatorio y se evalua antes de cualquier compra.
+- El unico flujo habilitable es ShipEngine sandbox (`SHIPSTATION_API_MODE=shipengine`).
+- ShipStation V1 legacy queda bloqueado para evitar compras accidentales fuera del provider objetivo.
+- Antes de comprar, el backend reconsulta ShipEngine rates y selecciona un rate compatible. Si no hay match seguro, responde 409 y no compra.
+- El balance se valida con pricing calculado en servidor. Si ShipEngine falla, no se descuenta.
+- Si ShipEngine compra pero la RPC falla, se retorna error critico con informacion de recuperacion sanitizada. No se exponen tokens.
+- `provider_rate_id` y `label_url` se actualizan despues de la RPC con service_role por limitacion de la firma actual del RPC.

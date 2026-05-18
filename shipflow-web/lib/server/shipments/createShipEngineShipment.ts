@@ -1,0 +1,387 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { InsufficientFundsError } from "@/lib/logistics/errors";
+import { ShipEngineLabelAdapter } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
+import { getLogisticsAdapter } from "@/lib/logistics/registry";
+import { calculateCustomerPrice } from "@/lib/logistics/pricing";
+import { isMissingSchemaColumnError, isRpcNotFoundError } from "@/lib/server/apiResponse";
+import {
+  fromShipmentRow,
+  getAvailableBalance,
+  type ShipmentRow,
+} from "@/lib/server/shipments/createInternalShipment";
+import {
+  createServiceSupabaseClient,
+  isServiceRoleConfigured,
+} from "@/lib/server/supabaseServer";
+import type { Address, CreateLabelInput, LabelResult, Parcel, RateResult } from "@/lib/logistics/types";
+import type { Envio } from "@/lib/types";
+
+export type ShipEngineLabelBody = {
+  provider: "shipstation";
+  providerRateId?: string;
+  origin: Address;
+  destination: Address;
+  parcel: Parcel;
+  carrierCode: string;
+  serviceCode: string;
+  expectedCost?: number;
+  labelFormat?: "pdf" | "zpl" | "png";
+  idempotencyKey?: string;
+  senderName?: string;
+  senderPhone?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  productType?: string;
+};
+
+export type ShipEngineShipmentResult = {
+  shipment: Envio;
+  shipmentId: string;
+  trackingNumber: string;
+  labelStatus: "purchased";
+  labelUrl: string | null;
+  providerShipmentId: string | null;
+  providerLabelId: string | null;
+  providerServiceCode: string | null;
+  providerCost: number;
+  platformMarkup: number;
+  paymentFee: number;
+  customerPrice: number;
+  total: number;
+  currency: "USD";
+  carrier: string;
+  service: string;
+  message: string;
+};
+
+function validateBody(body: ShipEngineLabelBody) {
+  const required = [
+    body.origin?.line1,
+    body.origin?.city,
+    body.origin?.state,
+    body.origin?.postalCode,
+    body.destination?.line1,
+    body.destination?.city,
+    body.destination?.state,
+    body.destination?.postalCode,
+  ];
+  if (required.some((value) => !value?.trim())) {
+    throw new Response("Complete street address, city, state, and ZIP for both From and To.", { status: 400 });
+  }
+  if ((body.origin.country ?? "US") !== "US" || (body.destination.country ?? "US") !== "US") {
+    throw new Response("Only U.S. domestic ShipEngine labels are supported right now.", { status: 400 });
+  }
+  if (
+    !Number.isFinite(Number(body.parcel?.weight)) || Number(body.parcel.weight) <= 0 ||
+    !Number.isFinite(Number(body.parcel?.length)) || Number(body.parcel.length) <= 0 ||
+    !Number.isFinite(Number(body.parcel?.width)) || Number(body.parcel.width) <= 0 ||
+    !Number.isFinite(Number(body.parcel?.height)) || Number(body.parcel.height) <= 0
+  ) {
+    throw new Response("Package weight, length, width, and height must be positive numbers.", { status: 400 });
+  }
+  if (!body.carrierCode?.trim() || !body.serviceCode?.trim()) {
+    throw new Response("Carrier and service are required to purchase a ShipEngine label.", { status: 400 });
+  }
+}
+
+async function checkMigrationAndIdempotency(
+  supabase: SupabaseClient,
+  userId: string,
+  idempotencyKey: string,
+): Promise<ShipmentRow | null> {
+  const { data, error } = await supabase
+    .from("shipments")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle<ShipmentRow>();
+
+  if (error) {
+    if (isMissingSchemaColumnError(error)) {
+      throw new Response(
+        "ShipEngine labels require the logistics migration and label RPC to be applied first.",
+        { status: 503 },
+      );
+    }
+    throw error;
+  }
+
+  return data;
+}
+
+function buildExistingResult(existing: ShipmentRow): ShipEngineShipmentResult {
+  const shipment = fromShipmentRow(existing);
+  const total = Number(existing.customer_price ?? existing.total ?? 0);
+  return {
+    shipment,
+    shipmentId: existing.id,
+    trackingNumber: existing.tracking_number,
+    labelStatus: "purchased",
+    labelUrl: existing.label_url ?? null,
+    providerShipmentId: existing.provider_shipment_id ?? null,
+    providerLabelId: existing.provider_label_id ?? null,
+    providerServiceCode: existing.provider_service_code ?? null,
+    providerCost: Number(existing.provider_cost ?? 0),
+    platformMarkup: Number(existing.platform_markup ?? 0),
+    paymentFee: Number(existing.payment_fee ?? 0),
+    customerPrice: total,
+    total,
+    currency: "USD",
+    carrier: existing.courier ?? "",
+    service: existing.provider_service_code ?? "",
+    message: "Existing ShipEngine label returned for this idempotency key.",
+  };
+}
+
+function rateMatches(body: ShipEngineLabelBody, candidate: RateResult, expectedProviderCost: number | null) {
+  const sameRateId = body.providerRateId && candidate.providerRateId === body.providerRateId;
+  if (sameRateId) return true;
+
+  const sameCarrier = candidate.courierId === body.carrierCode;
+  const sameService = candidate.serviceCode === body.serviceCode;
+  if (!sameCarrier || !sameService) return false;
+  if (expectedProviderCost == null) return true;
+
+  const delta = Math.abs(candidate.pricing.providerCost - expectedProviderCost);
+  return delta <= Math.max(1, expectedProviderCost * 0.25);
+}
+
+async function revalidateShipEngineRate(body: ShipEngineLabelBody): Promise<RateResult> {
+  const adapter = getLogisticsAdapter("shipstation");
+  const rates = await adapter.getRates({
+    origin: body.origin,
+    destination: body.destination,
+    parcel: {
+      ...body.parcel,
+      weight: Number(body.parcel.weight),
+      length: Number(body.parcel.length),
+      width: Number(body.parcel.width),
+      height: Number(body.parcel.height),
+    },
+  });
+
+  const expectedProviderCost =
+    typeof body.expectedCost === "number" && body.expectedCost > 0 ? null : null;
+  const exact = rates.find((rate) => body.providerRateId && rate.providerRateId === body.providerRateId);
+  const compatible = rates.find((rate) => rateMatches(body, rate, expectedProviderCost));
+  const selected = exact ?? compatible;
+  if (!selected?.providerRateId) {
+    throw new Response("Selected rate is no longer available. Please refresh rates and try again.", { status: 409 });
+  }
+  return selected;
+}
+
+function buildCreateLabelInput(
+  body: ShipEngineLabelBody,
+  idempotencyKey: string,
+  revalidatedRate: RateResult,
+): CreateLabelInput {
+  return {
+    origin: body.origin,
+    destination: body.destination,
+    parcel: {
+      ...body.parcel,
+      weight: Number(body.parcel.weight),
+      length: Number(body.parcel.length),
+      width: Number(body.parcel.width),
+      height: Number(body.parcel.height),
+    },
+    provider: "shipstation",
+    providerRateId: revalidatedRate.providerRateId,
+    serviceCode: revalidatedRate.serviceCode,
+    carrierCode: revalidatedRate.courierId,
+    idempotencyKey,
+    labelFormat: body.labelFormat ?? "pdf",
+    senderName: body.senderName,
+    senderPhone: body.senderPhone,
+    recipientName: body.recipientName,
+    recipientPhone: body.recipientPhone,
+    productType: body.productType,
+    revalidatedRate,
+  };
+}
+
+function buildRpcParams(
+  shipmentId: string,
+  userId: string,
+  body: ShipEngineLabelBody,
+  labelResult: LabelResult,
+  idempotencyKey: string,
+  pricing = calculateCustomerPrice(labelResult.rate.pricing.providerCost),
+): Record<string, unknown> {
+  return {
+    p_user_id: userId,
+    p_idempotency_key: idempotencyKey,
+    p_shipment_id: shipmentId,
+    p_tracking_number: labelResult.trackingNumber,
+    p_sender_name: body.senderName?.trim() || "Sender",
+    p_sender_phone: body.senderPhone?.trim() || "",
+    p_origin_city: body.origin.city,
+    p_recipient_name: body.recipientName?.trim() || "Recipient",
+    p_recipient_phone: body.recipientPhone?.trim() || "",
+    p_destination_city: body.destination.city,
+    p_destination_addr: body.destination.line1?.trim() || "",
+    p_weight: Number(body.parcel.weight),
+    p_product_type: body.productType?.trim() || "Package",
+    p_carrier_code: labelResult.rate.courierName || labelResult.rate.courierId,
+    p_shipping_subtotal: pricing.providerCost,
+    p_total: pricing.customerPrice,
+    p_provider: "shipstation",
+    p_provider_shipment_id: labelResult.providerShipmentId ?? null,
+    p_provider_label_id: labelResult.providerLabelId ?? null,
+    p_provider_service_code: labelResult.providerServiceCode ?? labelResult.rate.serviceCode,
+    p_provider_cost: pricing.providerCost,
+    p_platform_markup: pricing.platformMarkup,
+    p_customer_price: pricing.customerPrice,
+    p_currency: "USD",
+    p_label_format: body.labelFormat ?? "pdf",
+    p_metadata: {
+      source: "shipengine_web",
+      phase: "5.20C",
+      providerRateId: labelResult.rate.providerRateId,
+      labelUrl: labelResult.labelUrl,
+      carrierCode: labelResult.rate.courierId,
+      serviceCode: labelResult.rate.serviceCode,
+    },
+    p_payment_fee: pricing.paymentFee,
+    p_pricing_subtotal: pricing.subtotal,
+    p_pricing_model: "shipflow_v1",
+    p_pricing_breakdown: pricing,
+  };
+}
+
+function recoveryInfo(labelResult: LabelResult) {
+  return JSON.stringify({
+    trackingNumber: labelResult.trackingNumber,
+    providerShipmentId: labelResult.providerShipmentId,
+    providerLabelId: labelResult.providerLabelId,
+    providerRateId: labelResult.rate.providerRateId,
+    labelUrl: labelResult.labelUrl,
+  });
+}
+
+export async function createShipEngineShipment(
+  supabase: SupabaseClient,
+  userId: string,
+  body: ShipEngineLabelBody,
+): Promise<ShipEngineShipmentResult> {
+  validateBody(body);
+
+  if (!isServiceRoleConfigured) {
+    throw new Response(
+      "ShipEngine labels require SUPABASE_SERVICE_ROLE_KEY for atomic persistence.",
+      { status: 503 },
+    );
+  }
+
+  const idempotencyKey = body.idempotencyKey?.trim() || crypto.randomUUID();
+  const existingShipment = await checkMigrationAndIdempotency(supabase, userId, idempotencyKey);
+  if (existingShipment?.label_status === "purchased" && existingShipment.provider_label_id) {
+    return buildExistingResult(existingShipment);
+  }
+
+  const revalidatedRate = await revalidateShipEngineRate(body);
+  const pricing = calculateCustomerPrice(revalidatedRate.pricing.providerCost);
+  const balance = await getAvailableBalance(supabase, userId);
+  if (balance < pricing.customerPrice) {
+    throw new InsufficientFundsError(
+      `Insufficient balance. Available: $${balance.toFixed(2)} USD, required: $${pricing.customerPrice.toFixed(2)} USD.`,
+    );
+  }
+
+  const serviceClient = createServiceSupabaseClient();
+  const labelInput = buildCreateLabelInput(body, idempotencyKey, revalidatedRate);
+  const labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
+  const actualPricing = calculateCustomerPrice(labelResult.rate.pricing.providerCost);
+
+  if (balance < actualPricing.customerPrice) {
+    throw new Response(
+      "ShipEngine label was purchased, but balance is no longer sufficient for the actual label cost. Contact support for reconciliation.",
+      { status: 500 },
+    );
+  }
+
+  const shipmentId = crypto.randomUUID();
+  const { data: rpcData, error: rpcError } = await serviceClient.rpc(
+    "create_label_shipment_transaction",
+    buildRpcParams(shipmentId, userId, body, labelResult, idempotencyKey, actualPricing),
+  );
+
+  if (rpcError || !rpcData) {
+    if (isRpcNotFoundError(rpcError)) {
+      throw new Response(
+        `CRITICAL: ShipEngine label purchased but the persistence RPC is not available. Recovery info: ${recoveryInfo(labelResult)}`,
+        { status: 500 },
+      );
+    }
+    throw new Response(
+      `CRITICAL: ShipEngine label purchased but atomic persistence failed. Recovery info: ${recoveryInfo(labelResult)}`,
+      { status: 500 },
+    );
+  }
+
+  const result = rpcData as { status: "created" | "existing"; shipment_id: string };
+  const fetchId = result.shipment_id ?? shipmentId;
+
+  if (labelResult.labelUrl || labelResult.rate.providerRateId) {
+    await serviceClient
+      .from("shipments")
+      .update({
+        label_url: labelResult.labelUrl,
+        provider_rate_id: labelResult.rate.providerRateId ?? null,
+      })
+      .eq("id", fetchId)
+      .eq("user_id", userId);
+  }
+
+  const { data: savedShipment } = await supabase
+    .from("shipments")
+    .select("*")
+    .eq("id", fetchId)
+    .eq("user_id", userId)
+    .single<ShipmentRow>();
+
+  const shipment = savedShipment ? fromShipmentRow(savedShipment) : {
+    id: fetchId,
+    trackingNumber: labelResult.trackingNumber,
+    userId,
+    senderName: body.senderName ?? "",
+    senderPhone: body.senderPhone ?? "",
+    originCity: body.origin.city,
+    recipientName: body.recipientName ?? "",
+    recipientPhone: body.recipientPhone ?? "",
+    destinationCity: body.destination.city,
+    destinationAddress: body.destination.line1 ?? "",
+    weight: Number(body.parcel.weight),
+    productType: body.productType ?? "Package",
+    courier: labelResult.rate.courierName || labelResult.rate.courierId,
+    shippingSubtotal: actualPricing.providerCost,
+    cashOnDeliveryCommission: 0,
+    total: actualPricing.customerPrice,
+    cashOnDelivery: false,
+    cashAmount: 0,
+    status: "Pendiente" as const,
+    value: actualPricing.customerPrice,
+    date: new Date().toISOString(),
+  };
+
+  return {
+    shipment,
+    shipmentId: fetchId,
+    trackingNumber: labelResult.trackingNumber,
+    labelStatus: "purchased",
+    labelUrl: labelResult.labelUrl,
+    providerShipmentId: labelResult.providerShipmentId ?? null,
+    providerLabelId: labelResult.providerLabelId ?? null,
+    providerServiceCode: labelResult.providerServiceCode ?? labelResult.rate.serviceCode,
+    providerCost: actualPricing.providerCost,
+    platformMarkup: actualPricing.platformMarkup,
+    paymentFee: actualPricing.paymentFee,
+    customerPrice: actualPricing.customerPrice,
+    total: actualPricing.customerPrice,
+    currency: "USD",
+    carrier: labelResult.rate.courierName || labelResult.rate.courierId,
+    service: labelResult.rate.serviceName,
+    message: labelResult.message,
+  };
+}

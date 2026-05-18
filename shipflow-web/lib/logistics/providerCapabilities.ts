@@ -67,12 +67,12 @@ export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabiliti
   shipstation: {
     displayName: shipStationMode() === "shipengine" ? "ShipEngine" : "ShipStation Legacy",
     supportsRates: true,
-    supportsLabels: shipStationMode() === "legacy", // ShipEngine labels are planned but not implemented yet.
-    supportsVoid: shipStationMode() === "legacy",
+    supportsLabels: shipStationMode() === "shipengine",
+    supportsVoid: false,
     supportsTracking: false,
     supportsAddressValidation: false,
     apiMode: shipStationMode() === "shipengine" ? "shipengine" : "shipstation_legacy",
-    labelImplementation: shipStationMode() === "shipengine" ? "planned" : "legacy",
+    labelImplementation: shipStationMode() === "shipengine" ? "available" : "legacy",
     environment: shipStationMode() === "shipengine" ? "sandbox" : "unknown",
     configured: isShipStationConfigured(),
     priority: 1,

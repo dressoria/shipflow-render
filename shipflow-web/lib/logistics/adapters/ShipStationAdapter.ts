@@ -598,7 +598,7 @@ function mapFromShipEngineRates(items: ShipEngineRateItem[]): RateResult[] {
       return {
         provider: "shipstation" as const,
         providerRateId: item.rate_id,
-        supportsLabels: false,
+        supportsLabels: true,
         serviceCode: item.service_code ?? "",
         serviceName: item.service_type ?? item.service_code ?? "",
         courierId: item.carrier_code ?? "",

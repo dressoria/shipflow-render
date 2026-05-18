@@ -475,6 +475,61 @@ Los adapters devuelven `RateResult` normalizado con `providerCost`, carrier, ser
 
 Los rates que pertenecen a providers sin compra de label implementada se marcan con `supportsLabels: false`; la UI no llama `/api/labels` para esas opciones.
 
+## FASE 5.20B — Real label flow design
+
+La arquitectura objetivo para labels reales queda definida, pero no implementada:
+
+```text
+RateAggregator
+→ RateResult con providerRateId + pricing snapshot
+→ UI selecciona tarifa
+→ /api/labels valida guard ENABLE_REAL_LABEL_PURCHASE
+→ backend revalida rate server-side
+→ backend valida saldo/precio
+→ provider label purchase
+→ RPC transaccional de persistencia
+```
+
+Decision:
+
+- Primer provider de labels reales: ShipEngine (`SHIPSTATION_API_MODE=shipengine`).
+- Shippo y Easyship quedan `rates-only`.
+- ShipStation V1 legacy queda como flujo heredado y no es el objetivo principal.
+
+Cambios de arquitectura preparados:
+
+- `providerCapabilities.ts` ahora declara `displayName`, `apiMode`, `labelImplementation` y `environment`.
+- En modo ShipEngine, `shipstation` queda `supportsLabels: false` y `labelImplementation: "planned"`.
+- `ShipEngineLabelAdapter.ts` existe como stub seguro y no llama `POST /labels`.
+- `SelectedRateForLabelRequest` documenta el contrato futuro de seleccion de tarifa.
+
+Regla de seguridad:
+
+- El frontend no decide el precio final ni el costo del provider para compras reales.
+- El backend debe revalidar/recalcular antes de cualquier compra o descuento.
+
+## FASE 5.20C — ShipEngine sandbox label purchase
+
+Se agrego el flujo backend real para ShipEngine sandbox, manteniendo el guard global:
+
+```text
+/api/labels
+→ ENABLE_REAL_LABEL_PURCHASE === "true"
+→ requireVerifiedUser
+→ createShipEngineShipment
+→ ShipEngineLabelAdapter
+→ RPC create_label_shipment_transaction
+```
+
+Puntos clave:
+
+- `ShipEngineLabelAdapter` compra con `POST /labels/rates/{rate_id}`.
+- `createShipEngineShipment` revalida rates antes de comprar y usa un `rate_id` fresco si el seleccionado expiro pero existe un match seguro de carrier/service.
+- Pricing y saldo se calculan server-side.
+- Shippo/Easyship/EasyPost siguen rates-only.
+- Void ShipEngine sigue sin implementar y queda bloqueado.
+- La RPC actual no acepta `provider_rate_id` ni `label_url`; se completan despues con update server-side usando service_role.
+
 ## Arquitectura futura deseada
 
 La arquitectura futura debe mover operaciones sensibles a backend:

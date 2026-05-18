@@ -45,6 +45,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     // ── ShipStation void ────────────────────────────────────────────────────
     if (provider === "shipstation") {
+      if (process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine") {
+        return apiError("Void is not supported for this label yet.", 501);
+      }
+
       if (shipment.label_status !== "purchased") {
         return apiError(
           "This label cannot be voided in its current state.",

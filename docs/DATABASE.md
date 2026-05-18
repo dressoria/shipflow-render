@@ -411,3 +411,50 @@ Ambas funciones:
 Estado: preparadas pero NO ejecutadas. Deben aplicarse manualmente en Supabase despues de aplicar FASE 1C, hacer backup/snapshot y verificar con pruebas manuales.
 
 `createShipStationShipment.ts` (FASE 4D): verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label, luego usa `create_label_shipment_transaction` via cliente service_role. No vuelve a inserts secuenciales.
+
+## Estado para labels reales FASE 5.20B
+
+El schema preparado ya contiene campos suficientes para una primera implementacion de labels ShipEngine:
+
+- `provider`
+- `provider_shipment_id`
+- `provider_label_id`
+- `provider_rate_id`
+- `provider_service_code`
+- `label_url`
+- `label_format`
+- `payment_status`
+- `label_status`
+- `provider_cost`
+- `platform_markup`
+- `customer_price`
+- `payment_fee`
+- `pricing_subtotal`
+- `pricing_model`
+- `pricing_breakdown`
+- `currency`
+- `idempotency_key`
+- `metadata`
+
+Tambien existen/estan preparadas:
+
+- `tracking_events` para evento inicial y actualizaciones.
+- `balance_movements` con `shipment_id`, `reference_type`, `reference_id`, `idempotency_key`, `type`, `metadata`.
+- `webhook_events` y `audit_logs`.
+- RPCs transaccionales preparadas para crear label + shipment + tracking + debit, y void + refund.
+
+Pendiente para la fase de labels reales:
+
+- Confirmar que las migraciones 1C, pricing y RPC estan aplicadas en la DB real.
+- Decidir si `provider_rate_id` debe llenarse desde `ShipEngine rate_id` en la RPC actual; hoy el RPC preparado puede requerir ajuste para aceptar `p_provider_rate_id`.
+- Definir retention/storage de PDF real (`label_url` via storage permanente vs respuesta inmediata).
+- Mantener `ENABLE_REAL_LABEL_PURCHASE` apagado hasta completar FASE 5.20C.
+
+## Nota FASE 5.20C
+
+La implementacion ShipEngine sandbox usa la RPC existente para el estado critico y luego completa con `service_role`:
+
+- `provider_rate_id`
+- `label_url`
+
+Motivo: la firma actual de `create_label_shipment_transaction` no acepta `p_provider_rate_id` ni `p_label_url`. No se creo migracion en esta fase. Una migracion futura puede agregar esos parametros para que tambien se persistan dentro de la transaccion atomica.

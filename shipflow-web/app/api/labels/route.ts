@@ -1,16 +1,11 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
-import { createInternalShipment, type CreateInternalShipmentInput } from "@/lib/server/shipments/createInternalShipment";
-import {
-  createShipStationShipment,
-  type ShipStationLabelBody,
-} from "@/lib/server/shipments/createShipStationShipment";
-import { assertShipEngineLabelPurchaseNotImplemented } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
+import { createShipEngineShipment, type ShipEngineLabelBody } from "@/lib/server/shipments/createShipEngineShipment";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 // Providers with skeleton adapters — label creation not yet implemented.
 const SKELETON_LABEL_PROVIDERS = ["shippo", "easypost", "easyship"] as const;
 
-function isShipStationLabelRequest(body: unknown): body is ShipStationLabelBody {
+function isShipEngineLabelRequest(body: unknown): body is ShipEngineLabelBody {
   return (
     typeof body === "object" &&
     body !== null &&
@@ -53,17 +48,32 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isShipStationLabelRequest(body)) {
+    if (isShipEngineLabelRequest(body)) {
       if (isShipEngineMode()) {
-        assertShipEngineLabelPurchaseNotImplemented();
+        const result = await createShipEngineShipment(supabase, user.id, body);
+        return apiSuccess({
+          shipmentId: result.shipmentId,
+          trackingNumber: result.trackingNumber,
+          labelUrl: result.labelUrl,
+          carrier: result.carrier,
+          service: result.service,
+          total: result.total,
+          currency: result.currency,
+          shipment: result.shipment,
+          labelStatus: result.labelStatus,
+          labelData: null,
+          providerShipmentId: result.providerShipmentId,
+          providerLabelId: result.providerLabelId,
+          providerServiceCode: result.providerServiceCode,
+          customerPrice: result.customerPrice,
+          message: result.message,
+        }, 201);
       }
-      const result = await createShipStationShipment(supabase, user.id, body);
-      return apiSuccess(result, 201);
+
+      return apiError("ShipStation legacy label purchase is not enabled in this phase.", 501);
     }
 
-    // Default: internal label creation. This path is still guarded by ENABLE_REAL_LABEL_PURCHASE.
-    const result = await createInternalShipment(supabase, user.id, body as CreateInternalShipmentInput);
-    return apiSuccess(result, 201);
+    return apiError("Only ShipEngine label purchase is supported in this phase.", 400);
   } catch (error) {
     return apiErrorFromUnknown(error, "We could not create this label.");
   }

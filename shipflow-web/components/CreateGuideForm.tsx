@@ -349,6 +349,7 @@ export function CreateGuideForm() {
     try {
       const result: CreateLabelResult = await apiCreateLabel({
         provider: rateProvider,
+        providerRateId: selectedApiRate.providerRateId,
         origin: {
           line1: form.origin.street1,
           line2: form.origin.street2 || undefined,
@@ -850,7 +851,7 @@ function ConfirmModal({
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-6 w-6 shrink-0 text-amber-500" />
             <h2 className="text-lg font-black text-slate-950">
-              {supportsLabelPurchase ? "Confirm label" : "Rate selected"}
+              {supportsLabelPurchase ? "Purchase label" : "Rate selected"}
             </h2>
           </div>
           <button
@@ -865,7 +866,7 @@ function ConfirmModal({
 
         <p className="mt-4 text-sm text-slate-600">
           {supportsLabelPurchase
-            ? "This will create a shipping label with the selected rate."
+            ? "This will purchase a shipping label and deduct your balance."
             : "You can review this rate, but label purchase is not enabled yet."}
         </p>
 
@@ -935,7 +936,7 @@ function ConfirmModal({
             disabled={!supportsLabelPurchase}
             className="flex-1 rounded-2xl bg-[#FF1493] py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
           >
-            {supportsLabelPurchase ? "Confirm label" : "Label purchase disabled"}
+            {supportsLabelPurchase ? "Purchase label" : "Label purchase disabled"}
           </button>
         </div>
       </div>

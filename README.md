@@ -88,6 +88,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL
 INTERNAL_API_SECRET
+ENABLE_REAL_LABEL_PURCHASE
 SHIPSTATION_API_MODE
 SHIPSTATION_API_KEY
 SHIPSTATION_API_SECRET
@@ -139,6 +140,7 @@ cp shipflow-mobile/.env.example shipflow-mobile/.env
 
 - Las variables `NEXT_PUBLIC_*` y `EXPO_PUBLIC_*` son visibles para cliente/app.
 - Las API keys privadas de proveedores logisticos, `SUPABASE_SERVICE_ROLE_KEY`, secretos internos y secretos de pagos/webhooks no deben usar prefijos `NEXT_PUBLIC_` ni `EXPO_PUBLIC_`.
+- `ENABLE_REAL_LABEL_PURCHASE` es un switch server-side: debe quedar vacio/false hasta completar una fase dedicada de compra real de labels.
 - Los archivos `.env`, `.env.local` y `.env.*` reales estan ignorados por Git; no commitear credenciales reales.
 - FASE 1B no agrega `SUPABASE_SERVICE_ROLE_KEY`; el endpoint web de crear guia usa token Bearer de usuario y RLS.
 - Para ShipEngine/ShipStation sandbox usar `SHIPSTATION_API_MODE=shipengine`, `SHIPSTATION_API_KEY` y `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`; en ese modo no se requiere `SHIPSTATION_API_SECRET` para cotizar.

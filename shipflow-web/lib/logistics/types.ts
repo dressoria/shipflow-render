@@ -85,6 +85,7 @@ export type SelectedRateForLabelRequest = {
 export type CreateLabelInput = RateInput & {
   idempotencyKey: string;
   provider?: LogisticsProvider;
+  providerRateId?: string;
   serviceCode?: string;
   carrierCode?: string;
   labelFormat?: "pdf" | "zpl" | "png";
@@ -94,6 +95,7 @@ export type CreateLabelInput = RateInput & {
   recipientPhone?: string;
   destinationAddress?: string;
   productType?: string;
+  revalidatedRate?: RateResult;
 };
 
 export type LabelResult = {

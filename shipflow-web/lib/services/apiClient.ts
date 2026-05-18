@@ -133,6 +133,7 @@ export async function apiGetRates(body: RatesBody): Promise<RatesData> {
 
 export type CreateLabelBody = {
   provider: LogisticsProvider;
+  providerRateId?: string;
   origin: { line1?: string; line2?: string; city: string; postalCode: string; state?: string; country?: string };
   destination: {
     city: string;
