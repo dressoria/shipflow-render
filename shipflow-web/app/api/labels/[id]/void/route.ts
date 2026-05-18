@@ -2,10 +2,9 @@ import {
   apiError,
   apiErrorFromUnknown,
   apiSuccess,
-  isMissingSchemaColumnError,
-  isRpcNotFoundError,
 } from "@/lib/server/apiResponse";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
+import { ShipEngineLabelAdapter } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
 import { fromShipmentRow, type ShipmentRow } from "@/lib/server/shipments/createInternalShipment";
 import {
   createServiceSupabaseClient,
@@ -13,6 +12,28 @@ import {
   isServiceRoleConfigured,
   requireVerifiedUser,
 } from "@/lib/server/supabaseServer";
+
+function isShipEngineMode() {
+  return process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine";
+}
+
+function logVoidReconciliationFailure(
+  requestId: string,
+  userId: string,
+  shipment: ShipmentRow,
+  cause: unknown,
+) {
+  console.error("[ShipEngineVoidReconciliation]", {
+    requestId,
+    userId,
+    shipmentId: shipment.id,
+    trackingNumber: shipment.tracking_number,
+    providerLabelId: shipment.provider_label_id ?? null,
+    providerShipmentId: shipment.provider_shipment_id ?? null,
+    timestamp: new Date().toISOString(),
+    cause: cause instanceof Error ? cause.message : String(cause ?? "unknown"),
+  });
+}
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   if (!isServerSupabaseConfigured) {
@@ -36,24 +57,33 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (shipmentError) throw shipmentError;
     if (!shipment) return apiError("Shipment not found.", 404);
 
-    // Already voided — return current state idempotently.
+    // Already voided — return current state idempotently without another refund.
     if (shipment.label_status === "voided") {
-      return apiError("This label is already voided.", 409);
+      return apiSuccess({
+        shipment: fromShipmentRow(shipment),
+        labelStatus: "voided",
+        refunded: shipment.payment_status === "refunded",
+        message: "This label has already been voided.",
+      });
     }
 
     const provider = shipment.provider ?? "internal";
 
+    if (process.env.ENABLE_REAL_LABEL_VOID !== "true") {
+      return apiError("Void is not enabled yet.", 403);
+    }
+
     // ── ShipStation void ────────────────────────────────────────────────────
     if (provider === "shipstation") {
-      if (process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine") {
-        return apiError("Void is not supported for this label yet.", 501);
-      }
-
       if (shipment.label_status !== "purchased") {
         return apiError(
           "This label cannot be voided in its current state.",
           409,
         );
+      }
+
+      if (shipment.payment_status !== "paid") {
+        return apiError("Only paid labels can be voided and refunded.", 409);
       }
 
       // Require service_role for atomic refund persistence.
@@ -82,14 +112,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         });
       }
 
-      // Call ShipStation void API. This is the external action — do it FIRST.
-      // Only proceed to internal refund if ShipStation confirms approval.
-      const voidResult = await getLogisticsAdapter("shipstation").voidLabel({
-        shipmentId: shipment.id,
-        providerShipmentId: shipment.provider_shipment_id ?? undefined,
-        trackingNumber: shipment.tracking_number,
-        provider: "shipstation",
-      });
+      let voidResult;
+      if (isShipEngineMode()) {
+        if (!shipment.provider_label_id) {
+          return apiError("This label cannot be voided because the carrier label ID is missing.", 409);
+        }
+
+        voidResult = await new ShipEngineLabelAdapter().voidLabel({
+          shipmentId: shipment.id,
+          providerLabelId: shipment.provider_label_id,
+          providerShipmentId: shipment.provider_shipment_id ?? undefined,
+          trackingNumber: shipment.tracking_number,
+          provider: "shipstation",
+        });
+      } else {
+        voidResult = await getLogisticsAdapter("shipstation").voidLabel({
+          shipmentId: shipment.id,
+          providerShipmentId: shipment.provider_shipment_id ?? undefined,
+          trackingNumber: shipment.tracking_number,
+          provider: "shipstation",
+        });
+      }
 
       // ShipStation confirmed void. Now persist atomically: update status + insert refund.
       const serviceClient = createServiceSupabaseClient();
@@ -108,23 +151,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       );
 
       if (voidRpcError || !voidRpcData) {
-        // ShipStation voided but we couldn't persist the refund.
-        // Partially update label_status via user's client as a fallback record.
-        await supabase
-          .from("shipments")
-          .update({ label_status: "voided" })
-          .eq("id", shipmentId)
-          .eq("user_id", user.id);
-
-        if (isRpcNotFoundError(voidRpcError)) {
-          return apiError(
-            `The label was voided, but the refund requires manual review. Contact support with tracking: ${shipment.tracking_number ?? shipmentId}.`,
-            500,
-          );
-        }
-
+        const requestId = crypto.randomUUID();
+        logVoidReconciliationFailure(requestId, user.id, shipment, voidRpcError ?? "EMPTY_RPC_RESPONSE");
         return apiError(
-          `The label was voided, but the refund requires manual review. Contact support with tracking: ${shipment.tracking_number ?? shipmentId}.`,
+          `The carrier voided this label, but the refund could not be saved. Please contact support with the request ID: ${requestId}.`,
           500,
         );
       }
@@ -141,44 +171,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         shipment: updatedShipment ? fromShipmentRow(updatedShipment) : fromShipmentRow(shipment),
         labelStatus: voidResult.labelStatus,
         refunded: voidResult.refunded,
-        message: voidResult.refunded ? "Label voided and refunded." : "Label voided.",
+        message: voidResult.refunded ? "Label voided successfully. Refund issued to your balance." : "Label voided.",
       });
     }
 
-    // ── Internal/mock label void ────────────────────────────────────────────
-    if (shipment.label_status && !["internal", "pending", null].includes(shipment.label_status)) {
-      return apiError(
-        "This label cannot be voided in its current state.",
-        409,
-      );
-    }
-
-    const { data: updatedShipment, error: updateError } = await supabase
-      .from("shipments")
-      .update({ label_status: "voided" })
-      .eq("id", shipment.id)
-      .eq("user_id", user.id)
-      .select()
-      .single<ShipmentRow>();
-
-    if (updateError && isMissingSchemaColumnError(updateError)) {
-      return apiError("Voiding labels requires completing the database configuration.", 501);
-    }
-
-    if (updateError) throw updateError;
-
-    const voidResult = await getLogisticsAdapter("internal").voidLabel({
-      shipmentId: shipment.id,
-      trackingNumber: shipment.tracking_number,
-      provider: "internal",
-    });
-
-    return apiSuccess({
-      shipment: updatedShipment ? fromShipmentRow(updatedShipment) : fromShipmentRow(shipment),
-      labelStatus: voidResult.labelStatus,
-      refunded: voidResult.refunded,
-      message: "Label voided.",
-    });
+    return apiError("Void is not supported for this label yet.", 501);
   } catch (error) {
     if (!(error instanceof Response)) {
       return apiError("We could not void this label.", 500);

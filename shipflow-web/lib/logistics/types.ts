@@ -113,6 +113,7 @@ export type LabelResult = {
 
 export type VoidLabelInput = {
   shipmentId: string;
+  providerLabelId?: string;
   providerShipmentId?: string; // Provider-specific numeric ID; required for ShipStation void API
   trackingNumber?: string;
   provider?: LogisticsProvider;
@@ -123,6 +124,8 @@ export type VoidLabelResult = {
   labelStatus: "voided";
   refunded: boolean;
   message: string;
+  providerLabelId?: string | null;
+  providerStatus?: string | null;
 };
 
 export type TrackingInput = {

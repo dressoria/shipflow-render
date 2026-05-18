@@ -137,6 +137,11 @@ export function TrackingSearch() {
               </p>
             )}
           </div>
+          {shipment.labelStatus === "voided" ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+              This label was voided and should not be used.
+            </div>
+          ) : null}
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <Info label="Route" value={`${shipment.originCity} -> ${shipment.destinationCity}`} />
             <Info label="Carrier" value={trackingData?.carrier ?? shipment.courier} />

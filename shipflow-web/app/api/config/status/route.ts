@@ -20,5 +20,6 @@ export async function GET() {
     googleMapsConfigured,
     activeRateProviders: aggregationProviders.length,
     labelPurchaseEnabled: process.env.ENABLE_REAL_LABEL_PURCHASE === "true",
+    labelVoidEnabled: process.env.ENABLE_REAL_LABEL_VOID === "true",
   });
 }

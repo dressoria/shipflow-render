@@ -34,6 +34,7 @@ export type ConfigStatus = {
   googleMapsConfigured: boolean;
   activeRateProviders: number;
   labelPurchaseEnabled: boolean;
+  labelVoidEnabled: boolean;
 };
 
 // Public fetch — no auth token required. Returns configuration booleans only.
@@ -48,6 +49,7 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
       googleMapsConfigured: false,
       activeRateProviders: 0,
       labelPurchaseEnabled: false,
+      labelVoidEnabled: false,
     };
   }
   return json.data;

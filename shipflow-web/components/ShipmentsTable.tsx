@@ -7,7 +7,7 @@ import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate } from "@/lib/forms";
 import { getShipments } from "@/lib/services/shipmentService";
-import { apiVoidLabel } from "@/lib/services/apiClient";
+import { apiGetConfigStatus, apiVoidLabel, type ConfigStatus } from "@/lib/services/apiClient";
 import type { Envio } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -56,6 +56,7 @@ export function ShipmentsTable() {
   const [voidingId, setVoidingId] = useState<string | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
   const [voidSuccess, setVoidSuccess] = useState<string | null>(null);
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
   async function load() {
     try {
@@ -71,9 +72,16 @@ export function ShipmentsTable() {
 
   useEffect(() => {
     window.setTimeout(() => { load(); }, 0);
+    apiGetConfigStatus().then(setConfigStatus);
   }, []);
 
   function startVoid(id: string) {
+    if (configStatus?.labelVoidEnabled !== true) {
+      setVoidError("Void is not enabled yet.");
+      setVoidSuccess(null);
+      setVoidingId(null);
+      return;
+    }
     setVoidingId(id);
     setVoidError(null);
     setVoidSuccess(null);
@@ -129,6 +137,11 @@ export function ShipmentsTable() {
       {voidSuccess && (
         <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
           {voidSuccess}
+        </div>
+      )}
+      {voidError && !voidingId && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          {voidError}
         </div>
       )}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
@@ -210,6 +223,10 @@ export function ShipmentsTable() {
                     <Download className="mr-1.5 h-3.5 w-3.5" />
                     Download carrier label
                   </a>
+                ) : shipment.labelStatus === "voided" ? (
+                  <span className="rounded-2xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                    Voided label - do not use
+                  </span>
                 ) : shipment.labelStatus === "purchased" ? (
                   <span className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
                     Carrier label unavailable
@@ -249,7 +266,7 @@ export function ShipmentsTable() {
                       onClick={() => startVoid(shipment.id)}
                       className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-red-50 hover:text-red-700"
                     >
-                      Void
+                      Void label
                     </button>
                   )
                 ) : null}

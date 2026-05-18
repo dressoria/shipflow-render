@@ -68,7 +68,11 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
           Back to shipments
         </Link>
         <div className="flex flex-wrap gap-3">
-          {shipment.labelUrl ? (
+          {shipment.labelStatus === "voided" ? (
+            <span className="inline-flex h-11 items-center rounded-2xl bg-amber-50 px-4 text-sm font-bold text-amber-800">
+              Voided label - do not use
+            </span>
+          ) : shipment.labelUrl ? (
             <a
               href={shipment.labelUrl}
               target="_blank"
@@ -140,6 +144,14 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               ]}
             />
             <InfoBlock title="Delivery address" rows={[["Address", shipment.destinationAddress]]} />
+            {shipment.labelStatus === "voided" ? (
+              <section className="min-w-0 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-left print:rounded-none print:border-amber-500">
+                <h2 className="guide-wrap text-xs font-black uppercase tracking-[0.16em] text-amber-700">Voided label</h2>
+                <p className="guide-wrap mt-2 text-sm font-semibold text-amber-800">
+                  This label was voided and should not be used.
+                </p>
+              </section>
+            ) : null}
             <InfoBlock
               title="Package and carrier"
               rows={[

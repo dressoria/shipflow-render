@@ -23,6 +23,13 @@ type ShipEngineLabelResponse = {
   status?: string;
 };
 
+type ShipEngineVoidResponse = {
+  approved?: boolean;
+  message?: string;
+  label_id?: string;
+  status?: string;
+};
+
 function readShipEngineConfig() {
   const mode = process.env.SHIPSTATION_API_MODE?.trim().toLowerCase();
   const apiKey = process.env.SHIPSTATION_API_KEY?.trim() ?? "";
@@ -163,9 +170,56 @@ export class ShipEngineLabelAdapter {
   }
 
   async voidLabel(input: VoidLabelInput): Promise<VoidLabelResult> {
-    void input;
-    throw new ProviderUnavailableError(
-      "ShipEngine label void is not implemented yet.",
-    );
+    const config = readShipEngineConfig();
+    const providerLabelId = input.providerLabelId?.trim();
+    if (!providerLabelId) {
+      throw new ProviderUnavailableError("ShipEngine label void requires a provider label ID.");
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${config.baseUrl}/labels/${encodeURIComponent(providerLabelId)}/void`, {
+        method: "PUT",
+        headers: {
+          "API-Key": config.apiKey,
+          Accept: "application/json",
+        },
+      });
+    } catch {
+      throw new ProviderUnavailableError("Could not reach ShipEngine to void the label.");
+    }
+
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 404 || response.status === 409) {
+        throw new ProviderUnavailableError("The carrier could not void this label. Please contact support.");
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new ProviderUnavailableError("The carrier could not void this label. Please contact support.");
+      }
+      if (response.status === 429) {
+        throw new ProviderUnavailableError("The carrier is temporarily busy. Please try again later.");
+      }
+      throw new ProviderUnavailableError("The carrier could not void this label. Please contact support.");
+    }
+
+    let data: ShipEngineVoidResponse;
+    try {
+      data = (await response.json()) as ShipEngineVoidResponse;
+    } catch {
+      throw new ProviderUnavailableError("ShipEngine returned an unreadable void response.");
+    }
+
+    if (!data.approved) {
+      throw new ProviderUnavailableError("The carrier could not void this label. Please contact support.");
+    }
+
+    return {
+      provider: "shipstation",
+      labelStatus: "voided",
+      refunded: true,
+      message: data.message ?? "Label voided successfully.",
+      providerLabelId: data.label_id ?? providerLabelId,
+      providerStatus: data.status ?? "voided",
+    };
   }
 }

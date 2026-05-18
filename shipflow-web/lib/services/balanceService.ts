@@ -9,9 +9,12 @@ import { apiGetBalance, type BalanceMovement } from "@/lib/services/apiClient";
 import type { MovimientoSaldo } from "@/lib/types";
 
 function fromApiMovement(m: BalanceMovement): MovimientoSaldo {
-  const concept = m.amount < 0 && /shipping label/i.test(m.concept)
-    ? "Carrier label purchase"
-    : m.concept;
+  let concept = m.concept;
+  if (m.amount < 0 && /shipping label/i.test(m.concept)) {
+    concept = "Carrier label purchase";
+  } else if (m.amount > 0 && (/void/i.test(m.concept) || m.type === "refund")) {
+    concept = "Carrier label void refund";
+  }
   return { id: m.id, concept, amount: m.amount, date: m.date };
 }
 
