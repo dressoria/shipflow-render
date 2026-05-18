@@ -91,6 +91,12 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
             <Download className="mr-2 h-4 w-4" />
             Download summary PDF
           </button>
+          <Link
+            href={`/tracking?trackingNumber=${encodeURIComponent(shipment.trackingNumber)}`}
+            className="inline-flex h-11 items-center rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-[#06B6D4]"
+          >
+            Track shipment
+          </Link>
         </div>
       </div>
 

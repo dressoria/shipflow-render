@@ -5,7 +5,7 @@ export default function TrackingPage() {
   return (
     <DashboardShell
       title="Tracking"
-      description="Track shipments once a tracking number is available."
+      description="Enter a tracking number to view shipment details and carrier updates."
     >
       <TrackingSearch />
     </DashboardShell>

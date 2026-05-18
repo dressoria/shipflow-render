@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import type { Envio } from "@/lib/types";
+import type { Envio, TrackingEvent } from "@/lib/types";
 import type { LogisticsProvider, RateResult } from "@/lib/logistics/types";
 
 async function getToken(): Promise<string | null> {
@@ -190,4 +190,29 @@ export async function apiVoidLabel(shipmentId: string): Promise<VoidData> {
     `/api/labels/${encodeURIComponent(shipmentId)}/void`,
     { method: "POST" },
   );
+}
+
+// ── Tracking ────────────────────────────────────────────────────────────────
+
+export type BasicTrackingData = {
+  shipment: Envio;
+  shipmentId: string;
+  trackingNumber: string;
+  shipmentStatus: string;
+  labelStatus: string | null;
+  paymentStatus: string | null;
+  carrier: string;
+  service: string | null;
+  recipientName: string;
+  destinationCity: string;
+  destinationAddress: string;
+  createdAt: string;
+  labelUrl: string | null;
+  events: TrackingEvent[];
+  message: string;
+};
+
+export async function apiGetTracking(trackingNumber: string): Promise<BasicTrackingData> {
+  const qs = new URLSearchParams({ trackingNumber: trackingNumber.trim() });
+  return apiFetch<BasicTrackingData>(`/api/tracking?${qs.toString()}`);
 }

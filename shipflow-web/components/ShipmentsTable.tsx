@@ -193,6 +193,12 @@ export function ShipmentsTable() {
                 >
                   View shipment
                 </Link>
+                <Link
+                  href={`/tracking?trackingNumber=${encodeURIComponent(shipment.trackingNumber)}`}
+                  className="rounded-2xl bg-cyan-50 px-3 py-1.5 text-xs font-black text-[#06B6D4]"
+                >
+                  Track
+                </Link>
 
                 {shipment.labelStatus === "purchased" && shipment.labelUrl ? (
                   <a

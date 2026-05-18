@@ -1,51 +1,113 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
-import { readBearerToken, requireSupabaseUser } from "@/lib/server/supabaseServer";
-import { getRealTracking } from "@/lib/services/realTrackingService";
+import {
+  fromShipmentRow,
+  fromTrackingEventRow,
+  type ShipmentRow,
+  type TrackingEventRow,
+} from "@/lib/server/shipments/createInternalShipment";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 type TrackingRequest = {
   trackingNumber?: string;
-  courier?: string;
+  shipmentId?: string;
+  id?: string;
 };
 
-const allowedCouriers = ["usps", "ups", "fedex", "dhl"];
+function normalizeSearchParams(request: Request): TrackingRequest {
+  const url = new URL(request.url);
+  return {
+    trackingNumber: url.searchParams.get("trackingNumber") ?? url.searchParams.get("tracking_number") ?? undefined,
+    shipmentId: url.searchParams.get("shipmentId") ?? url.searchParams.get("shipment_id") ?? url.searchParams.get("id") ?? undefined,
+  };
+}
 
-function normalizeCourier(value: string) {
-  const normalized = value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (normalized.includes("usps") || normalized.includes("postal")) return "usps";
-  if (normalized.includes("ups")) return "ups";
-  if (normalized.includes("fedex") || normalized.includes("federal express")) return "fedex";
-  if (normalized.includes("dhl")) return "dhl";
-  return "unknown";
+async function parsePostBody(request: Request): Promise<TrackingRequest> {
+  try {
+    return (await request.json()) as TrackingRequest;
+  } catch {
+    return {};
+  }
+}
+
+async function getBasicTracking(request: Request, input: TrackingRequest) {
+  if (!isServerSupabaseConfigured) {
+    return apiError("Server is not configured correctly.", 503);
+  }
+
+  const trackingNumber = input.trackingNumber?.trim();
+  const shipmentId = (input.shipmentId ?? input.id)?.trim();
+
+  if (!trackingNumber && !shipmentId) {
+    return apiError("Enter a tracking number to view shipment details.", 400);
+  }
+
+  const { supabase, user } = await requireVerifiedUser(request);
+
+  let shipmentQuery = supabase
+    .from("shipments")
+    .select("*")
+    .eq("user_id", user.id)
+    .limit(1);
+
+  if (trackingNumber) {
+    shipmentQuery = shipmentQuery.eq("tracking_number", trackingNumber);
+  } else {
+    shipmentQuery = shipmentQuery.eq("id", shipmentId);
+  }
+
+  const { data: shipments, error: shipmentError } = await shipmentQuery.returns<ShipmentRow[]>();
+  if (shipmentError) throw shipmentError;
+
+  const shipment = shipments?.[0];
+  if (!shipment) {
+    return apiError("Tracking number not found.", 404);
+  }
+
+  const { data: trackingEvents, error: trackingError } = await supabase
+    .from("tracking_events")
+    .select("*")
+    .eq("shipment_id", shipment.id)
+    .order("created_at", { ascending: true })
+    .returns<TrackingEventRow[]>();
+
+  if (trackingError) throw trackingError;
+
+  const events = (trackingEvents ?? []).map(fromTrackingEventRow);
+  const mappedShipment = fromShipmentRow(shipment);
+
+  return apiSuccess({
+    shipment: mappedShipment,
+    shipmentId: shipment.id,
+    trackingNumber: shipment.tracking_number,
+    shipmentStatus: mappedShipment.status,
+    labelStatus: mappedShipment.labelStatus,
+    paymentStatus: mappedShipment.paymentStatus,
+    carrier: mappedShipment.courier,
+    service: mappedShipment.providerServiceCode,
+    recipientName: mappedShipment.recipientName,
+    destinationCity: mappedShipment.destinationCity,
+    destinationAddress: mappedShipment.destinationAddress,
+    createdAt: mappedShipment.date,
+    labelUrl: mappedShipment.labelUrl,
+    events,
+    message: events.length
+      ? "Tracking events loaded from ShipFlow."
+      : "No tracking events yet. Tracking updates will appear once the carrier reports movement.",
+  });
+}
+
+export async function GET(request: Request) {
+  try {
+    return await getBasicTracking(request, normalizeSearchParams(request));
+  } catch (error) {
+    return apiErrorFromUnknown(error, "We could not load tracking details right now. Please try again.");
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    if (readBearerToken(request)) {
-      await requireSupabaseUser(request);
-    }
-
-    const body = (await request.json()) as TrackingRequest;
-    const trackingNumber = body.trackingNumber?.trim();
-    const courier = body.courier?.trim();
-
-    if (!trackingNumber || !courier) {
-      return apiError("Enter a tracking number and carrier to check shipment status.", 400);
-    }
-
-    if (!allowedCouriers.includes(normalizeCourier(courier))) {
-      return apiError("This carrier is not available for tracking yet.", 400);
-    }
-
-    const data = await getRealTracking(trackingNumber, courier);
-
-    return apiSuccess(data);
+    return await getBasicTracking(request, await parsePostBody(request));
   } catch (error) {
-    return apiErrorFromUnknown(
-      error,
-      error instanceof Error
-        ? `We could not check shipment status right now: ${error.message}`
-        : "We could not check shipment status right now.",
-      502,
-    );
+    return apiErrorFromUnknown(error, "We could not load tracking details right now. Please try again.");
   }
 }
