@@ -353,4 +353,14 @@ Usuarios no verificados (sin `email_confirmed_at` en Supabase Auth) no pueden ac
 - Antes de comprar, el backend reconsulta ShipEngine rates y selecciona un rate compatible. Si no hay match seguro, responde 409 y no compra.
 - El balance se valida con pricing calculado en servidor. Si ShipEngine falla, no se descuenta.
 - Si ShipEngine compra pero la RPC falla, se retorna error critico con informacion de recuperacion sanitizada. No se exponen tokens.
-- `provider_rate_id` y `label_url` se actualizan despues de la RPC con service_role por limitacion de la firma actual del RPC.
+- Limitacion original de 5.20C: `provider_rate_id` y `label_url` se actualizaban despues de la RPC por limitacion de la firma. FASE 5.20D preparo la migracion para persistirlos dentro de la transaccion.
+
+## Notas FASE 5.20D — Persistencia atomica antes de prueba sandbox
+
+- Se preparo la migracion `20260517_harden_label_transaction_rpc.sql`, pero no se ejecuto.
+- La RPC endurecida recibe `p_provider_rate_id`, `p_label_url`, `p_label_status` y `p_payment_status`.
+- El backend hace un preflight de la RPC con esos parametros antes de llamar ShipEngine. Si la migracion no esta aplicada, responde 503 sin comprar label.
+- La compra ShipEngine ya no depende de un update posterior para `provider_rate_id` o `label_url`; esos campos deben persistirse dentro de la RPC.
+- Si existe un `idempotency_key` con shipment `purchased`, se devuelve existente. Si existe un estado incompleto, se bloquea con 409 para evitar doble compra.
+- Si ShipEngine compra pero la DB/RPC falla, se registra un log server-side sanitizado con `requestId` y datos de reconciliacion no sensibles. La respuesta al usuario no incluye raw provider response.
+- Void/refund ShipEngine sigue bloqueado hasta implementar confirmacion real del provider; no se toca balance si void no esta confirmado.

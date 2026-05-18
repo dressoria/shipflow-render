@@ -528,7 +528,30 @@ Puntos clave:
 - Pricing y saldo se calculan server-side.
 - Shippo/Easyship/EasyPost siguen rates-only.
 - Void ShipEngine sigue sin implementar y queda bloqueado.
-- La RPC actual no acepta `provider_rate_id` ni `label_url`; se completan despues con update server-side usando service_role.
+- FASE 5.20D preparo una migracion para que la RPC acepte `provider_rate_id` y `label_url`; el backend hace preflight de esa RPC antes de comprar y ya no debe depender de un update posterior.
+
+## FASE 5.20D — Atomic label persistence hardening
+
+Se endurecio el flujo de ShipEngine sandbox antes de la prueba manual de compra:
+
+```text
+/api/labels
+→ ENABLE_REAL_LABEL_PURCHASE === "true"
+→ requireVerifiedUser
+→ revalidar rate ShipEngine
+→ validar saldo server-side
+→ preflight RPC endurecida
+→ comprar label ShipEngine
+→ RPC atomica shipment + tracking_event + balance_movement
+```
+
+Puntos clave:
+
+- Nueva migracion manual: `supabase/migrations/20260517_harden_label_transaction_rpc.sql`.
+- `create_label_shipment_transaction` recibe `p_provider_rate_id`, `p_label_url`, `p_label_status` y `p_payment_status`.
+- Si la RPC endurecida no esta aplicada, el backend responde 503 antes de llamar ShipEngine.
+- Si la compra en ShipEngine funciona pero la DB falla, se registra un evento de reconciliacion sanitizado con request ID.
+- ShipEngine void/refund sigue bloqueado hasta una fase dedicada.
 
 ## Arquitectura futura deseada
 

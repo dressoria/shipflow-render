@@ -659,7 +659,7 @@ Flujo:
 → validar saldo con pricing server-side
 → POST /labels/rates/{rate_id}
 → RPC create_label_shipment_transaction
-→ update server-side de provider_rate_id + label_url
+→ persistencia atomica de provider_rate_id + label_url con RPC endurecida cuando la migracion 5.20D este aplicada
 ```
 
 Notas:
@@ -667,8 +667,56 @@ Notas:
 - ShipEngine purchase usa `API-Key`, no Basic Auth.
 - Shippo, Easyship y EasyPost siguen sin compra de labels.
 - ShipStation V1 legacy queda bloqueado desde `/api/labels` en esta fase.
-- La RPC actual no recibe `provider_rate_id` ni `label_url`, por eso se completan despues con service_role. Una futura migracion puede agregar esos parametros al RPC para que todo quede en una sola transaccion.
+- Limitacion original de 5.20C: la RPC no recibia `provider_rate_id` ni `label_url`. FASE 5.20D preparo la migracion para agregarlos al RPC y evitar updates posteriores.
 - Void ShipEngine no esta implementado; `/api/labels/[id]/void` devuelve mensaje controlado.
+
+## FASE 5.20D - Atomic label persistence hardening
+
+Estado:
+
+- Preparado en codigo y SQL, sin ejecutar migraciones ni comprar labels.
+- Sigue protegido por `ENABLE_REAL_LABEL_PURCHASE`; con el flag apagado no hay compra, descuento ni shipment definitivo.
+
+Migracion preparada:
+
+- `shipflow-web/supabase/migrations/20260517_harden_label_transaction_rpc.sql`
+- Reemplaza `create_label_shipment_transaction` para aceptar y persistir en la misma transaccion:
+  - `p_provider_rate_id`
+  - `p_label_url`
+  - `p_label_status`
+  - `p_payment_status`
+
+Flujo actualizado:
+
+```text
+/api/labels
+→ guard ENABLE_REAL_LABEL_PURCHASE
+→ requireVerifiedUser
+→ solo provider shipstation + SHIPSTATION_API_MODE=shipengine
+→ revalidar /rates server-side
+→ validar saldo con pricing server-side
+→ preflight RPC endurecida
+→ POST /labels/rates/{rate_id}
+→ RPC atomica: shipment + tracking_event + balance_movement
+```
+
+Reglas:
+
+- Si la RPC endurecida no esta aplicada, el backend responde 503 antes de llamar ShipEngine.
+- Ya no debe existir update posterior para completar `provider_rate_id` o `label_url`.
+- Si ShipEngine compra OK pero la RPC falla, se loggea un evento de reconciliacion sanitizado con `requestId`, `userId`, `idempotencyKey`, `providerLabelId`, `providerShipmentId` y `trackingNumber`.
+- El usuario ve: `Label was purchased but could not be saved. Please contact support with the request ID: ...`
+
+Idempotencia:
+
+- La key se scopea por `user_id + idempotency_key`.
+- Si ya existe shipment `purchased`, se retorna existente.
+- Si existe un estado incompleto con la misma key, se bloquea el retry con 409 para evitar doble compra.
+
+Void/refund:
+
+- ShipEngine void sigue sin implementarse.
+- `/api/labels/[id]/void` debe responder `Void is not supported for this label yet.` para ShipEngine.
 
 ## Pricing futuro
 

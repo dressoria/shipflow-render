@@ -247,16 +247,99 @@ function buildRpcParams(
     p_pricing_subtotal: pricing.subtotal,
     p_pricing_model: "shipflow_v1",
     p_pricing_breakdown: pricing,
+    p_provider_rate_id: labelResult.rate.providerRateId ?? null,
+    p_label_url: labelResult.labelUrl ?? null,
+    p_label_status: "purchased",
+    p_payment_status: "paid",
   };
 }
 
-function recoveryInfo(labelResult: LabelResult) {
-  return JSON.stringify({
+function isInvalidPricePreflightError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { message?: string };
+  return candidate.message?.includes("INVALID_PRICE") ?? false;
+}
+
+function buildRpcPreflightParams(userId: string): Record<string, unknown> {
+  return {
+    p_user_id: userId,
+    p_idempotency_key: `rpc-preflight-${crypto.randomUUID()}`,
+    p_shipment_id: crypto.randomUUID(),
+    p_tracking_number: "RPC-PREFLIGHT",
+    p_sender_name: "Preflight",
+    p_sender_phone: "",
+    p_origin_city: "New York",
+    p_recipient_name: "Preflight",
+    p_recipient_phone: "",
+    p_destination_city: "Mountain View",
+    p_destination_addr: "Preflight",
+    p_weight: 1,
+    p_product_type: "Package",
+    p_carrier_code: "preflight",
+    p_shipping_subtotal: 0,
+    p_total: 0,
+    p_provider: "shipstation",
+    p_provider_shipment_id: "preflight",
+    p_provider_label_id: "preflight",
+    p_provider_service_code: "preflight",
+    p_provider_cost: 0,
+    p_platform_markup: 0,
+    p_customer_price: 0,
+    p_currency: "USD",
+    p_label_format: "pdf",
+    p_metadata: { source: "rpc_preflight" },
+    p_payment_fee: 0,
+    p_pricing_subtotal: 0,
+    p_pricing_model: "shipflow_v1",
+    p_pricing_breakdown: {},
+    p_provider_rate_id: "preflight-rate",
+    p_label_url: "https://example.invalid/preflight.pdf",
+    p_label_status: "purchased",
+    p_payment_status: "paid",
+  };
+}
+
+async function assertLabelTransactionRpcSupportsProviderFields(
+  serviceClient: SupabaseClient,
+  userId: string,
+) {
+  const { error } = await serviceClient.rpc(
+    "create_label_shipment_transaction",
+    buildRpcPreflightParams(userId),
+  );
+
+  if (!error || isInvalidPricePreflightError(error)) return;
+
+  if (isRpcNotFoundError(error)) {
+    throw new Response(
+      "ShipEngine label purchase requires the hardened label transaction RPC migration before buying labels.",
+      { status: 503 },
+    );
+  }
+
+  throw new Response(
+    "ShipEngine label purchase could not verify atomic label persistence. Please apply the label RPC migration first.",
+    { status: 503 },
+  );
+}
+
+function logReconciliationFailure(
+  requestId: string,
+  userId: string,
+  idempotencyKey: string,
+  labelResult: LabelResult,
+  cause: unknown,
+) {
+  console.error("[ShipEngineLabelReconciliation]", {
+    requestId,
+    userId,
+    idempotencyKey,
+    timestamp: new Date().toISOString(),
     trackingNumber: labelResult.trackingNumber,
-    providerShipmentId: labelResult.providerShipmentId,
-    providerLabelId: labelResult.providerLabelId,
-    providerRateId: labelResult.rate.providerRateId,
-    labelUrl: labelResult.labelUrl,
+    providerShipmentId: labelResult.providerShipmentId ?? null,
+    providerLabelId: labelResult.providerLabelId ?? null,
+    providerRateId: labelResult.rate.providerRateId ?? null,
+    cause: cause instanceof Error ? cause.message : String(cause ?? "unknown"),
   });
 }
 
@@ -279,6 +362,12 @@ export async function createShipEngineShipment(
   if (existingShipment?.label_status === "purchased" && existingShipment.provider_label_id) {
     return buildExistingResult(existingShipment);
   }
+  if (existingShipment) {
+    throw new Response(
+      "A previous label request with this idempotency key is still pending or incomplete. Please contact support before retrying.",
+      { status: 409 },
+    );
+  }
 
   const revalidatedRate = await revalidateShipEngineRate(body);
   const pricing = calculateCustomerPrice(revalidatedRate.pricing.providerCost);
@@ -290,13 +379,17 @@ export async function createShipEngineShipment(
   }
 
   const serviceClient = createServiceSupabaseClient();
+  await assertLabelTransactionRpcSupportsProviderFields(serviceClient, userId);
+
   const labelInput = buildCreateLabelInput(body, idempotencyKey, revalidatedRate);
   const labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
   const actualPricing = calculateCustomerPrice(labelResult.rate.pricing.providerCost);
 
   if (balance < actualPricing.customerPrice) {
+    const requestId = crypto.randomUUID();
+    logReconciliationFailure(requestId, userId, idempotencyKey, labelResult, "INSUFFICIENT_FUNDS_AFTER_PURCHASE");
     throw new Response(
-      "ShipEngine label was purchased, but balance is no longer sufficient for the actual label cost. Contact support for reconciliation.",
+      `Label was purchased but could not be saved. Please contact support with the request ID: ${requestId}.`,
       { status: 500 },
     );
   }
@@ -308,31 +401,16 @@ export async function createShipEngineShipment(
   );
 
   if (rpcError || !rpcData) {
-    if (isRpcNotFoundError(rpcError)) {
-      throw new Response(
-        `CRITICAL: ShipEngine label purchased but the persistence RPC is not available. Recovery info: ${recoveryInfo(labelResult)}`,
-        { status: 500 },
-      );
-    }
+    const requestId = crypto.randomUUID();
+    logReconciliationFailure(requestId, userId, idempotencyKey, labelResult, rpcError ?? "EMPTY_RPC_RESPONSE");
     throw new Response(
-      `CRITICAL: ShipEngine label purchased but atomic persistence failed. Recovery info: ${recoveryInfo(labelResult)}`,
+      `Label was purchased but could not be saved. Please contact support with the request ID: ${requestId}.`,
       { status: 500 },
     );
   }
 
   const result = rpcData as { status: "created" | "existing"; shipment_id: string };
   const fetchId = result.shipment_id ?? shipmentId;
-
-  if (labelResult.labelUrl || labelResult.rate.providerRateId) {
-    await serviceClient
-      .from("shipments")
-      .update({
-        label_url: labelResult.labelUrl,
-        provider_rate_id: labelResult.rate.providerRateId ?? null,
-      })
-      .eq("id", fetchId)
-      .eq("user_id", userId);
-  }
 
   const { data: savedShipment } = await supabase
     .from("shipments")

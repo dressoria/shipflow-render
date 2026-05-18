@@ -1332,10 +1332,29 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - ShipStation V1 legacy queda bloqueado en esta fase para evitar compras accidentales por el flujo anterior.
 - `ShipEngineLabelAdapter` implementa `POST /labels/rates/{rate_id}` con `API-Key`, `label_format: pdf`, `label_layout: 4x6`, `display_scheme: label`.
 - `createShipEngineShipment.ts` revalida rates server-side antes de comprar, verifica saldo, compra label y persiste con RPC transaccional.
-- `provider_rate_id` y `label_url` se completan con update server-side posterior a la RPC porque la RPC existente no acepta esos parametros.
+- Limitacion original de 5.20C: `provider_rate_id` y `label_url` se completaban con update server-side posterior a la RPC. FASE 5.20D preparo la migracion para moverlos dentro de la transaccion.
 - Void/refund ShipEngine sigue bloqueado: "Void is not supported for this label yet."
 
 **Limitaciones:**
 - No se ejecutaron migraciones.
 - No se compro ningun label durante la fase.
 - Para probar sandbox manualmente se requiere `ENABLE_REAL_LABEL_PURCHASE=true` solo en entorno local/test y ShipEngine TEST key.
+
+## Estado FASE 5.20D — Persistencia atomica de labels
+
+**Objetivo:** endurecer la persistencia antes de probar compra sandbox para evitar depender de updates posteriores a la RPC.
+
+**Cambios principales:**
+- Se preparo la migracion manual `shipflow-web/supabase/migrations/20260517_harden_label_transaction_rpc.sql`.
+- La nueva firma de `create_label_shipment_transaction` acepta tambien:
+  - `p_provider_rate_id`
+  - `p_label_url`
+  - `p_label_status`
+  - `p_payment_status`
+- `provider_rate_id` y `label_url` deben persistirse dentro de la misma transaccion que crea shipment, tracking_event y balance_movement.
+- `createShipEngineShipment.ts` verifica antes de comprar que la RPC endurecida este aplicada; si no, responde 503 y no llama ShipEngine.
+- Se elimino el update server-side posterior para completar `provider_rate_id` y `label_url`.
+- Idempotencia: si existe un shipment purchased para la misma key, se devuelve existente; si existe un estado incompleto, se bloquea el retry con 409.
+- Reconciliacion: si ShipEngine compra OK pero la DB/RPC falla, se loggea server-side un evento sanitizado con request ID y se muestra mensaje seguro al usuario.
+
+**Pendiente:** aplicar manualmente la migracion 5.20D en Supabase antes de activar `ENABLE_REAL_LABEL_PURCHASE=true` para una prueba sandbox. Void/refund ShipEngine sigue pendiente.

@@ -609,9 +609,27 @@ Estado: implementada en codigo, pendiente de prueba manual sandbox por humano.
 Pendiente posterior:
 
 - Prueba manual con ShipEngine TEST key.
-- Ajuste opcional de RPC para aceptar `provider_rate_id` y `label_url` dentro de la misma transaccion.
+- Aplicar la migracion 5.20D para que la RPC acepte `provider_rate_id` y `label_url` dentro de la misma transaccion.
 - Implementar void ShipEngine y refund confirmado.
 - Storage permanente de label PDFs si `label_url` del provider no es suficiente para retencion.
+
+## FASE 5.20D — Atomic label persistence hardening
+
+Estado: implementada en codigo y SQL, pendiente de aplicacion manual de migracion.
+
+- Crear migracion para ampliar `create_label_shipment_transaction`.
+- Persistir `provider_rate_id`, `label_url`, `label_status` y `payment_status` dentro de la RPC.
+- Eliminar update posterior de shipment despues de la RPC.
+- Preflight de la RPC antes de comprar label ShipEngine.
+- Bloquear retries con idempotency_key en estado ambiguo para evitar doble compra.
+- Preparar estrategia de reconciliacion con request ID si provider compra OK pero DB falla.
+
+Pendiente posterior:
+
+- Aplicar migracion 5.20D manualmente en Supabase.
+- Probar compra sandbox ShipEngine con `ENABLE_REAL_LABEL_PURCHASE=true` solo en local/test.
+- Implementar void/refund ShipEngine en fase separada.
+- Definir retencion/storage permanente de PDF si la URL del provider expira.
 
 ## FASE 6 - Mobile backend seguro
 

@@ -457,4 +457,41 @@ La implementacion ShipEngine sandbox usa la RPC existente para el estado critico
 - `provider_rate_id`
 - `label_url`
 
-Motivo: la firma actual de `create_label_shipment_transaction` no acepta `p_provider_rate_id` ni `p_label_url`. No se creo migracion en esta fase. Una migracion futura puede agregar esos parametros para que tambien se persistan dentro de la transaccion atomica.
+Motivo: la firma existente de `create_label_shipment_transaction` no aceptaba `p_provider_rate_id` ni `p_label_url`. FASE 5.20D preparo una migracion para agregar esos parametros y persistirlos dentro de la transaccion atomica.
+
+## Nota FASE 5.20D
+
+Se creo la migracion incremental:
+
+- `shipflow-web/supabase/migrations/20260517_harden_label_transaction_rpc.sql`
+
+Estado: lista para revision/aplicacion manual, no ejecutada por Codex.
+
+Nueva firma/contrato de `create_label_shipment_transaction`:
+
+- Conserva los parametros existentes de shipment, provider, pricing e idempotencia.
+- Agrega parametros opcionales al final:
+  - `p_provider_rate_id text default null`
+  - `p_label_url text default null`
+  - `p_label_status text default 'purchased'`
+  - `p_payment_status text default 'paid'`
+
+La funcion persiste en una sola transaccion:
+
+- `shipments.provider_rate_id`
+- `shipments.label_url`
+- `shipments.label_status`
+- `shipments.payment_status`
+- `tracking_events` inicial
+- `balance_movements` debit con metadata de provider/rate/label
+
+Idempotencia:
+
+- Busca shipment existente por `user_id + idempotency_key`.
+- Si ya esta `purchased`, retorna el shipment existente.
+- Si existe un estado incompleto, levanta `IDEMPOTENCY_CONFLICT`.
+
+Aplicacion:
+
+- Aplicar manualmente despues de backup/snapshot.
+- No activar `ENABLE_REAL_LABEL_PURCHASE=true` para pruebas sandbox hasta que esta migracion este aplicada en la DB real.
