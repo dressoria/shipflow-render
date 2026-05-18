@@ -364,7 +364,7 @@ export async function createShipEngineShipment(
   }
   if (existingShipment) {
     throw new Response(
-      "A previous label request with this idempotency key is still pending or incomplete. Please contact support before retrying.",
+      "This purchase is already being processed. Please refresh your shipments before trying again.",
       { status: 409 },
     );
   }

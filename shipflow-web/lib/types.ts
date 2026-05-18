@@ -47,6 +47,10 @@ export type Envio = {
   paymentStatus?: string | null;
   customerPrice?: number | null;
   providerShipmentId?: string | null;
+  providerLabelId?: string | null;
+  providerRateId?: string | null;
+  providerServiceCode?: string | null;
+  labelUrl?: string | null;
   // FASE 5.10: pricing breakdown — populated when FASE 5.10 migration is applied
   providerCost?: number | null;
   platformMarkup?: number | null;

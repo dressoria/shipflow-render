@@ -34,6 +34,11 @@ function displayShipmentStatus(status: Envio["status"]) {
   return status;
 }
 
+function displayRecordStatus(status?: string | null) {
+  if (!status) return "Not available";
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
 type TrackingApiResponse = {
   success: boolean;
   data: TrackingStatus | null;
@@ -170,6 +175,8 @@ export function TrackingSearch() {
             <Info label="Route" value={`${shipment.originCity} -> ${shipment.destinationCity}`} />
             <Info label="Carrier" value={realTracking?.courier ?? shipment.courier} />
             <Info label="Recipient" value={shipment.recipientName} />
+            <Info label="Label" value={displayRecordStatus(shipment.labelStatus)} />
+            <Info label="Payment" value={displayRecordStatus(shipment.paymentStatus)} />
             <Info label="Value" value={formatCurrency(shipment.value)} />
             <Info label="Current city" value={realTracking?.currentLocation ?? shipment.destinationCity} />
             <Info label="Last update" value={realTracking?.lastUpdate ? formatDate(realTracking.lastUpdate) : formatDate(shipment.date)} />
@@ -197,7 +204,12 @@ export function TrackingSearch() {
                   </div>
                 </div>
               )) : (
-                <p className="text-sm text-slate-500">No tracking events yet.</p>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm font-bold text-slate-700">No tracking events yet.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Tracking updates will appear once the carrier reports movement.
+                  </p>
+                </div>
               )
             )}
           </div>

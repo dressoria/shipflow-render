@@ -9,7 +9,10 @@ import { apiGetBalance, type BalanceMovement } from "@/lib/services/apiClient";
 import type { MovimientoSaldo } from "@/lib/types";
 
 function fromApiMovement(m: BalanceMovement): MovimientoSaldo {
-  return { id: m.id, concept: m.concept, amount: m.amount, date: m.date };
+  const concept = m.amount < 0 && /shipping label/i.test(m.concept)
+    ? "Carrier label purchase"
+    : m.concept;
+  return { id: m.id, concept, amount: m.amount, date: m.date };
 }
 
 export async function getAvailableBalance(): Promise<number> {

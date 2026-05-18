@@ -17,6 +17,11 @@ function displayShipmentStatus(status: Envio["status"]) {
   return status;
 }
 
+function displayRecordStatus(status?: string | null) {
+  if (!status) return "Not available";
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
 export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   const [shipment, setShipment] = useState<Envio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,11 +34,6 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
     }, 0);
   }, [trackingNumber]);
 
-  const qrCells = useMemo(() => {
-    const source = shipment?.trackingNumber ?? trackingNumber;
-    return Array.from({ length: 49 }, (_, index) => (index + source.length) % 3 === 0);
-  }, [shipment?.trackingNumber, trackingNumber]);
-
   const codeBlocks = useMemo(() => {
     const source = shipment?.trackingNumber ?? trackingNumber;
     return Array.from({ length: 96 }, (_, index) => {
@@ -43,7 +43,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   }, [shipment?.trackingNumber, trackingNumber]);
 
   if (loading) {
-    return <GuideFrame><p className="text-center font-bold text-slate-600">Loading label...</p></GuideFrame>;
+    return <GuideFrame><p className="text-center font-bold text-slate-600">Loading shipment summary...</p></GuideFrame>;
   }
 
   if (!shipment) {
@@ -68,13 +68,28 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
           Back to shipments
         </Link>
         <div className="flex flex-wrap gap-3">
-          <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20">
+          {shipment.labelUrl ? (
+            <a
+              href={shipment.labelUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download carrier label
+            </a>
+          ) : (
+            <span className="inline-flex h-11 items-center rounded-2xl bg-amber-50 px-4 text-sm font-bold text-amber-800">
+              Carrier label unavailable
+            </span>
+          )}
+          <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
             <Printer className="mr-2 h-4 w-4" />
-            Print
+            Print summary
           </button>
           <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20">
             <Download className="mr-2 h-4 w-4" />
-            Download PDF
+            Download summary PDF
           </button>
         </div>
       </div>
@@ -88,7 +103,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               </span>
               <div className="min-w-0">
                 <p className="guide-wrap text-xl"><BrandName /></p>
-                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipping label</p>
+                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipment summary</p>
               </div>
             </div>
             <div className="min-w-0 text-left md:text-right print:text-right">
@@ -98,7 +113,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
                 {displayShipmentStatus(shipment.status)}
               </Badge>
             </div>
-            <QrCode cells={qrCells} className="hidden md:block print:block" />
+            <StatusPanel shipment={shipment} />
           </header>
 
           <div className="grid min-w-0 gap-4 p-6">
@@ -129,17 +144,16 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               ]}
             />
             <PricingBlock shipment={shipment} />
-            <QrCode cells={qrCells} className="md:hidden print:hidden" />
             <Barcode codeBlocks={codeBlocks} trackingNumber={shipment.trackingNumber} />
           </div>
 
           <footer className="border-t-2 border-slate-900 px-6 py-4">
-            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Shipping instructions</h2>
+            <h2 className="guide-wrap text-sm font-black uppercase tracking-[0.16em] text-slate-950">Summary notes</h2>
             <ul className="mt-2 grid min-w-0 gap-1 text-left text-xs font-semibold leading-5 text-slate-700 sm:grid-cols-2 print:grid-cols-2">
-              <li className="guide-wrap">Hand off the sealed package with this label visible.</li>
+              <li className="guide-wrap">Use the official carrier label PDF for the package.</li>
               <li className="guide-wrap">Validate recipient details before handoff.</li>
-              <li className="guide-wrap">Collect cash on delivery only if the label indicates it.</li>
-              <li className="guide-wrap">Use the tracking number to check updates.</li>
+              <li className="guide-wrap">This summary is for ShipFlow records and review.</li>
+              <li className="guide-wrap">Tracking updates appear once the carrier reports movement.</li>
             </ul>
           </footer>
         </section>
@@ -152,14 +166,14 @@ function GuideFrame({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-5xl print:max-w-none">{children}</div>;
 }
 
-function QrCode({ cells, className = "" }: { cells: boolean[]; className?: string }) {
+function StatusPanel({ shipment }: { shipment: Envio }) {
   return (
-    <aside className={`min-w-0 rounded-2xl border border-slate-900 bg-white p-3 text-left ${className}`}>
-      <p className="guide-wrap text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">QR Tracking</p>
-      <div className="mt-2 grid aspect-square w-24 grid-cols-7 gap-0.5 rounded-lg border border-slate-900 bg-white p-1.5 print:w-24">
-        {cells.map((active, index) => (
-          <span key={index} className={active ? "bg-slate-950" : "bg-white"} />
-        ))}
+    <aside className="min-w-0 rounded-2xl border border-slate-900 bg-white p-3 text-left">
+      <p className="guide-wrap text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Status</p>
+      <div className="mt-2 grid gap-1.5 text-xs">
+        <p className="guide-wrap"><span className="font-bold text-slate-500">Shipment:</span> {displayShipmentStatus(shipment.status)}</p>
+        <p className="guide-wrap"><span className="font-bold text-slate-500">Label:</span> {displayRecordStatus(shipment.labelStatus)}</p>
+        <p className="guide-wrap"><span className="font-bold text-slate-500">Payment:</span> {displayRecordStatus(shipment.paymentStatus)}</p>
       </div>
     </aside>
   );

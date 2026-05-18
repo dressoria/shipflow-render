@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Truck } from "lucide-react";
+import { AlertTriangle, Download, Truck } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate } from "@/lib/forms";
@@ -42,6 +42,11 @@ function displayShipmentStatus(status: Envio["status"]) {
   if (status === "En tránsito") return "In transit";
   if (status === "Pendiente") return "Pending";
   return status;
+}
+
+function displayPaymentStatus(status?: string | null) {
+  if (!status) return null;
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 }
 
 export function ShipmentsTable() {
@@ -168,7 +173,7 @@ export function ShipmentsTable() {
                   <span className="text-xs text-slate-400">—</span>
                 )}
                 {shipment.paymentStatus ? (
-                  <p className="mt-1 text-xs text-slate-400">{shipment.paymentStatus}</p>
+                  <p className="mt-1 text-xs text-slate-400">Payment: {displayPaymentStatus(shipment.paymentStatus)}</p>
                 ) : null}
               </div>
 
@@ -186,8 +191,24 @@ export function ShipmentsTable() {
                   href={`/guia/${shipment.trackingNumber}`}
                   className="rounded-2xl bg-pink-50 px-3 py-1.5 text-xs font-black text-[#FF1493]"
                 >
-                  View label
+                  View shipment
                 </Link>
+
+                {shipment.labelStatus === "purchased" && shipment.labelUrl ? (
+                  <a
+                    href={shipment.labelUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center rounded-2xl bg-slate-950 px-3 py-1.5 text-xs font-black text-white"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Download carrier label
+                  </a>
+                ) : shipment.labelStatus === "purchased" ? (
+                  <span className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
+                    Carrier label unavailable
+                  </span>
+                ) : null}
 
                 {canVoid(shipment) ? (
                   voidingId === shipment.id ? (

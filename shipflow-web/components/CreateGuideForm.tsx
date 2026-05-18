@@ -322,10 +322,10 @@ export function CreateGuideForm() {
   // ── Online: confirmed ───────────────────────────────────────────────────────
 
   async function handleConfirmed() {
-    if (!selectedApiRate) return;
-    setShowConfirm(false);
+    if (!selectedApiRate || saving) return;
 
     if (configStatus?.labelPurchaseEnabled !== true) {
+      setShowConfirm(false);
       setErrors({
         form: "Label purchase is not enabled yet. You can compare rates, but label generation is currently disabled.",
       });
@@ -339,6 +339,7 @@ export function CreateGuideForm() {
       selectedApiRate.supportsLabels === false ||
       LABELS_NOT_IMPLEMENTED_PROVIDERS.has(rateProvider)
     ) {
+      setShowConfirm(false);
       setErrors({ form: "This rate is not available for label generation yet. Select another rate." });
       return;
     }
@@ -400,17 +401,43 @@ export function CreateGuideForm() {
         productType: form.productType || undefined,
       });
 
-      setSummary(result.shipment);
+      setSummary({
+        ...result.shipment,
+        labelUrl: result.labelUrl ?? result.shipment.labelUrl ?? null,
+      });
       setLabelData(result.labelData);
       idempotencyKeyRef.current = crypto.randomUUID();
+      setShowConfirm(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.toLowerCase().includes("line1") || msg.toLowerCase().includes("postal") || msg.toLowerCase().includes("city")) {
+      const lowerMsg = msg.toLowerCase();
+      setShowConfirm(false);
+      if (lowerMsg.includes("insufficient") || lowerMsg.includes("balance")) {
+        setErrors({
+          form: "Insufficient balance to purchase this label. Please contact support to add funds.",
+        });
+      } else if (lowerMsg.includes("no longer available") || lowerMsg.includes("refresh rates") || lowerMsg.includes("expired")) {
+        setErrors({
+          form: "Selected rate is no longer available. Please refresh rates and try again.",
+        });
+      } else if (lowerMsg.includes("already being processed") || lowerMsg.includes("idempotency")) {
+        setErrors({
+          form: "This purchase is already being processed. Please refresh your shipments before trying again.",
+        });
+      } else if (lowerMsg.includes("request id") || lowerMsg.includes("could not be saved")) {
+        setErrors({
+          form: msg || "Label was purchased but could not be saved. Please contact support.",
+        });
+      } else if (lowerMsg.includes("carrier") || lowerMsg.includes("provider") || lowerMsg.includes("shipengine")) {
+        setErrors({
+          form: "The carrier could not generate this label. Please try another rate or contact support.",
+        });
+      } else if (lowerMsg.includes("line1") || lowerMsg.includes("postal") || lowerMsg.includes("city")) {
         setErrors({ form: "Review street address, city, state, and ZIP before creating the label." });
-      } else if (msg.toLowerCase().includes("parcel") || msg.toLowerCase().includes("weight") || msg.toLowerCase().includes("dimensions")) {
+      } else if (lowerMsg.includes("parcel") || lowerMsg.includes("weight") || lowerMsg.includes("dimensions")) {
         setErrors({ form: "Complete package weight, length, width, and height." });
       } else {
-        setErrors({ form: "We could not create a label with the selected rate." });
+        setErrors({ form: "The carrier could not generate this label. Please try another rate or contact support." });
       }
     } finally {
       setSaving(false);
@@ -418,6 +445,10 @@ export function CreateGuideForm() {
   }
 
   function handleDownloadLabel() {
+    if (summary?.labelUrl) {
+      window.open(summary.labelUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (!labelData) return;
     const byteChars = atob(labelData);
     const bytes = new Uint8Array(byteChars.length);
@@ -585,9 +616,12 @@ export function CreateGuideForm() {
       {showConfirm && selectedApiRate && (
         <ConfirmModal
           rate={selectedApiRate}
+          saving={saving}
           labelPurchaseEnabled={configStatus?.labelPurchaseEnabled === true}
           onConfirm={handleConfirmed}
-          onCancel={() => setShowConfirm(false)}
+          onCancel={() => {
+            if (!saving) setShowConfirm(false);
+          }}
         />
       )}
     </div>
@@ -766,51 +800,61 @@ function GuideSummary({
   onDownload: () => void;
 }) {
   const displayPrice = summary.customerPrice ?? summary.total ?? summary.value;
+  const labelStatus = summary.labelStatus === "purchased" ? "Purchased" : summary.labelStatus ?? "Not available";
+  const paymentStatus = summary.paymentStatus
+    ? summary.paymentStatus.charAt(0).toUpperCase() + summary.paymentStatus.slice(1).toLowerCase()
+    : "Not available";
+  const serviceLabel = summary.providerServiceCode
+    ? summary.providerServiceCode
+        .split(/[_-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    : null;
 
   return (
-    <div className="print-guide rounded-3xl border border-cyan-200 bg-cyan-50 p-5 shadow-sm shadow-cyan-950/5">
+    <div className="print-guide rounded-3xl border border-green-200 bg-green-50 p-5 shadow-sm shadow-green-950/5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Badge tone="blue">
+          <Badge tone="green">
             <Sparkles className="mr-2 h-3.5 w-3.5" />
-            Label created
+            Label purchased successfully
           </Badge>
           <h2 className="mt-4 text-2xl font-black text-slate-950">{summary.trackingNumber}</h2>
-          {summary.labelStatus && (
-            <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-              {summary.labelStatus === "purchased" ? "Active label" :
-               summary.labelStatus === "internal" ? "Processed" :
-               summary.labelStatus}
-            </p>
-          )}
+          <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+            Carrier label and shipment summary are separate documents.
+          </p>
         </div>
         <button
           type="button"
           onClick={() => window.print()}
           className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-[#06B6D4] shadow-sm"
-          aria-label="Print label"
+          aria-label="Print summary"
         >
           <Printer className="h-5 w-5" />
         </button>
       </div>
       <div className="mt-5 grid gap-3 text-sm">
         <SummaryRow label="Carrier" value={summary.courier} />
+        {serviceLabel ? <SummaryRow label="Service" value={serviceLabel} /> : null}
         <SummaryRow label="Route" value={`${summary.originCity} → ${summary.destinationCity}`} />
-        <SummaryRow label="Total" value={formatCurrency(displayPrice)} />
+        <SummaryRow label="Label" value={labelStatus} />
+        <SummaryRow label="Payment" value={paymentStatus} />
+        <SummaryRow label="Total paid" value={formatCurrency(displayPrice)} />
       </div>
 
-      {labelData ? (
+      {summary.labelUrl || labelData ? (
         <button
           type="button"
           onClick={onDownload}
           className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20"
         >
           <Download className="mr-2 h-4 w-4" />
-          Download label PDF
+          Download carrier label
         </button>
       ) : summary.labelStatus === "purchased" ? (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-          The PDF for this label is not available right now. Download it immediately after creation.
+          Carrier label is not available yet.
         </p>
       ) : null}
 
@@ -818,19 +862,28 @@ function GuideSummary({
         href={`/guia/${summary.trackingNumber}`}
         className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20"
       >
-        View label
+        View shipment
       </Link>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
+      >
+        Create another shipment
+      </button>
     </div>
   );
 }
 
 function ConfirmModal({
   rate,
+  saving,
   labelPurchaseEnabled,
   onConfirm,
   onCancel,
 }: {
   rate: RateResult;
+  saving: boolean;
   labelPurchaseEnabled: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -857,6 +910,7 @@ function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
+            disabled={saving}
             className="grid h-8 w-8 place-items-center rounded-xl hover:bg-slate-100"
             aria-label="Cancel"
           >
@@ -866,7 +920,9 @@ function ConfirmModal({
 
         <p className="mt-4 text-sm text-slate-600">
           {supportsLabelPurchase
-            ? "This will purchase a shipping label and deduct your balance."
+            ? saving
+              ? "Purchasing label..."
+              : "This will purchase a shipping label and deduct your balance."
             : "You can review this rate, but label purchase is not enabled yet."}
         </p>
 
@@ -926,17 +982,18 @@ function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
+            disabled={saving}
+            className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!supportsLabelPurchase}
+            disabled={!supportsLabelPurchase || saving}
             className="flex-1 rounded-2xl bg-[#FF1493] py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
           >
-            {supportsLabelPurchase ? "Purchase label" : "Label purchase disabled"}
+            {saving ? "Purchasing label..." : supportsLabelPurchase ? "Purchase label" : "Label purchase disabled"}
           </button>
         </div>
       </div>

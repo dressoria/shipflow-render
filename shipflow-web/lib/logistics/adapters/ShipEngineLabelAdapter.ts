@@ -60,6 +60,17 @@ function labelUrlForFormat(data: ShipEngineLabelResponse, format: CreateLabelInp
   return downloads.pdf ?? downloads.href ?? null;
 }
 
+function logIncompleteLabelResponse(data: ShipEngineLabelResponse) {
+  console.error("[ShipEngineLabelIncompleteResponse]", {
+    timestamp: new Date().toISOString(),
+    providerLabelId: data.label_id ?? null,
+    providerShipmentId: data.shipment_id ?? null,
+    trackingNumber: data.tracking_number ?? null,
+    status: data.status ?? null,
+    hasLabelDownload: Boolean(data.label_download),
+  });
+}
+
 export class ShipEngineLabelAdapter {
   async createLabel(input: CreateLabelInput): Promise<LabelResult> {
     const config = readShipEngineConfig();
@@ -97,9 +108,18 @@ export class ShipEngineLabelAdapter {
         );
       }
       if (response.status === 401 || response.status === 403) {
-        throw new ProviderUnavailableError("ShipEngine rejected the label request. Check server credentials.");
+        throw new ProviderUnavailableError(
+          "The carrier could not generate this label. Please try another rate or contact support.",
+        );
       }
-      throw new ProviderUnavailableError(`ShipEngine label purchase failed (HTTP ${response.status}).`);
+      if (response.status === 429) {
+        throw new ProviderUnavailableError(
+          "The carrier is temporarily busy. Please try again later or choose another rate.",
+        );
+      }
+      throw new ProviderUnavailableError(
+        "The carrier could not generate this label. Please try another rate or contact support.",
+      );
     }
 
     let data: ShipEngineLabelResponse;
@@ -110,7 +130,10 @@ export class ShipEngineLabelAdapter {
     }
 
     if (!data.label_id || !data.tracking_number) {
-      throw new ProviderUnavailableError("ShipEngine did not return a label ID and tracking number.");
+      logIncompleteLabelResponse(data);
+      throw new ProviderUnavailableError(
+        "The carrier returned an incomplete label response. Please contact support before trying again.",
+      );
     }
 
     const providerCost = Number(
