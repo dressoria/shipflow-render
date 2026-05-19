@@ -1,6 +1,7 @@
 import { apiSuccess } from "@/lib/server/apiResponse";
 import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
 import { PROVIDER_CAPABILITIES } from "@/lib/logistics/providerCapabilities";
+import { isStripeConfigured, isStripeWebhookConfigured } from "@/lib/server/stripe";
 
 // Public endpoint — returns only booleans. Never reveals secrets or key values.
 // Used by the UI to determine whether real quoting and label creation are available.
@@ -18,6 +19,7 @@ export async function GET() {
     serviceRoleConfigured: isServiceRoleConfigured,
     ratesConfigured: aggregationProviders.length > 0,
     googleMapsConfigured,
+    stripeRechargeConfigured: isStripeConfigured && isStripeWebhookConfigured && isServiceRoleConfigured,
     activeRateProviders: aggregationProviders.length,
     labelPurchaseEnabled: process.env.ENABLE_REAL_LABEL_PURCHASE === "true",
     labelVoidEnabled: process.env.ENABLE_REAL_LABEL_VOID === "true",

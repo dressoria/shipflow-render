@@ -32,6 +32,7 @@ export type ConfigStatus = {
   serviceRoleConfigured: boolean;
   ratesConfigured: boolean;
   googleMapsConfigured: boolean;
+  stripeRechargeConfigured: boolean;
   activeRateProviders: number;
   labelPurchaseEnabled: boolean;
   labelVoidEnabled: boolean;
@@ -47,6 +48,7 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
       serviceRoleConfigured: false,
       ratesConfigured: false,
       googleMapsConfigured: false,
+      stripeRechargeConfigured: false,
       activeRateProviders: 0,
       labelPurchaseEnabled: false,
       labelVoidEnabled: false,
@@ -88,6 +90,13 @@ export type BalanceData = {
 
 export async function apiGetBalance(): Promise<BalanceData> {
   return apiFetch<BalanceData>("/api/balance");
+}
+
+export async function apiCreateCheckoutSession(amount: number): Promise<{ checkoutUrl: string }> {
+  return apiFetch<{ checkoutUrl: string }>("/api/billing/checkout-session", {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
 }
 
 // ── Admin support ───────────────────────────────────────────────────────────
