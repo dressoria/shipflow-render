@@ -39,6 +39,21 @@ function displayStatus(status?: string | null) {
     .join(" ");
 }
 
+function displayAuditEventType(eventType: string) {
+  const labels: Record<string, string> = {
+    payment_checkout_started: "Payment checkout started",
+    payment_checkout_created: "Payment checkout created",
+    payment_checkout_failed: "Payment checkout failed",
+    payment_webhook_received: "Payment webhook received",
+    payment_recharge_succeeded: "Payment recharge succeeded",
+    payment_recharge_duplicate_ignored: "Duplicate payment ignored",
+    payment_recharge_db_failed: "Payment recharge save failed",
+    payment_recharge_amount_mismatch: "Payment amount mismatch",
+    payment_recharge_signature_failed: "Payment signature failed",
+  };
+  return labels[eventType] ?? displayStatus(eventType);
+}
+
 export function AdminOverview() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -251,7 +266,7 @@ export function AdminAuditEventsTable({ events, compact = false }: { events: Adm
           {events.map((event) => (
             <div key={event.id} className="grid min-w-[900px] grid-cols-[0.8fr_1.3fr_1fr_1fr_1.8fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
               <span><Badge tone={severityTone(event.severity)}>{displayStatus(event.severity)}</Badge></span>
-              <span className="break-words font-bold text-slate-950">{event.eventType}</span>
+              <span className="break-words font-bold text-slate-950">{displayAuditEventType(event.eventType)}</span>
               <span className="text-slate-600">{event.entityType ?? "Not available"}</span>
               <span className="text-slate-600">{event.trackingNumber ?? "Not available"}</span>
               <span className="break-words text-slate-600">{event.message}</span>

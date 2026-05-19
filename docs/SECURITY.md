@@ -292,6 +292,90 @@ Prioridad:
 - El endpoint devuelve 200 para eventos duplicados o sin shipment relacionado — esto es intencional para que ShipStation no reintente innecesariamente.
 - No se insertan `balance_movements` desde webhooks. Los refunds solo ocurren via `POST /api/labels/[id]/void` con confirmacion del operador.
 
+## Notas FASE 5.23 — Balance y recargas
+
+- `GET /api/balance` permanece como endpoint autenticado de solo lectura; filtra por usuario y no devuelve movimientos de otras cuentas.
+- No existe endpoint publico de recarga. `Add funds` en UI solo muestra un mensaje de beta y no crea `balance_movements`.
+- Las recargas positivas desde cliente siguen bloqueadas por RLS/policies; un usuario no debe poder autoacreditar saldo.
+- Modelo de ledger:
+  - `recharge`: amount positivo, solo futuro webhook de pago confirmado o top-up manual controlado en sandbox.
+  - `debit`: amount negativo, compra de label.
+  - `refund`: amount positivo, void confirmado por provider.
+  - `adjustment`: correccion manual/admin con permisos fuertes.
+  - `fee`: cargo separado si se modela fuera del precio final.
+- Stripe futuro:
+  - El frontend nunca acredita balance por una pantalla de exito.
+  - Solo un webhook verificado debe crear `balance_movement` tipo `recharge`.
+  - La idempotencia debe usar Stripe event id/payment intent id.
+  - Si pago confirma pero DB falla, se requiere reconciliacion operativa antes de permitir doble credito.
+- FASE 5.24 debe definir panel admin/support para ajustes manuales, auditoria y permisos de operadores.
+
+## Notas FASE 5.24 — Admin support panel
+
+- El panel admin ya no depende solo del guard de frontend.
+- Endpoints protegidos:
+  - `GET /api/admin/access`
+  - `GET /api/admin/overview`
+  - `GET /api/admin/shipments`
+  - `GET /api/admin/balance-movements`
+- Cada endpoint valida:
+  1. Bearer token valido.
+  2. Email verificado.
+  3. Admin server-side por `profiles.role = 'admin'` o allowlist temporal `ADMIN_EMAILS`.
+  4. Solo despues crea cliente `service_role` para lecturas cross-user.
+- `ADMIN_EMAILS` es server-side, nunca `NEXT_PUBLIC`, y solo debe usarse como fallback temporal de beta.
+- Los endpoints admin no devuelven secrets, service role, raw provider responses ni metadata sensible.
+- El panel es read-only durante beta:
+  - No compra labels.
+  - No ejecuta void.
+  - No crea recargas.
+  - No permite manual adjustments todavia.
+- La seccion de couriers se muestra read-only para evitar cambios de pricing/catalogo desde soporte beta.
+- Futuro recomendado: RBAC formal en DB, audit logs persistentes, permisos por accion y reconciliation queue.
+
+## Notas FASE 5.25 — Manual balance adjustments
+
+- `POST /api/admin/balance-adjustments` es una accion admin beta, no una recarga de pago.
+- Requiere Bearer token, email verificado y admin server-side (`profiles.role = admin` o `ADMIN_EMAILS` temporal).
+- El endpoint usa `service_role` solo despues del guard admin.
+- Validaciones:
+  - usuario destino debe existir.
+  - `amount` debe ser distinto de cero.
+  - limite absoluto beta: `$500`.
+  - `reason` obligatorio.
+  - `note` opcional con longitud limitada.
+  - ajuste negativo no puede dejar saldo final bajo cero.
+- Idempotencia:
+  - `idempotency_key = admin-adjustment:<key>`.
+  - Si llega la misma key para el mismo usuario, devuelve el movimiento existente y no duplica saldo.
+- Auditoria basica:
+  - `created_by` guarda el admin user id.
+  - `metadata` guarda `adminUserId`, `adminEmail`, `reason`, `note`, `createdFrom`, timestamp, balance before y balance after.
+- La UI normal de usuario no muestra metadata/admin details; solo muestra `Manual adjustment`.
+- Pendiente: `audit_logs` formal, RBAC granular por accion, aprobaciones para ajustes grandes y reconciliation queue persistente.
+
+## Notas FASE 5.26 — Audit/reconciliation foundation
+
+- Se usa `audit_logs` existente; no se agrego migracion.
+- Helper server-side: `lib/server/auditLog.ts`.
+- El helper sanitiza metadata:
+  - redacta keys con nombres sensibles (`secret`, `token`, `key`, `authorization`, `password`, `service_role`).
+  - trunca strings largos.
+  - limita profundidad de objetos/arrays.
+- Eventos registrados:
+  - label purchase started/succeeded/failed.
+  - label purchase DB persist failed con severity `critical`.
+  - label URL missing.
+  - void started/succeeded/failed.
+  - void refund failed con severity `critical`.
+  - manual adjustment created/rejected.
+  - idempotency conflicts.
+  - admin access denied.
+- La UI admin de auditoria es read-only y protegida por admin guard server-side.
+- No se guardan raw provider responses completos ni secrets.
+- Si audit logging falla, no rompe el flujo principal; se registra error sanitizado server-side.
+- Pendiente: reconciliation queue formal con estados, asignacion, resolucion y auditoria de cierre.
+
 ## Notas FASE 4D
 
 - `createShipStationShipment.ts` ahora verifica `SUPABASE_SERVICE_ROLE_KEY` ANTES de comprar el label. Si no esta configurado, retorna 503 sin comprar nada.
@@ -364,3 +448,163 @@ Usuarios no verificados (sin `email_confirmed_at` en Supabase Auth) no pueden ac
 - Si existe un `idempotency_key` con shipment `purchased`, se devuelve existente. Si existe un estado incompleto, se bloquea con 409 para evitar doble compra.
 - Si ShipEngine compra pero la DB/RPC falla, se registra un log server-side sanitizado con `requestId` y datos de reconciliacion no sensibles. La respuesta al usuario no incluye raw provider response.
 - Void/refund ShipEngine sigue bloqueado hasta implementar confirmacion real del provider; no se toca balance si void no esta confirmado.
+
+## Notas FASE 5.20F — Label oficial vs resumen interno
+
+- `label_url` es la unica URL que debe tratarse como label oficial del carrier.
+- La pagina interna `/guia/[trackingNumber]` es solo `Shipment summary`; no debe presentarse como carrier label.
+- El cliente no recibe raw provider response ni secrets, solo campos seguros como tracking number, label URL, carrier, service y total.
+- Void/refund ShipEngine permanece deshabilitado; no hay refund sin confirmacion real del provider.
+- Si `label_url` falta, la UI no muestra botones rotos ni inventa PDFs.
+
+## Notas FASE 5.20G — QA de labels y edge cases
+
+- El boton final de compra se deshabilita inmediatamente y muestra `Purchasing label...` para reducir riesgo de doble click.
+- El backend sigue siendo la autoridad de idempotencia: `user_id + idempotency_key`.
+- Estados ambiguos de idempotencia devuelven 409 y no intentan otra compra automatica.
+- Si la revalidacion de rate falla, el backend responde 409 antes de llamar a ShipEngine.
+- Si no hay saldo, responde 402 antes de llamar al provider.
+- Errores del provider se sanitizan antes de llegar a UI; no se exponen payloads raw ni secrets.
+- Si el provider devuelve respuesta incompleta, se loggea server-side solo metadata no sensible.
+- Si ShipEngine compra OK pero DB/RPC falla, se mantiene el request ID de reconciliacion y no se muestra exito.
+- Void/refund sigue deshabilitado y no debe modificar balance sin confirmacion del provider.
+
+## Notas FASE 5.21 — Tracking basico seguro
+
+- `/api/tracking` requiere usuario verificado y filtra por `user_id`.
+- Busca shipments propios por `tracking_number` o `id`.
+- Devuelve solo datos seguros de shipment y `tracking_events`; no devuelve raw provider response ni metadata sensible.
+- No llama APIs externas de carrier/ShipEngine, por lo que no expone claves ni consume rate limits.
+- `labelUrl` solo se devuelve si el shipment pertenece al usuario autenticado.
+- Tracking realtime y webhooks carrier quedan pendientes.
+
+## Notas FASE 5.22 — Void/refund sandbox seguro
+
+- Void real queda detras de `ENABLE_REAL_LABEL_VOID`; el flag es server-side y nunca debe ser `NEXT_PUBLIC`.
+- Si el flag esta apagado, `/api/labels/[id]/void` no llama provider, no cambia shipment y no toca balance.
+- Void requiere usuario verificado y shipment propio.
+- Void solo aplica a label `purchased` y payment `paid`.
+- Refund interno solo se ejecuta despues de confirmacion del carrier.
+- El monto de refund se lee server-side desde DB.
+- RPC `void_label_refund_transaction` evita doble refund si ya existe movimiento `refund`.
+- Si provider void OK pero RPC falla, se registra log server-side sanitizado con request ID y no se devuelve raw provider response.
+- Shippo/Easyship/EasyPost void siguen bloqueados.
+
+## Notas FASE 5.27 — Responsive beta review
+
+- Los cambios fueron de presentacion responsive; no se modificaron guards de label purchase, void/refund, balance, admin auth ni audit logs.
+- Las pantallas admin siguen protegidas server-side; los ajustes mobile no exponen service role, raw provider responses ni metadata sensible.
+- Las acciones peligrosas mantienen sus confirmaciones/guards existentes y solo se adaptaron para no quedar fuera de pantalla en mobile.
+- Mobile nativo sigue pendiente de FASE 6 para mover operaciones sensibles al backend seguro.
+
+## Notas FASE 5.28 — End-to-end beta QA
+
+- Se revisaron auth, dashboard, rates, labels disabled, shipment summary, tracking, balance, admin y audit antes de staging.
+- Se corrigieron mensajes visibles residuales en espanol/tecnicos y un placeholder corrupto en login/register.
+- `/api/config/status` sigue devolviendo solo flags/counts; no devuelve secrets.
+- Los guards server-side siguen siendo obligatorios:
+  - `ENABLE_REAL_LABEL_PURCHASE` para compra de labels.
+  - `ENABLE_REAL_LABEL_VOID` para void/refund.
+- No se ejecutaron compras, voids, pagos, deploys ni migraciones.
+- Antes de staging, confirmar que `ADMIN_EMAILS` o `profiles.role = admin` esta configurado y que usuarios no admin reciben 403 en `/admin` y `/api/admin/*`.
+- Antes de staging, confirmar que `.env.local`/secrets no estan versionados y que las claves de provider son sandbox/test.
+
+## Notas FASE 5.29 — Staging safety runbook
+
+- Staging debe usar solo keys sandbox/test.
+- `ENABLE_REAL_LABEL_PURCHASE=false` y `ENABLE_REAL_LABEL_VOID=false` son los defaults seguros.
+- Los flags solo deben cambiarse temporalmente para una prueba sandbox controlada y volver a `false` al terminar.
+- `ADMIN_EMAILS` es fallback temporal server-side; preferir `profiles.role = admin` cuando este disponible.
+- `.env.local`, service role, API keys privadas, webhook secrets y provider tokens no deben entrar en Git.
+- Antes de activar label purchase sandbox, confirmar la firma de `create_label_shipment_transaction` con `p_provider_rate_id`, `p_label_url`, `p_label_status` y `p_payment_status`.
+- Antes de activar void sandbox, confirmar existencia de `void_label_refund_transaction`.
+- Rollback seguro inicial: apagar purchase/void flags y revisar `/admin/audit`.
+
+## Notas FASE 5.31 — Staging execution safety
+
+- El deploy staging requiere variables reales configuradas en hosting, pero no deben copiarse al repo ni a `.env.example`.
+- `.env.local` debe permanecer ignorado y no debe compartirse en logs, docs ni capturas.
+- `/api/config/status` solo debe exponer booleans/counts; confirmar `labelPurchaseEnabled=false` y `labelVoidEnabled=false` en staging inicial.
+- No activar purchase/void por defecto. Si se habilitan para prueba sandbox, hacerlo temporalmente, con ShipEngine TEST key y apagarlos al terminar.
+- Si una prueba sandbox falla, no reintentar compra/void sin revisar idempotencia, `/admin/audit`, shipments y balance movements.
+- Visual QA no debe incluir pagos reales, labels live ni voids live.
+
+## Notas FASE 5.32 — Stripe/payment recharge design
+
+Stripe sigue sin implementarse. El diseno aprobado para recargas reales de saldo es:
+
+- El frontend nunca acredita saldo.
+- La pantalla de exito de Stripe nunca crea `balance_movements`.
+- Solo un webhook Stripe con firma verificada mediante `STRIPE_WEBHOOK_SECRET` puede crear `balance_movement` tipo `recharge`.
+- `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` son server-side; nunca deben tener prefijo `NEXT_PUBLIC_`.
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` es la unica variable Stripe publica prevista.
+- El backend debe tomar `user_id` desde la sesion autenticada al crear Checkout Session, no desde datos confiados del cliente.
+- El monto se valida server-side: USD, montos fijos recomendados `10`, `25`, `50`, `100`, maximo beta `500`.
+- La idempotencia debe usar `stripe_event_id` y tambien proteger por `checkout_session_id`/`payment_intent_id`.
+- Si Stripe confirma pago pero DB falla, registrar evento critico `payment_recharge_db_failed` para reconciliacion y no acreditar dos veces.
+- Admin manual adjustments no son pagos y no deben mostrarse como Stripe recharge.
+
+Eventos de auditoria propuestos:
+
+- `payment_checkout_started`
+- `payment_checkout_created`
+- `payment_checkout_failed`
+- `payment_webhook_received`
+- `payment_recharge_succeeded`
+- `payment_recharge_duplicate_ignored`
+- `payment_recharge_db_failed`
+- `payment_recharge_amount_mismatch`
+- `payment_recharge_signature_failed`
+
+## Notas FASE 5.33 — Stripe Checkout sandbox
+
+- Stripe se implementa solo para sandbox/test; no usar live keys ni produccion.
+- `POST /api/billing/checkout-session` requiere usuario autenticado y email verificado.
+- El endpoint solo acepta montos fijos server-side: `$10`, `$25`, `$50`, `$100`.
+- El cliente recibe solo `checkoutUrl`; nunca recibe secret key ni decide el credito.
+- `POST /api/webhooks/stripe` lee raw body y verifica `stripe-signature` con `STRIPE_WEBHOOK_SECRET`.
+- Solo `checkout.session.completed` con `payment_status = paid`, `currency = usd` y amount coincidente acredita balance.
+- El movimiento acreditado es:
+  - `type = recharge`
+  - `concept = Payment recharge`
+  - `reference_type = stripe_checkout`
+  - `idempotency_key = stripe-event:<event_id>`
+- Duplicados de webhook no duplican saldo; si ya existe recharge pagada con `balance_movement_id`, se ignora de forma segura.
+- Si Stripe confirma pago pero DB falla, se registra `payment_recharge_db_failed` con severity `critical` y se devuelve 500 para permitir retry de Stripe.
+- La success URL `/saldo?recharge=success` no acredita saldo.
+
+## Notas FASE 5.34 — Stripe sandbox QA safety
+
+- La verificacion debe hacerse solo con `sk_test`, `pk_test` y webhook secret test.
+- `STRIPE_WEBHOOK_SECRET` no debe mostrarse en logs, docs ni chats.
+- `/api/config/status` expone `stripeRechargeConfigured` y `stripeRechargeEnabled` como booleans; no expone keys ni account ids.
+- `POST /api/billing/checkout-session` ahora requiere tambien webhook secret configurado para evitar cobros test sin ruta de acreditacion.
+- Checkout agrega metadata en la session y en `payment_intent_data` para mejorar conciliacion de fallos.
+- QA obligatorio antes de staging:
+  - invalid signature no acredita.
+  - amount/currency mismatch no acredita.
+  - webhook duplicado no duplica saldo.
+  - success URL no acredita.
+  - audit/reconciliation no contiene raw Stripe completo ni secrets.
+
+## Notas FASE 5.35 — Controlled sandbox verification
+
+- No ejecutar Stripe Checkout si `stripeRechargeEnabled` o `stripeRechargeConfigured` son `false`.
+- No probar con Stripe CLI sin aplicar primero la migracion `payment_recharges`.
+- No copiar `whsec_...`, `sk_test_...` ni `pk_test_...` a docs, logs o chats.
+- Reenvio de webhook debe comprobar que solo exista un `balance_movements` por payment intent/session.
+- Si Stripe pago pero DB no acredita, revisar `payment_recharge_db_failed` en audit antes de reintentar o hacer ajuste manual.
+- Cualquier correccion manual de saldo por soporte debe quedar como `adjustment`, no como `recharge`.
+
+## Notas FASE 5.37 — Stripe recharge UX and failure safety
+
+- La prueba sandbox confirmo que `Payment recharge +$10.00` fue creado por webhook verificado, no por frontend.
+- La UI de `/saldo` no muestra nombres de env vars, secrets ni errores raw de Stripe.
+- `POST /api/billing/checkout-session` responde errores publicos seguros y loggea errores internos server-side.
+- Mensajes publicos:
+  - `Payment received. Your balance will update once Stripe confirms the payment.`
+  - `Payment canceled. No funds were added.`
+  - `Payment is still being confirmed.`
+  - `Online recharge is not available yet.`
+- Admin audit muestra eventos Stripe con labels legibles, sin raw payloads ni secrets.
+- Refunds, disputes, chargebacks y balance reversals siguen pendientes y deben crear audit/reconciliation critical events cuando se implementen.

@@ -1,4 +1,4 @@
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import { createAuditLog } from "@/lib/server/auditLog";
 import {
   createServiceSupabaseClient,
@@ -200,6 +200,14 @@ export async function POST(request: Request) {
 
     return apiSuccess({ checkoutUrl: session.url });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not start checkout.");
+    if (error instanceof Response) {
+      return apiError((await error.text()) || "We could not start checkout.", error.status);
+    }
+
+    console.error("[StripeCheckoutFailed]", {
+      message: error instanceof Error ? error.message : String(error ?? "unknown"),
+    });
+
+    return apiError("We could not start checkout. Please try again.", 500);
   }
 }

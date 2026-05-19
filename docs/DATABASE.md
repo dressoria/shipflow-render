@@ -122,6 +122,197 @@ Riesgos actuales:
 - No hay reversos formales.
 - No hay auditoria suficiente.
 
+Modelo operativo FASE 5.23:
+
+- `recharge`: amount positivo. Representa saldo agregado al balance. En produccion futura debe venir solo de webhook de pago confirmado; en sandbox puede existir como `Test balance top-up` manual.
+- `debit`: amount negativo. Representa compra de carrier label y debe tener `shipment_id`/referencia cuando aplique.
+- `refund`: amount positivo. Representa devolucion por void confirmado por el provider y debe evitar duplicados por `shipment_id`/idempotencia.
+- `adjustment`: ajuste manual/admin, positivo o negativo. Debe requerir operador autorizado y metadata/auditoria en una fase admin.
+- `fee`: cargo separado si se decide modelarlo fuera del precio final. Actualmente el pricing de label incluye fees dentro de `customer_price`, asi que no se usa para compra normal.
+
+`GET /api/balance` es solo lectura y devuelve:
+
+- `availableBalance`
+- `currency`
+- `movements`
+- `totals.totalRecharged`
+- `totals.totalSpent`
+- `totals.totalRefunded`
+- `totals.totalAdjustments`
+- `totals.totalFees`
+
+No existe endpoint publico para crear recargas. Cualquier recarga real futura debe nacer de webhook de proveedor de pago, no de confirmacion del cliente.
+
+### Admin support reads
+
+FASE 5.24 agrega lecturas admin read-only sobre datos existentes, sin migracion:
+
+- `profiles`: fuente primaria para `role = admin`, email y nombre de usuario.
+- `shipments`: soporte puede ver tracking, owner, carrier/service, label/payment status, total y `label_url` si existe.
+- `balance_movements`: soporte puede revisar debits, refunds, recharges manuales de prueba y referencias a shipment.
+
+No se agregaron tablas nuevas. La reconciliation queue, manual adjustments y audit operacional persistente quedan para fases futuras.
+
+### Manual adjustments
+
+FASE 5.25 usa la tabla existente `balance_movements` para ajustes manuales admin:
+
+- `type = adjustment`
+- `concept = Manual adjustment`
+- `amount`: positivo o negativo, nunca cero.
+- `reference_type = admin_manual_adjustment`
+- `reference_id = idempotency_key`
+- `idempotency_key = admin-adjustment:<key>`
+- `created_by = auth.users.id` del admin.
+- `metadata`: `adminUserId`, `adminEmail`, `reason`, `note`, `createdFrom`, `timestamp`, `balanceBefore`, `balanceAfter`.
+
+No requiere migracion porque `type`, `reference_type`, `reference_id`, `idempotency_key`, `metadata` y `created_by` ya existen. FASE futura deberia mover auditoria sensible a `audit_logs` formal y RBAC granular.
+
+### Stripe recharge design — FASE 5.32
+
+Stripe no esta implementado todavia. La recarga real de saldo debe conservar el ledger actual:
+
+- `balance_movements.type = recharge`
+- `concept = Payment recharge`
+- `amount`: positivo.
+- `reference_type = stripe_checkout`
+- `reference_id`: `stripe_checkout_session_id` o `stripe_payment_intent_id`.
+- `idempotency_key`: preferir `stripe_event_id`; alternativa `stripe_payment_intent_id` si se disena asi.
+- `metadata`: solo datos sanitizados como amount, currency, Stripe ids no secretos y estado de conciliacion.
+
+El frontend nunca debe crear este movimiento. Solo `POST /api/webhooks/stripe`, despues de verificar firma Stripe, puede acreditar saldo.
+
+Tabla futura recomendada: `payment_recharges`.
+
+```text
+id uuid primary key
+user_id uuid not null references auth.users(id)
+stripe_checkout_session_id text unique not null
+stripe_payment_intent_id text unique null
+amount numeric not null
+currency text not null default 'usd'
+status text not null check (status in ('pending', 'paid', 'failed', 'canceled', 'refunded'))
+balance_movement_id uuid null
+metadata jsonb not null default '{}'
+created_at timestamptz not null default now()
+updated_at timestamptz not null default now()
+```
+
+Razon para una tabla dedicada:
+
+- Mantener estado `pending` antes de que exista movimiento de balance.
+- Conciliar pagos donde Stripe cobro pero DB fallo.
+- Evitar duplicados por `checkout_session_id`, `payment_intent_id` y `stripe_event_id`.
+- Separar "intento/pago" de "ledger financiero acreditado".
+
+Migracion futura necesaria:
+
+- Crear `payment_recharges`.
+- Agregar indices unicos para `stripe_checkout_session_id` y `stripe_payment_intent_id`.
+- Opcional: indice/constraint unico para Stripe event IDs si no se usa `audit_logs`/`webhook_events`.
+- No cambiar `balance_movements.type`; `recharge` ya existe.
+
+### Stripe recharge implementation — FASE 5.33
+
+Se preparo la migracion `shipflow-web/supabase/migrations/20260519_add_payment_recharges.sql`.
+
+Notas:
+
+- No fue aplicada automaticamente.
+- `payment_recharges.balance_movement_id` referencia `balance_movements(id)` como `text`, porque el ledger actual usa IDs tipo `MOV-...`.
+- RLS permite a usuarios leer sus propias recargas y a admin leer todas mediante `public.is_admin()`.
+- No existen policies de insert/update/delete para usuarios; writes solo por backend con `service_role`.
+- `status` permitido: `pending`, `paid`, `failed`, `canceled`, `refunded`.
+- `currency` queda limitado a `usd`.
+
+Relación con ledger:
+
+- `payment_recharges` registra el estado operativo de Stripe.
+- `balance_movements` sigue siendo la fuente de verdad del saldo disponible.
+- El webhook `checkout.session.completed` crea exactamente un movimiento `recharge` idempotente por Stripe event.
+
+#### SQL de verificacion FASE 5.34
+
+Ejecutar en Supabase SQL Editor despues de aplicar la migracion en test/staging:
+
+```sql
+select to_regclass('public.payment_recharges') as payment_recharges_table;
+```
+
+Columnas esperadas:
+
+```sql
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'payment_recharges'
+order by ordinal_position;
+```
+
+Constraints:
+
+```sql
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.payment_recharges'::regclass
+order by conname;
+```
+
+Indices:
+
+```sql
+select indexname, indexdef
+from pg_indexes
+where schemaname = 'public'
+  and tablename = 'payment_recharges'
+order by indexname;
+```
+
+RLS y policies:
+
+```sql
+select relrowsecurity
+from pg_class
+where oid = 'public.payment_recharges'::regclass;
+
+select policyname, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+  and tablename = 'payment_recharges'
+order by policyname;
+```
+
+Verificacion post-pago sandbox:
+
+```sql
+select id, user_id, stripe_checkout_session_id, stripe_payment_intent_id,
+       stripe_event_id, amount, currency, status, balance_movement_id,
+       created_at, updated_at
+from public.payment_recharges
+order by created_at desc
+limit 10;
+
+select id, user_id, concept, amount, type, reference_type,
+       reference_id, idempotency_key, created_at
+from public.balance_movements
+where type = 'recharge'
+order by created_at desc
+limit 10;
+```
+
+FASE 5.37 valido en sandbox que el movimiento visible queda como:
+
+- `concept = Payment recharge`
+- `type = recharge`
+- `amount = 10.00`
+- fuente de acreditacion: webhook Stripe verificado
+
+Pendiente de modelo futuro:
+
+- refunds de recarga deben crear movimientos reversales/refunds separados, no editar historico.
+- disputes/chargebacks deben quedar en tabla de pagos y audit/reconciliation antes de afectar saldo.
+- si se bloquea saldo disputado, definir columna/ledger separado para balance disponible vs retenido.
+
 ### tracking_events
 
 Campos principales base:
@@ -236,6 +427,41 @@ Notas:
 - Usuarios normales no modifican esta tabla.
 - Admin puede leer via `is_admin()`.
 - Backend/server insertara eventos de auditoria en fases futuras.
+
+Uso FASE 5.26:
+
+- No se requiere migracion nueva.
+- `action` se usa como `event_type`.
+- `entity_type` acepta valores operativos como `shipment`, `balance_movement`, `admin`, `provider`, `auth`.
+- `entity_id` apunta al shipment, balance movement o usuario cuando aplica.
+- `metadata` contiene campos sanitizados:
+  - `severity`: `info`, `warning`, `error`, `critical`.
+  - `actorEmail`
+  - `userId`
+  - `provider`
+  - `trackingNumber`
+  - `idempotencyKey`
+  - `requestId`
+  - `message`
+  - detalles operativos sin secrets.
+
+Eventos principales:
+
+- `label_purchase_started`
+- `label_purchase_succeeded`
+- `label_purchase_failed`
+- `label_purchase_db_persist_failed`
+- `label_void_started`
+- `label_void_succeeded`
+- `label_void_failed`
+- `label_void_refund_failed`
+- `balance_adjustment_created`
+- `balance_adjustment_rejected`
+- `admin_access_denied`
+- `idempotency_conflict`
+- `label_url_missing`
+
+Pendiente de una fase futura: tabla de reconciliation dedicada con estado, asignacion, comentarios, resolucion y timestamps de cierre.
 
 ## Indices actuales conocidos
 
@@ -495,3 +721,73 @@ Aplicacion:
 
 - Aplicar manualmente despues de backup/snapshot.
 - No activar `ENABLE_REAL_LABEL_PURCHASE=true` para pruebas sandbox hasta que esta migracion este aplicada en la DB real.
+
+## Nota FASE 5.29 — Staging database checklist
+
+Antes de staging, confirmar que estas migraciones estan aplicadas:
+
+```text
+20260514_shipflow_security_logistics_foundation.sql
+20260514_create_label_transaction_rpc.sql
+20260515_add_pricing_breakdown_to_shipments.sql
+20260517_harden_label_transaction_rpc.sql
+```
+
+SQL de verificacion recomendado:
+
+```sql
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'shipments'
+  and column_name in (
+    'provider_rate_id',
+    'label_url',
+    'label_status',
+    'payment_status',
+    'pricing_breakdown',
+    'provider_label_id',
+    'provider_shipment_id'
+  )
+order by column_name;
+```
+
+```sql
+select p.proname, pg_get_function_arguments(p.oid) as arguments
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'create_label_shipment_transaction',
+    'void_label_refund_transaction'
+  )
+order by p.proname;
+```
+
+La firma de `create_label_shipment_transaction` debe incluir:
+
+- `p_provider_rate_id`
+- `p_label_url`
+- `p_label_status`
+- `p_payment_status`
+
+```sql
+select to_regclass('public.audit_logs') as audit_logs_table;
+```
+
+```sql
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.balance_movements'::regclass
+  and conname = 'balance_movements_type_check';
+```
+
+`balance_movements_type_check` debe permitir:
+
+- `recharge`
+- `debit`
+- `refund`
+- `adjustment`
+- `fee`
+
+No aplicar migraciones contra produccion desde una sesion local improvisada. No resetear DB.

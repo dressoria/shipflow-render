@@ -22,6 +22,15 @@ function movementTone(movement: MovimientoSaldo) {
   return "text-slate-700";
 }
 
+function checkoutErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/EMAIL_NOT_VERIFIED/i.test(message)) return "Please verify your email before adding funds.";
+  if (/authorization|token|sign in|401|403/i.test(message)) return "Please sign in to add funds.";
+  if (/valid recharge amount|amount/i.test(message)) return "Invalid recharge amount.";
+  if (/not available|not configured/i.test(message)) return "Online recharge is not available yet.";
+  return "We could not start checkout. Please try again.";
+}
+
 export function BalancePanel() {
   const [balance, setLocalBalance] = useState(0);
   const [movements, setMovements] = useState<MovimientoSaldo[]>([]);
@@ -30,7 +39,7 @@ export function BalancePanel() {
   const [stripeRechargeConfigured, setStripeRechargeConfigured] = useState(false);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [checkoutLoadingAmount, setCheckoutLoadingAmount] = useState<number | null>(null);
-  const [rechargeMessage, setRechargeMessage] = useState<string | null>(null);
+  const [rechargeMessage, setRechargeMessage] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   async function refresh() {
@@ -52,9 +61,20 @@ export function BalancePanel() {
     const params = new URLSearchParams(window.location.search);
     const recharge = params.get("recharge");
     if (recharge === "success") {
-      window.setTimeout(() => setRechargeMessage("Payment received. Your balance will update once confirmed."), 0);
+      window.setTimeout(() => setRechargeMessage({
+        tone: "info",
+        text: "Payment received. Your balance will update once Stripe confirms the payment.",
+      }), 0);
     } else if (recharge === "canceled") {
-      window.setTimeout(() => setRechargeMessage("Payment canceled. No funds were added."), 0);
+      window.setTimeout(() => setRechargeMessage({
+        tone: "warning",
+        text: "Payment canceled. No funds were added.",
+      }), 0);
+    } else if (recharge === "pending") {
+      window.setTimeout(() => setRechargeMessage({
+        tone: "info",
+        text: "Payment is still being confirmed.",
+      }), 0);
     }
   }, []);
 
@@ -65,7 +85,7 @@ export function BalancePanel() {
       const { checkoutUrl } = await apiCreateCheckoutSession(amount);
       window.location.assign(checkoutUrl);
     } catch (error) {
-      setCheckoutError(error instanceof Error ? error.message : "Online recharge is not available yet.");
+      setCheckoutError(checkoutErrorMessage(error));
       setCheckoutLoadingAmount(null);
     }
   }
@@ -98,8 +118,23 @@ export function BalancePanel() {
           Add funds
         </button>
         {rechargeMessage ? (
-          <div className="mt-4 rounded-2xl bg-white/10 px-4 py-3 text-sm leading-6 text-slate-200">
-            {rechargeMessage}
+          <div className={`mt-4 rounded-2xl px-4 py-3 text-sm leading-6 ${
+            rechargeMessage.tone === "success"
+              ? "bg-emerald-400/15 text-emerald-50"
+              : rechargeMessage.tone === "warning"
+                ? "bg-amber-400/15 text-amber-50"
+                : "bg-white/10 text-slate-200"
+          }`}>
+            <div className="flex items-start justify-between gap-3">
+              <span>{rechargeMessage.text}</span>
+              <button
+                type="button"
+                onClick={() => setRechargeMessage(null)}
+                className="shrink-0 rounded-full px-2 text-xs font-black text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         ) : (
           <p className="mt-4 rounded-2xl bg-white/10 px-4 py-3 text-center text-xs font-semibold text-slate-300">
@@ -124,8 +159,13 @@ export function BalancePanel() {
                 aria-label="Close add funds modal"
               >
                 <X className="h-4 w-4" />
-              </button>
-            </div>
+        </button>
+        {!stripeRechargeConfigured ? (
+          <p className="mt-3 text-center text-xs font-semibold text-slate-300">
+            Online recharge is not available yet.
+          </p>
+        ) : null}
+      </div>
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Funds are added after payment confirmation from Stripe.
             </p>

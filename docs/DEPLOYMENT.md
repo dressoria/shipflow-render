@@ -53,6 +53,9 @@ Web privadas:
 ```text
 SUPABASE_SERVICE_ROLE_KEY        # REQUERIDA para RPC atomica y webhooks
 INTERNAL_API_SECRET
+ADMIN_EMAILS                     # fallback temporal beta; preferir profiles.role = admin
+ENABLE_REAL_LABEL_PURCHASE=false # guard server-side; activar solo para prueba sandbox controlada
+ENABLE_REAL_LABEL_VOID=false     # guard server-side; activar solo para prueba sandbox controlada
 SHIPSTATION_API_MODE             # opcional; usar shipengine para API ShipEngine/ShipStation sandbox
 SHIPSTATION_API_KEY              # REQUERIDA para rates/labels/void/webhooks
 SHIPSTATION_API_SECRET           # requerida solo en modo ShipStation V1 legacy (Basic Auth key:secret)
@@ -64,11 +67,18 @@ EASYSHIP_API_KEY                 # opcional; activa rates reales Easyship
 EASYSHIP_BASE_URL                # requerida junto a EASYSHIP_API_KEY; sandbox: https://public-api-sandbox.easyship.com
 PAYMENT_PROVIDER_SECRET
 WEBHOOK_PAYMENT_SECRET
+STRIPE_SECRET_KEY                # futuro: server-side, no implementado todavia
+STRIPE_WEBHOOK_SECRET            # futuro: server-side, requerido para verificar webhooks Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY # futuro: publishable key publica, unica variable Stripe NEXT_PUBLIC
+STRIPE_PRICE_ID_10               # futuro opcional si se usan precios fijos
+STRIPE_PRICE_ID_25               # futuro opcional
+STRIPE_PRICE_ID_50               # futuro opcional
+STRIPE_PRICE_ID_100              # futuro opcional
 ```
 
 Para que el cotizador muestre tarifas debe existir al menos una integración de cotización real configurada en servidor. `/api/config/status` expone solo booleans y `activeRateProviders`, nunca nombres ni secretos.
 
-FASE 5.18 deja los adapters de rates alineados con ShipEngine/ShipStation sandbox, Shippo test y Easyship sandbox. Antes de producción sigue pendiente validar `npm run lint`, `npm run typecheck` y `npm run build` en un entorno con npm disponible, además de configurar variables reales solo en servidor.
+FASE 5.18 deja los adapters de rates alineados con ShipEngine/ShipStation sandbox, Shippo test y Easyship sandbox. FASE 5.29 prepara staging sin deploy. Antes de producción sigue pendiente validar `npm run lint`, `npm run typecheck` y `npm run build`, configurar variables reales solo en servidor y completar QA visual/manual de staging.
 
 Nota sobre webhooks: ShipStation requiere HTTPS para enviar webhooks. El servidor staging/produccion debe tener SSL configurado antes de registrar la URL del webhook en ShipStation Dashboard.
 
@@ -151,6 +161,768 @@ FASE 7 propuesta:
 7. Documentar comandos SSH.
 8. Probar build local.
 9. Probar deploy en staging antes de produccion.
+
+## FASE 5.29 — Staging deploy preparation
+
+Esta fase prepara staging, pero no ejecuta deploy.
+
+### Preflight local
+
+Desde `shipflow-web`:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+git diff --check
+```
+
+En el repo root:
+
+```bash
+git status --short
+```
+
+Confirmar:
+
+- `.env.local` no aparece en `git status`.
+- No hay secrets en archivos versionados.
+- `shipflow-web/.env.example` contiene placeholders seguros.
+- `ENABLE_REAL_LABEL_PURCHASE=false` y `ENABLE_REAL_LABEL_VOID=false` por defecto.
+- No hay cambios sin revisar antes de crear PR/deploy.
+
+### Variables de staging
+
+Staging debe usar solo sandbox/test keys:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_APP_URL=https://staging.example.com
+NODE_ENV=production
+
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+
+SHIPSTATION_API_MODE=shipengine
+SHIPSTATION_API_KEY=TEST_...
+SHIPSTATION_API_SECRET=
+SHIPSTATION_BASE_URL=https://api.shipengine.com/v1
+SHIPSTATION_WEBHOOK_SECRET=
+
+SHIPPO_API_KEY=shippo_test_...
+EASYSHIP_API_KEY=sand_...
+EASYSHIP_BASE_URL=https://public-api-sandbox.easyship.com
+EASYPOST_API_KEY=
+
+ENABLE_REAL_LABEL_PURCHASE=false
+ENABLE_REAL_LABEL_VOID=false
+ADMIN_EMAILS=admin@example.com
+```
+
+No usar `NEXT_PUBLIC_` para keys privadas de providers, service role, webhooks o pagos.
+
+Required for staging beta:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` para validar Places/mapa en beta
+- `SHIPSTATION_API_MODE=shipengine`
+- `SHIPSTATION_API_KEY=TEST_...`
+- `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`
+- `SHIPPO_API_KEY=shippo_test_...`
+- `EASYSHIP_API_KEY=sand_...`
+- `EASYSHIP_BASE_URL=https://public-api-sandbox.easyship.com`
+- `ADMIN_EMAILS` o `profiles.role = admin`
+- `ENABLE_REAL_LABEL_PURCHASE=false`
+- `ENABLE_REAL_LABEL_VOID=false`
+
+Optional/pending:
+
+- `EASYPOST_API_KEY`
+- `SHIPSTATION_API_SECRET` en modo ShipEngine debe quedar vacio
+- Payment variables, hasta integrar Stripe/pagos reales
+- Stripe futuro: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` y price IDs opcionales. No configurarlas con live keys hasta que la fase de billing este implementada.
+
+### Supabase migration/RPC checklist
+
+Aplicar en staging, en orden, desde SQL Editor o proceso controlado:
+
+```text
+shipflow-web/supabase/migrations/20260514_shipflow_security_logistics_foundation.sql
+shipflow-web/supabase/migrations/20260514_create_label_transaction_rpc.sql
+shipflow-web/supabase/migrations/20260515_add_pricing_breakdown_to_shipments.sql
+shipflow-web/supabase/migrations/20260517_harden_label_transaction_rpc.sql
+```
+
+No resetear la DB. No aplicar contra producción desde una sesion local improvisada.
+
+#### SQL de verificacion
+
+Columnas clave de `shipments`:
+
+```sql
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'shipments'
+  and column_name in (
+    'provider_rate_id',
+    'label_url',
+    'label_status',
+    'payment_status',
+    'pricing_breakdown',
+    'provider_label_id',
+    'provider_shipment_id'
+  )
+order by column_name;
+```
+
+Firma endurecida de `create_label_shipment_transaction`:
+
+```sql
+select p.proname, pg_get_function_arguments(p.oid) as arguments
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'create_label_shipment_transaction';
+```
+
+Debe incluir:
+
+```text
+p_provider_rate_id
+p_label_url
+p_label_status
+p_payment_status
+```
+
+Existencia de `void_label_refund_transaction`:
+
+```sql
+select p.proname, pg_get_function_arguments(p.oid) as arguments
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'void_label_refund_transaction';
+```
+
+Existencia de `audit_logs`:
+
+```sql
+select to_regclass('public.audit_logs') as audit_logs_table;
+```
+
+Constraint de `balance_movements.type`:
+
+```sql
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.balance_movements'::regclass
+  and conname = 'balance_movements_type_check';
+```
+
+Debe permitir:
+
+```text
+recharge, debit, refund, adjustment, fee
+```
+
+### Health check despues de staging deploy
+
+Sin activar compras ni voids:
+
+1. Abrir `/`.
+2. Probar `/login`, `/registro`, `/verifica-tu-correo`.
+3. Abrir `/api/config/status` y confirmar:
+   - `ratesConfigured`
+   - `activeRateProviders`
+   - `labelPurchaseEnabled: false`
+   - `labelVoidEnabled: false`
+4. Abrir `/dashboard`.
+5. Abrir `/crear-guia`.
+6. Abrir `/envios`.
+7. Abrir `/tracking`.
+8. Abrir `/saldo`.
+9. Abrir `/admin` con admin autorizado.
+10. Confirmar que usuario no admin recibe bloqueo seguro.
+
+### Staging test plan
+
+Guards apagados:
+
+- `labelPurchaseEnabled=false`.
+- `labelVoidEnabled=false`.
+- Rates funcionan.
+- Purchase label muestra bloqueo seguro.
+- Void muestra bloqueo seguro.
+
+Rates:
+
+```text
+From: 350 5th Ave, New York, NY 10118
+To: 700-798 Borello Way, Mountain View, CA 94041
+Package: 1 lb, 6 x 4 x 2 in
+```
+
+Esperado:
+
+- Rates reales de alguno de los providers configurados.
+- Sin Dummy/Mock/Internal visible.
+- Carrier/service limpios.
+- Pricing breakdown en ingles.
+
+Admin:
+
+- Admin entra a `/admin`.
+- No admin recibe 403.
+- Admin ve shipments, balance movements y audit.
+- Manual adjustment solo si se decide probar con monto pequeno y razon clara.
+
+Label sandbox controlado:
+
+- Solo si el equipo decide probarlo.
+- Activar temporalmente `ENABLE_REAL_LABEL_PURCHASE=true`.
+- Comprar una sola label ShipEngine TEST.
+- Verificar PDF `SAMPLE`, tracking, debit y audit.
+- Volver a `ENABLE_REAL_LABEL_PURCHASE=false`.
+
+Void sandbox controlado:
+
+- Solo si existe una label SAMPLE recien comprada.
+- Activar temporalmente `ENABLE_REAL_LABEL_VOID=true`.
+- Ejecutar void una sola vez.
+- Verificar refund, status y audit.
+- Volver a `ENABLE_REAL_LABEL_VOID=false`.
+
+Responsive:
+
+- 390px.
+- 430px.
+- 768px.
+- Desktop.
+
+Rutas: `/dashboard`, `/crear-guia`, `/envios`, `/guia/<tracking>`, `/tracking`, `/saldo`, `/admin`, `/admin/envios`, `/admin/saldo`, `/admin/audit`.
+
+### Riesgos y rollback
+
+Si rates fallan:
+
+- Revisar provider env vars server-side.
+- Confirmar `SHIPSTATION_API_MODE=shipengine`.
+- Confirmar sandbox keys y base URLs.
+- Ver `/api/config/status`.
+
+Si label purchase aparece deshabilitado:
+
+- Es esperado si `ENABLE_REAL_LABEL_PURCHASE=false`.
+- No activar salvo prueba sandbox controlada.
+
+Si purchase falla por RPC:
+
+- Verificar `20260517_harden_label_transaction_rpc.sql`.
+- Ejecutar SQL de firma.
+- Revisar audit logs/reconciliation.
+
+Si balance falla:
+
+- Verificar `balance_movements_type_check`.
+- Verificar RPCs.
+- Revisar movimientos duplicados por idempotencia.
+
+Si admin falla:
+
+- Revisar `ADMIN_EMAILS`.
+- Revisar `profiles.role = admin`.
+- Confirmar usuario con email verificado.
+
+Si Google Maps falla:
+
+- Revisar `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`.
+- Revisar restricciones de HTTP referrer.
+- Confirmar Maps JavaScript API y Places API.
+
+Rollback inmediato:
+
+- Apagar `ENABLE_REAL_LABEL_PURCHASE`.
+- Apagar `ENABLE_REAL_LABEL_VOID`.
+- Revertir deploy staging.
+- No usar production/live labels.
+- Revisar `/admin/audit` y logs server-side.
+
+## FASE 5.31 — Staging deploy execution handoff
+
+Esta fase prepara la ejecucion real de staging, pero Codex no ejecuta deploy externo ni manipula credenciales de hosting.
+
+### Local pre-deploy ejecutable
+
+Desde `shipflow-web`:
+
+```bash
+npm install
+npm run lint
+npm run typecheck
+npm run build
+npm run start
+```
+
+Antes de pedir deploy:
+
+```bash
+git diff --check
+git status --short
+```
+
+Confirmar:
+
+- `.env.local` no esta versionado.
+- `.env.example` no contiene valores reales.
+- `ENABLE_REAL_LABEL_PURCHASE=false`.
+- `ENABLE_REAL_LABEL_VOID=false`.
+- No hay cambios sin revisar antes del deploy/PR.
+
+### Platform handoff
+
+Configurar el proyecto con root directory `shipflow-web`.
+
+Render/VM/Coolify:
+
+```bash
+npm install
+npm run build
+npm run start
+```
+
+Vercel:
+
+- Root directory: `shipflow-web`.
+- Build command: `npm run build`.
+- Environment variables: usar la lista de staging de este documento.
+- No configurar keys live ni pagos reales.
+
+### Supabase staging antes de abrir labels/voids
+
+Ejecutar en Supabase staging el bloque "SQL de verificacion" de esta pagina y confirmar:
+
+- Columnas clave de `shipments`.
+- Firma endurecida de `create_label_shipment_transaction`.
+- Existencia de `void_label_refund_transaction`.
+- Existencia de `audit_logs`.
+- Constraint de `balance_movements.type`.
+- Admin configurado por `ADMIN_EMAILS` o `profiles.role = admin`.
+
+Si falta algo, detener pruebas de purchase/void y corregir Supabase staging antes de continuar.
+
+### Post-deploy health check 5.31
+
+Con purchase/void apagados:
+
+1. Abrir `/`.
+2. Probar `/login` y `/registro`.
+3. Abrir `/api/config/status`.
+4. Confirmar `labelPurchaseEnabled: false`.
+5. Confirmar `labelVoidEnabled: false`.
+6. Abrir `/dashboard`.
+7. Abrir `/crear-guia`.
+8. Cotizar NY -> Mountain View con paquete 1 lb, 6 x 4 x 2 in.
+9. Confirmar rates reales sin Dummy/Mock/Internal.
+10. Abrir `/envios`, `/tracking`, `/saldo`, `/admin` y `/admin/audit`.
+11. Confirmar admin guard para usuario no admin.
+
+### Visual QA staging
+
+Revisar desktop y responsive:
+
+- 390px.
+- 430px.
+- 768px.
+- Desktop.
+
+Rutas:
+
+- `/dashboard`
+- `/crear-guia`
+- `/envios`
+- `/guia/<tracking>`
+- `/tracking`
+- `/saldo`
+- `/admin`
+- `/admin/envios`
+- `/admin/saldo`
+- `/admin/audit`
+
+Confirmar:
+
+- Sin overflow horizontal inesperado.
+- Modals caben y tienen scroll interno cuando aplica.
+- Rates son tocables.
+- Tablas admin tienen scroll o layout usable.
+- UI en ingles.
+- No aparece Supabase, fallback, demo, raw provider response ni secrets.
+
+### Controlled sandbox tests opcionales
+
+No ejecutar por defecto.
+
+Label sandbox:
+
+1. Activar temporalmente `ENABLE_REAL_LABEL_PURCHASE=true`.
+2. Reiniciar staging.
+3. Comprar una sola label ShipEngine TEST.
+4. Confirmar PDF `SAMPLE`, shipment, tracking, balance debit y audit.
+5. Volver a `ENABLE_REAL_LABEL_PURCHASE=false`.
+
+Void sandbox:
+
+1. Solo si existe una label SAMPLE comprada en staging.
+2. Activar temporalmente `ENABLE_REAL_LABEL_VOID=true`.
+3. Ejecutar void una sola vez.
+4. Confirmar `label_status=voided`, `payment_status=refunded`, refund de balance y audit.
+5. Volver a `ENABLE_REAL_LABEL_VOID=false`.
+
+## FASE 5.32 — Stripe/payment recharge design
+
+Stripe no esta implementado todavia. Esta seccion define el flujo futuro de recarga de balance.
+
+### Flujo recomendado
+
+1. Usuario autenticado entra a `/saldo`.
+2. Hace clic en `Add funds`.
+3. Selecciona monto fijo: `$10`, `$25`, `$50` o `$100`.
+4. Frontend llama `POST /api/billing/checkout-session`.
+5. Backend valida sesion, email verificado, monto permitido, moneda `USD` y limites beta.
+6. Backend crea Stripe Checkout Session.
+7. Usuario paga en Stripe.
+8. Stripe llama `POST /api/webhooks/stripe`.
+9. Backend verifica firma con `STRIPE_WEBHOOK_SECRET`.
+10. Webhook idempotente crea `balance_movement` tipo `recharge`.
+11. Usuario vuelve a `/saldo?recharge=success`.
+12. La UI vuelve a leer `/api/balance`; la success URL no acredita saldo.
+
+### Reglas operativas
+
+- El frontend nunca acredita saldo.
+- No confiar en `success_url` para acreditar.
+- No aceptar `userId` confiable desde cliente.
+- Monto y currency se validan server-side.
+- Webhook idempotente por `stripe_event_id`, `checkout_session_id` y/o `payment_intent_id`.
+- Si Stripe cobro pero DB fallo, registrar evento critico de reconciliacion y no intentar doble credito automatico.
+- Recomendacion beta: montos fijos, minimo `$10`, maximo `$500`, sin custom amount al inicio.
+
+### UI futura `/saldo`
+
+`Add funds` abrira modal:
+
+- Titulo: `Choose amount`.
+- Opciones: `$10`, `$25`, `$50`, `$100`.
+- Texto: `Funds are added after payment confirmation from Stripe.`
+- Accion: `Continue to secure checkout`.
+
+Estados:
+
+- Success: `Payment received. Your balance will update once confirmed.`
+- Canceled: `Payment canceled. No funds were added.`
+- Pending: `Payment is still being confirmed.`
+
+### Variables futuras
+
+```text
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_PRICE_ID_10=
+STRIPE_PRICE_ID_25=
+STRIPE_PRICE_ID_50=
+STRIPE_PRICE_ID_100=
+```
+
+No usar live keys hasta completar implementacion, webhook, migracion y QA.
+
+## FASE 5.33 — Stripe Checkout sandbox implementation
+
+Stripe Checkout queda implementado para sandbox/test, pero requiere migracion y variables antes de probar.
+
+### Migracion requerida
+
+Aplicar manualmente en Supabase test/staging:
+
+```text
+shipflow-web/supabase/migrations/20260519_add_payment_recharges.sql
+```
+
+Verificacion:
+
+```sql
+select to_regclass('public.payment_recharges') as payment_recharges_table;
+
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'payment_recharges'
+order by ordinal_position;
+
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.payment_recharges'::regclass;
+```
+
+### Variables requeridas para test
+
+```text
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+No usar `sk_live` ni `pk_live`.
+
+### Endpoints
+
+- `POST /api/billing/checkout-session`
+- `POST /api/webhooks/stripe`
+
+### Prueba sandbox
+
+1. Aplicar migracion en Supabase test/staging.
+2. Configurar Stripe test keys y webhook secret.
+3. Configurar webhook endpoint en Stripe Dashboard o Stripe CLI apuntando a `/api/webhooks/stripe`.
+4. Abrir `/saldo`.
+5. Click `Add funds`.
+6. Seleccionar `$10`.
+7. Completar Checkout con una test card de Stripe.
+8. Confirmar que webhook procesa `checkout.session.completed`.
+9. Verificar `payment_recharges.status = paid`.
+10. Verificar `balance_movements.type = recharge`.
+11. Verificar saldo actualizado en `/saldo`.
+12. Reenviar el evento desde Stripe y confirmar que no se duplica saldo.
+
+### Reglas de seguridad
+
+- La success URL no acredita saldo.
+- El frontend no crea `balance_movements`.
+- Si el webhook falla despues de pago confirmado, revisar `/admin/audit` y `payment_recharges` antes de reintentar manualmente.
+
+## FASE 5.34 — Stripe sandbox verification and recharge QA
+
+No usar Stripe live. No aplicar migracion automaticamente desde Codex.
+
+### Stripe CLI local
+
+Instalar/usar Stripe CLI segun el entorno local y luego:
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+Copiar manualmente el `whsec_...` mostrado por Stripe CLI a `STRIPE_WEBHOOK_SECRET` en el entorno local ignorado por Git. No pegarlo en docs, commits ni chats.
+
+En otra terminal:
+
+```bash
+cd shipflow-web
+npm run dev
+```
+
+Abrir:
+
+```text
+http://localhost:3000/saldo
+```
+
+### Variables test requeridas
+
+```text
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+### QA de Checkout
+
+- Usuario sin sesion: debe responder 401/403.
+- Usuario sin email verificado: debe bloquearse si Supabase marca email no verificado.
+- `amount = 10`, `25`, `50`, `100`: crea Checkout Session.
+- `amount = 1`, `500`, string manipulado o valor no numerico: bloqueado.
+- Currency no viene del frontend; backend fuerza `usd`.
+- Respuesta publica: solo `checkoutUrl`.
+- No se crea `balance_movement` en este endpoint.
+
+### QA de Webhook
+
+- Firma invalida: rechazar 400 y registrar `payment_recharge_signature_failed` sin secrets.
+- Evento desconocido: responder OK/no-op.
+- `checkout.session.completed` con `payment_status = paid`: acreditar saldo.
+- `checkout.session.expired`: marcar recarga `canceled` si sigue `pending`.
+- `payment_intent.payment_failed`: marcar recarga `failed` si sigue `pending`.
+- Amount/currency mismatch: no acreditar y registrar `payment_recharge_amount_mismatch`.
+- Session inexistente en DB: no acreditar y registrar `payment_recharge_db_failed`.
+- DB failure despues de pago confirmado: registrar critical y devolver 500 para retry Stripe.
+
+### QA de idempotencia
+
+Reenviar el mismo evento desde Stripe Dashboard/CLI:
+
+- No debe crear un segundo `balance_movements`.
+- `payment_recharges.balance_movement_id` debe seguir apuntando al mismo movimiento.
+- Audit debe registrar `payment_recharge_duplicate_ignored`.
+
+SQL rapido para confirmar:
+
+```sql
+select count(*) as recharge_movements, coalesce(sum(amount), 0) as total_recharged
+from public.balance_movements
+where type = 'recharge'
+  and reference_type = 'stripe_checkout'
+  and reference_id = '<PAYMENT_INTENT_OR_SESSION_ID>';
+```
+
+### Test card
+
+Usar tarjeta Stripe test:
+
+```text
+4242 4242 4242 4242
+Fecha futura
+CVC cualquiera
+ZIP cualquiera
+```
+
+### Lo que no se debe hacer
+
+- No usar `sk_live` ni `pk_live`.
+- No confiar en `/saldo?recharge=success` para acreditar saldo.
+- No crear saldo desde frontend.
+- No reenviar eventos repetidamente sin revisar idempotencia y audit.
+
+### Resultado sandbox validado
+
+FASE 5.37 confirma una prueba sandbox exitosa ejecutada con humano:
+
+- Stripe Checkout test funciono.
+- Stripe CLI recibio eventos.
+- `/api/webhooks/stripe` respondio 200.
+- Se creo `Payment recharge +$10.00`.
+- El saldo subio por `balance_movements type = recharge`.
+- La success URL no acredito saldo.
+- El webhook verificado fue la fuente de verdad.
+
+Mantener pendiente antes de produccion:
+
+- Refunds de recarga.
+- Disputes/chargebacks.
+- Balance reversal.
+- Reconciliation workflow formal para pagos.
+
+## FASE 5.35 — Controlled Stripe sandbox test
+
+Codex no debe ejecutar pagos ni leer `.env.local`. Esta prueba requiere accion del humano.
+
+### Gate antes de Checkout
+
+No iniciar Checkout hasta confirmar:
+
+1. Migracion `20260519_add_payment_recharges.sql` aplicada en Supabase test/staging.
+2. Variables test configuradas manualmente:
+   - `STRIPE_SECRET_KEY=sk_test_...`
+   - `STRIPE_WEBHOOK_SECRET=whsec_...`
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
+3. `npm run dev` corriendo.
+4. Stripe CLI escuchando:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+5. `/api/config/status` devuelve:
+
+```json
+{
+  "stripeRechargeConfigured": true,
+  "stripeRechargeEnabled": true
+}
+```
+
+Si alguno es `false`, detenerse y revisar configuracion sin imprimir valores.
+
+### SQL antes de pagar
+
+```sql
+select to_regclass('public.payment_recharges') as payment_recharges_table;
+
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.payment_recharges'::regclass
+order by conname;
+
+select conname, pg_get_constraintdef(oid) as definition
+from pg_constraint
+where conrelid = 'public.balance_movements'::regclass
+  and conname = 'balance_movements_type_check';
+```
+
+### Test $10
+
+1. Abrir `/saldo`.
+2. Click `Add funds`.
+3. Seleccionar `$10`.
+4. Completar Stripe Checkout con test card `4242 4242 4242 4242`.
+5. Esperar webhook `checkout.session.completed`.
+6. Volver a `/saldo?recharge=success`.
+
+La success URL solo muestra mensaje; el saldo sube solo por webhook.
+
+### SQL despues del pago
+
+```sql
+select id, user_id, stripe_checkout_session_id, stripe_payment_intent_id,
+       stripe_event_id, amount, currency, status, balance_movement_id,
+       created_at, updated_at
+from public.payment_recharges
+order by created_at desc
+limit 5;
+
+select id, user_id, concept, amount, type, reference_type,
+       reference_id, idempotency_key, created_at
+from public.balance_movements
+where type = 'recharge'
+order by created_at desc
+limit 5;
+
+select coalesce(sum(amount), 0) as available_balance
+from public.balance_movements
+where user_id = '<USER_ID>';
+```
+
+Esperado:
+
+- `payment_recharges.status = paid`.
+- `amount = 10`.
+- `currency = usd`.
+- Stripe session, payment intent, event y balance movement no null.
+- Un solo `balance_movements` con `type = recharge`, `concept = Payment recharge`, `amount = 10`.
+
+### Duplicado/idempotencia
+
+Reenviar el mismo evento desde Stripe Dashboard/CLI.
+
+Verificar:
+
+```sql
+select count(*) as movement_count, coalesce(sum(amount), 0) as total_amount
+from public.balance_movements
+where type = 'recharge'
+  and reference_type = 'stripe_checkout'
+  and reference_id = '<PAYMENT_INTENT_OR_SESSION_ID>';
+```
+
+Esperado:
+
+- `movement_count = 1`.
+- `total_amount = 10`.
+- Audit registra `payment_recharge_duplicate_ignored` o maneja el reenvio como idempotente seguro.
 
 ## Consideraciones de produccion
 

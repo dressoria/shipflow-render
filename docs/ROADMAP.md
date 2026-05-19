@@ -631,6 +631,370 @@ Pendiente posterior:
 - Implementar void/refund ShipEngine en fase separada.
 - Definir retencion/storage permanente de PDF si la URL del provider expira.
 
+## FASE 5.20F — Label purchase success UX
+
+Estado: completada en web, sin nueva compra sandbox durante la fase.
+
+- Diferenciar carrier label oficial (`label_url`) de shipment summary interno.
+- Mostrar `Download carrier label` en `/envios`, post-compra y detalle si existe `label_url`.
+- Renombrar la pagina interna a `Shipment summary`.
+- Eliminar QR vacio/falso y mantener tracking number/barcode visual.
+- Mostrar estado post-compra claro con Label/Payment/Shipment separados.
+- Mantener void/refund ShipEngine bloqueado.
+
+Pendiente posterior:
+
+- Probar de nuevo con el shipment sandbox existente.
+- Implementar void/refund ShipEngine confirmado por provider.
+- Webhooks/tracking carrier.
+- Storage/retencion permanente de carrier label PDFs.
+
+## FASE 5.20G — ShipEngine sandbox QA and edge-case hardening
+
+Estado: completada sin comprar otra label.
+
+- Reforzar doble click y estado `Purchasing label...`.
+- Mejorar mensajes de saldo insuficiente, rate expirado, provider error e idempotencia ambigua.
+- Mantener purchase bloqueado si `ENABLE_REAL_LABEL_PURCHASE` esta apagado.
+- Confirmar `label_url` faltante sin botones rotos.
+- Tracking search muestra Label/Payment y mensaje honesto sin eventos carrier.
+- Balance UI conserva debit como `Carrier label purchase`.
+- Void/refund ShipEngine sigue bloqueado.
+- Google Maps legacy Autocomplete y deprecated Marker quedan documentados para fase futura.
+
+Pendiente posterior:
+
+- QA manual del shipment sandbox existente.
+- Implementar void/refund ShipEngine en fase separada.
+- Webhooks/tracking carrier.
+- Reconciliacion persistente/audit logs para casos provider OK + DB fail.
+- Migrar Google Maps a APIs nuevas.
+
+## FASE 5.21 — Basic tracking experience
+
+Estado: completada sin webhooks ni tracking realtime.
+
+- `/api/tracking` busca shipments guardados por tracking number o id.
+- Requiere usuario verificado y filtra por owner.
+- Devuelve shipment, label/payment status, carrier/service, label URL y tracking events.
+- `/tracking` soporta carga manual y `?trackingNumber=...`.
+- `/envios` y shipment summary enlazan a tracking.
+- Timeline preparado para futuros `tracking_events`.
+
+Pendiente posterior:
+
+- ShipEngine/carrier webhooks.
+- Normalizacion de tracking events reales.
+- Polling controlado si se decide.
+- Notificaciones de tracking.
+
+## FASE 5.22 — ShipEngine sandbox void/refund
+
+Estado: implementada en codigo, pendiente de prueba sandbox manual.
+
+- Agregar guard `ENABLE_REAL_LABEL_VOID`.
+- Implementar ShipEngine void con `PUT /v1/labels/{label_id}/void`.
+- Refund interno solo despues de `approved: true`.
+- Persistir void/refund via RPC `void_label_refund_transaction`.
+- Evitar doble refund mediante estado `voided` y movimiento `refund` existente.
+- UI muestra `Void label`, `Voiding label...`, `Void is not enabled yet.` y estado voided/refunded.
+- Balance UI muestra refund como `Carrier label void refund`.
+
+Pendiente posterior:
+
+- Probar void sandbox con la label existente.
+- Reconciliacion persistente/audit log.
+- Webhooks carrier.
+- Void/refund multi-provider.
+
+## FASE 5.23 — Balance and recharge design
+
+Estado: preparada para beta sin pagos reales.
+
+- `/api/balance` devuelve saldo disponible, movimientos y totales historicos.
+- `/saldo` muestra Available balance, Total recharged, Total spent, Total refunded, Adjustments y Balance activity.
+- `Add funds` no crea dinero. Solo informa que la recarga online no esta disponible y que soporte debe agregar fondos durante beta.
+- No se creo endpoint publico para recargas.
+- El ledger queda estandarizado:
+  - `recharge`: credito confirmado por pago futuro o top-up manual sandbox.
+  - `debit`: compra de label.
+  - `refund`: void confirmado por provider.
+  - `adjustment`: correccion manual/admin.
+  - `fee`: cargo separado futuro si aplica.
+- Stripe futuro debe acreditar saldo solo desde webhook confirmado, con idempotencia por event/payment intent.
+
+Pendiente posterior:
+
+- FASE 5.24: admin/support operations para ver usuarios, crear ajustes manuales, auditar cambios y reconciliar pagos.
+- Stripe Checkout + webhook verificado.
+- Reconciliacion para pago OK + DB fail.
+
+## FASE 5.24 — Admin support operations
+
+Estado: panel read-only preparado para beta.
+
+- Admin guard server-side por `profiles.role = admin` o allowlist temporal `ADMIN_EMAILS`.
+- Endpoints:
+  - `/api/admin/access`
+  - `/api/admin/overview`
+  - `/api/admin/shipments`
+  - `/api/admin/balance-movements`
+- `/admin` muestra KPIs reales y bloque de reconciliation pending.
+- `/admin/envios` muestra tracking, owner/email, recipient, carrier, label/payment status, total y acciones read-only.
+- `/admin/saldo` muestra movimientos de balance con filtros por email/tracking/type.
+- Couriers queda read-only.
+- Manual adjustment queda deshabilitado.
+
+Pendiente posterior:
+
+- FASE 5.25 o posterior: manual adjustments con permisos fuertes y audit log.
+- Reconciliation queue persistente.
+- RBAC formal y permisos por accion.
+- Stripe/recharge real.
+
+## FASE 5.25 — Admin manual balance adjustments
+
+Estado: implementada para beta cerrada.
+
+- Nuevo `POST /api/admin/balance-adjustments`.
+- Admin puede crear ajustes positivos o negativos desde `/admin/saldo`.
+- No es pago real ni Stripe.
+- Limite beta: `$500` absoluto por ajuste.
+- No permite saldo final negativo.
+- Reason obligatorio y note opcional.
+- Idempotencia por `admin-adjustment:<key>`.
+- Auditoria basica en `balance_movements.created_by` y `metadata`.
+- Usuario final solo ve `Manual adjustment` en `/saldo`.
+
+Pendiente posterior:
+
+- Audit logs formales.
+- RBAC granular por accion.
+- Approval flow para ajustes grandes.
+- Stripe Checkout/webhooks para recargas reales.
+
+## FASE 5.26 — Reconciliation queue and audit logs foundation
+
+Estado: foundation implementada sin migracion nueva.
+
+- Reutiliza `audit_logs` existente.
+- Nuevo helper server-side `createAuditLog` / `createReconciliationEvent`.
+- Nuevo endpoint `GET /api/admin/audit-events`.
+- Nueva pagina `/admin/audit`.
+- `/admin` muestra bloque `Reconciliation & audit`.
+- Eventos integrados:
+  - label purchase started/succeeded/failed/db persist failed.
+  - label URL missing.
+  - void started/succeeded/failed/refund failed.
+  - manual adjustment created/rejected.
+  - admin access denied.
+  - idempotency conflict.
+- Metadata sanitizada; no secrets ni raw provider responses.
+
+Pendiente posterior:
+
+- Reconciliation queue dedicada con status open/resolved.
+- Owner/assignee, comentarios y audit de cierre.
+- Notificaciones internas para critical events.
+- Columnas first-class si se decide migrar `audit_logs` para severity/request/tracking.
+
+## FASE 5.27 — Mobile responsive beta review
+
+Estado: implementada como ajuste visual web, sin tocar mobile nativo ni backend critico.
+
+- Shell principal y admin reforzados para mobile/tablet.
+- `/dashboard` mantiene KPIs y muestra recent shipments como cards en mobile.
+- `/crear-guia` ajustado para inputs full-width, paquete responsive, rate cards tocables y modal con scroll interno.
+- `/envios` ahora tiene cards mobile y tabla desktop/tablet con scroll.
+- `/guia/[trackingNumber]`, `/tracking` y `/saldo` ajustados para textos largos, acciones full-width y sin overflow horizontal inesperado.
+- Admin support views mantienen tablas con scroll horizontal y filtros apilados en mobile.
+- No se cambio pricing, labels, void/refund, balance, admin auth ni audit logic.
+
+Pendiente posterior:
+
+- QA visual en dispositivos reales antes de beta publica.
+- Mejoras finas de accesibilidad si aparecen issues en pruebas reales.
+- Migrar warnings legacy de Google Maps cuando se planifique una fase de mapas.
+
+## FASE 5.28 — Full end-to-end beta QA
+
+Estado: revision pre-staging completada a nivel codigo/copy/guards, sin deploy ni acciones reales.
+
+- Rutas auditadas: auth, dashboard, get rates, shipments, shipment summary, tracking, balance y admin/support.
+- APIs auditadas: config status, rates, labels, tracking, balance y admin.
+- Se corrigieron textos visibles residuales:
+  - loading de rutas protegidas en ingles.
+  - errores fallback de rates en ingles.
+  - placeholder corrupto en password.
+  - estado tecnico `internal` mostrado como `Processed`.
+  - audit copy sin mencionar raw provider responses.
+  - tracking fallback local en ingles.
+- Se confirmo por codigo que:
+  - `/api/labels` bloquea antes de comprar si `ENABLE_REAL_LABEL_PURCHASE !== "true"`.
+  - `/api/labels/[id]/void` bloquea si `ENABLE_REAL_LABEL_VOID !== "true"`.
+  - `/api/tracking` no llama APIs externas y filtra por usuario.
+  - admin endpoints requieren admin server-side.
+
+Checklist antes de staging:
+
+- Variables de entorno completas en staging, sin secrets en repo.
+- Migraciones/RPCs aplicadas en Supabase.
+- `ENABLE_REAL_LABEL_PURCHASE` y `ENABLE_REAL_LABEL_VOID` apagados por defecto.
+- ShipEngine TEST key para staging sandbox.
+- `ADMIN_EMAILS` o `profiles.role = admin` configurado.
+- Validaciones `lint`, `typecheck`, `build` y `git diff --check` en verde.
+- QA manual de auth, rates, shipment existente, tracking, balance, admin/audit y responsive.
+
+Pendiente posterior:
+
+- QA visual con navegador en entorno local/staging.
+- Fase de staging environment/runbook.
+- Produccion sigue bloqueada hasta completar payments, reconciliation workflow formal y decision de guards.
+
+## FASE 5.29 — Staging deploy preparation and operational runbook
+
+Estado: runbook preparado, sin deploy.
+
+- `.env.example` actualizado con variables de staging y defaults seguros.
+- `docs/DEPLOYMENT.md` ahora incluye:
+  - preflight local.
+  - variables sandbox/test.
+  - migraciones/RPCs requeridas.
+  - SQL de verificacion.
+  - health check post-deploy.
+  - staging test plan.
+  - riesgos y rollback.
+- README actualizado para reflejar el estado beta real.
+- Base de datos y seguridad documentan que purchase/void siguen apagados por defecto.
+
+Checklist clave:
+
+- No secrets en repo.
+- `ENABLE_REAL_LABEL_PURCHASE=false`.
+- `ENABLE_REAL_LABEL_VOID=false`.
+- ShipEngine TEST key.
+- Shippo test key si se usa.
+- Easyship sandbox key/base URL si se usa.
+- Supabase migrations aplicadas y verificadas.
+- Admin configurado por `profiles.role = admin` o `ADMIN_EMAILS`.
+
+Pendiente posterior:
+
+- Ejecutar deploy staging real.
+- Hacer QA visual/manual contra staging.
+- Decidir si se ejecuta una prueba sandbox controlada de label/void en staging.
+
+## FASE 5.31 — Staging deploy execution and visual QA
+
+Estado: handoff de ejecucion preparado; deploy externo no ejecutado desde Codex.
+
+- Pre-deploy local definido: lint, typecheck, build, `git diff --check` y `git status --short`.
+- Variables de staging revisadas en docs y `.env.example` con placeholders seguros.
+- Supabase staging debe verificarse con SQL antes de pruebas de purchase/void.
+- Deploy queda en manos del humano/plataforma porque requiere credenciales de hosting y variables reales de staging.
+- Guards deben iniciar apagados: `ENABLE_REAL_LABEL_PURCHASE=false` y `ENABLE_REAL_LABEL_VOID=false`.
+- Health check post-deploy y QA visual responsive quedan documentados en `docs/DEPLOYMENT.md`.
+
+Pendiente posterior:
+
+- Ejecutar deploy staging real.
+- Hacer health check contra URL staging.
+- Ejecutar rates test con guards apagados.
+- Opcional: prueba controlada de una label ShipEngine TEST y un void sandbox, apagando flags al terminar.
+
+## FASE 5.32 — Stripe/payment design for balance recharge
+
+Estado: diseno documentado, sin implementar Stripe, sin endpoints nuevos y sin migracion.
+
+- El flujo futuro usara Stripe Checkout para recargas de balance.
+- `Add funds` seguira sin acreditar saldo hasta que exista backend/webhook.
+- La regla central queda definida: solo un webhook Stripe con firma verificada puede crear `balance_movement` tipo `recharge`.
+- Montos beta recomendados: `$10`, `$25`, `$50`, `$100`; custom amount queda pendiente o limitado.
+- Modelo recomendado: tabla futura `payment_recharges` para mantener estado `pending/paid/failed/canceled/refunded` y reconciliacion.
+- `balance_movements` mantiene el ledger final con `type = recharge`, `concept = Payment recharge` y referencia Stripe.
+- Audit/reconciliation events propuestos para checkout, webhook, duplicados, mismatch y DB failure.
+- Variables futuras agregadas a `.env.example` como placeholders sin secretos reales.
+
+Pendiente posterior:
+
+- FASE 5.33: implementar Stripe Checkout Session + webhook verificado detras de migracion `payment_recharges`.
+- QA sandbox Stripe con test cards.
+- Definir refund/chargeback/dispute flow antes de produccion.
+
+## FASE 5.33 — Stripe Checkout + webhook sandbox implementation
+
+Estado: implementada en codigo para sandbox/test; requiere aplicar migracion y configurar Stripe test vars antes de prueba manual.
+
+- Dependencia `stripe` agregada.
+- Migracion `20260519_add_payment_recharges.sql` creada, no aplicada automaticamente.
+- Helper server-side Stripe creado.
+- Endpoint `POST /api/billing/checkout-session` creado para montos fijos `$10`, `$25`, `$50`, `$100`.
+- Endpoint `POST /api/webhooks/stripe` creado con raw body y firma verificada.
+- `/saldo` actualiza `Add funds` a modal con Checkout cuando Stripe esta configurado.
+- `/api/config/status` expone `stripeRechargeConfigured` como boolean seguro.
+- Audit/reconciliation integrado para checkout, webhook, duplicados, mismatch y DB failure.
+
+Pendiente posterior:
+
+- Aplicar migracion en Supabase test/staging.
+- Configurar Stripe test keys y webhook secret.
+- Probar Checkout con test cards y reenviar webhook para validar idempotencia.
+- Disenar refunds de recarga, chargebacks/disputes y reconciliation workflow operativo antes de produccion.
+
+## FASE 5.34 — Stripe sandbox verification and recharge QA
+
+Estado: QA/runbook preparado; no se ejecutaron pagos sandbox desde Codex.
+
+- Precheck local confirma `stripe` instalado y validaciones base.
+- Migracion `payment_recharges` revisada: constraints, uniques, indices y RLS segura.
+- `/api/config/status` expone `stripeRechargeConfigured` y `stripeRechargeEnabled`.
+- Checkout requiere configuracion Stripe completa, incluyendo webhook secret.
+- Stripe CLI flow documentado para `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+- SQL de verificacion agregado para tabla, columns, constraints, policies, recharges y ledger.
+- QA documentado para checkout, webhook, idempotencia, balance UI y audit/reconciliation.
+
+Pendiente posterior:
+
+- Aplicar migracion en Supabase test/staging.
+- Ejecutar prueba con Stripe CLI y test card.
+- Reenviar evento para comprobar no duplicacion.
+- Disenar refunds/chargebacks/disputes.
+
+## FASE 5.35 — Controlled Stripe sandbox test
+
+Estado: precheck local ejecutado y handoff de prueba preparado; pago sandbox no ejecutado desde Codex.
+
+- Lint/typecheck/build/diff verificados localmente.
+- `.env.local` sigue ignorado y no fue leido ni mostrado.
+- Migracion `payment_recharges` revisada, pero no aplicada desde Codex.
+- Checklist de gate agregado: migracion aplicada, Stripe test vars, Stripe CLI, `/api/config/status` con `stripeRechargeEnabled=true`.
+- SQL post-pago agregado para verificar `payment_recharges`, `balance_movements`, saldo e idempotencia.
+
+Pendiente posterior:
+
+- Humano ejecuta prueba `$10` con Stripe test card.
+- Verificar DB y audit reales.
+- Reenviar webhook y confirmar un solo movimiento recharge.
+- Documentar resultado final de sandbox.
+
+## FASE 5.37 — Stripe recharge UX polish and failure states
+
+Estado: implementada despues de prueba sandbox exitosa.
+
+- Stripe Checkout test validado con humano.
+- Webhook Stripe respondio 200 y acredito `Payment recharge +$10.00`.
+- `/saldo` muestra mensajes claros para success, canceled y pending, con dismiss.
+- Stripe no configurado muestra `Online recharge is not available yet.`
+- Errores de checkout se traducen a copy seguro sin detalles tecnicos.
+- Admin audit muestra labels Stripe legibles.
+- Docs actualizan que el frontend no acredita saldo y que el webhook verificado es la fuente de verdad.
+
+Pendiente posterior:
+
+- Reenviar webhook y confirmar idempotencia si no se hizo ya.
+- Disenar refunds, chargebacks/disputes y balance reversals.
+- Preparar production readiness checklist para pagos.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

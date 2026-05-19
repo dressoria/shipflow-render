@@ -1358,3 +1358,435 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - Reconciliacion: si ShipEngine compra OK pero la DB/RPC falla, se loggea server-side un evento sanitizado con request ID y se muestra mensaje seguro al usuario.
 
 **Pendiente:** aplicar manualmente la migracion 5.20D en Supabase antes de activar `ENABLE_REAL_LABEL_PURCHASE=true` para una prueba sandbox. Void/refund ShipEngine sigue pendiente.
+
+## Estado FASE 5.20F — UX post-compra y label oficial
+
+**Contexto:** ya se realizo una primera compra sandbox exitosa con ShipEngine/Stamps.com. Tracking de prueba: `9434650899563003146315`.
+
+**Cambios principales:**
+- Se separo claramente el concepto de **Carrier label** del **Shipment summary** interno de ShipFlow.
+- `label_url`, `provider_rate_id`, `provider_label_id` y `provider_service_code` ahora se mapean desde Supabase hacia `Envio` para que la UI pueda mostrar/abrir la label oficial.
+- `/envios` muestra `Download carrier label` solo si `label_status = purchased` y existe `label_url`; la pagina interna ahora dice `View shipment`.
+- `/guia/[trackingNumber]` queda como `Shipment summary`, no como label oficial.
+- Se elimino el bloque de QR vacio/falso y se mantiene tracking number + barcode visual.
+- Despues de compra exitosa, `/crear-guia` muestra estado claro: `Label purchased successfully`, tracking, carrier, label/payment status, total, descarga de carrier label, view shipment y create another shipment.
+- Balance muestra los debits de label como `Carrier label purchase` en UI.
+
+**Pendiente:** void/refund ShipEngine sigue deshabilitado. Tracking webhooks/eventos reales siguen pendientes; tracking muestra eventos disponibles y mensaje honesto cuando el carrier aun no reporta movimiento.
+
+## Estado FASE 5.20G — QA sandbox y edge-case hardening
+
+**Objetivo:** endurecer la compra sandbox ShipEngine sin comprar otra label.
+
+**Cambios principales:**
+- UI de compra bloquea doble click: el modal queda en `Purchasing label...`, deshabilita confirm/cancel y no dispara doble submit.
+- Idempotencia: el backend genera/usa `idempotency_key`; si ya existe purchased devuelve el shipment existente; si existe estado ambiguo responde 409 con mensaje seguro.
+- Rate expirado: si no se revalida el rate, responde `Selected rate is no longer available. Please refresh rates and try again.` y no compra.
+- Saldo insuficiente: la UI muestra `Insufficient balance to purchase this label. Please contact support to add funds.`
+- Provider errors: errores ShipEngine se muestran como carrier errors sanitizados; no se devuelve raw provider response al usuario.
+- Response incompleta de carrier: se loggea server-side con datos sanitizados y se pide contactar soporte antes de reintentar.
+- Tracking search muestra Label/Payment y estado vacio honesto: `No tracking events yet. Tracking updates will appear once the carrier reports movement.`
+- Google Maps legacy/deprecation warnings quedan documentados como pendiente futuro.
+
+**Pendiente:** no hay void/refund ShipEngine, webhooks carrier ni migracion a Google Places/AdvancedMarker modernos.
+
+## Estado FASE 5.21 — Basic tracking experience
+
+**Objetivo:** hacer tracking util con shipments guardados sin implementar webhooks ni realtime carrier tracking.
+
+**Cambios principales:**
+- `/api/tracking` ahora soporta `GET /api/tracking?trackingNumber=...` y `POST /api/tracking`.
+- El endpoint requiere usuario verificado, filtra por `user_id` y no expone shipments de otros usuarios.
+- Busca en `shipments` por `tracking_number` o `id` y devuelve shipment seguro, label/payment status, carrier/service, `labelUrl` y `tracking_events`.
+- No llama ShipEngine tracking ni APIs carrier externas.
+- `/tracking` puede precargar `trackingNumber` desde query string y muestra datos del shipment, estado de label/payment, destino, carrier label y timeline.
+- Si no hay eventos carrier, muestra estado honesto: `No tracking events yet. Tracking updates will appear once the carrier reports movement.`
+- `/envios` agrega accion `Track`; `/guia/[trackingNumber]` agrega `Track shipment`.
+
+**Pendiente:** webhooks/tracking carrier real, polling controlado si se decide, y normalizacion avanzada de eventos.
+
+## Estado FASE 5.22 — ShipEngine sandbox void/refund
+
+**Objetivo:** implementar void/refund sandbox seguro para labels ShipEngine, sin ejecutar pruebas de void desde Codex.
+
+**Cambios principales:**
+- `ENABLE_REAL_LABEL_VOID` es el guard server-side obligatorio. Si no es `"true"`, no se llama ShipEngine, no hay refund y no cambia `label_status`.
+- ShipEngine void usa el endpoint oficial `PUT /v1/labels/{label_id}/void`.
+- Void solo aplica a shipments propios, provider `shipstation` en modo `shipengine`, `label_status = purchased`, `payment_status = paid` y con `provider_label_id`.
+- Refund interno solo ocurre despues de confirmacion del provider y usa RPC `void_label_refund_transaction`.
+- Idempotencia: labels ya `voided` retornan estado actual; refunds existentes no se duplican.
+- UI `/envios` muestra `Void label`; si el guard esta apagado muestra `Void is not enabled yet.`
+- Summary/tracking muestran aviso cuando una label esta voided: `This label was voided and should not be used.`
+- Balance UI normaliza refunds como `Carrier label void refund`.
+
+**Pendiente:** no se ejecuto void sandbox. Webhooks, void multi-provider y reconciliacion persistente siguen pendientes.
+
+## Estado FASE 5.23 — Balance y recargas antes de pagos
+
+**Objetivo:** dejar el modulo de balance listo para beta sin crear recargas reales ni integrar Stripe todavia.
+
+**Cambios principales:**
+- `/api/balance` sigue siendo solo lectura y ahora devuelve `availableBalance`, `movements` y `totals` (`totalRecharged`, `totalSpent`, `totalRefunded`, `totalAdjustments`, `totalFees`).
+- La UI de `/saldo` muestra saldo disponible, totales historicos y actividad limpia del ledger.
+- Los movimientos se normalizan para usuario final como `Carrier label purchase`, `Carrier label void refund`, `Test balance top-up`, `Payment recharge`, `Manual adjustment` o `Service fee`.
+- `Add funds` no crea saldo ni llama ningun pago. Muestra: `Online balance recharge is not available yet. Please contact support to add funds during beta.`
+- No se creo endpoint publico para recargar saldo.
+
+**Modelo actual de balance:**
+- `recharge`: amount positivo, futuro credito confirmado por proveedor de pago. En sandbox puede existir top-up manual de prueba.
+- `debit`: amount negativo, compra de carrier label.
+- `refund`: amount positivo, devolucion por void confirmado por provider.
+- `adjustment`: ajuste manual/admin, positivo o negativo.
+- `fee`: cargo separado si se decide separar fees; hoy las fees viven dentro de `customer_price`.
+
+**Stripe futuro:** solo el webhook confirmado debe crear `balance_movement` tipo `recharge`, con idempotencia por Stripe event/payment intent. Nunca confiar en exito reportado por frontend ni permitir recarga directa desde cliente.
+
+**Pendiente:** Stripe/payment provider, panel admin/support para ajustes manuales, reconciliacion de pagos y permisos operativos fuertes.
+
+## Estado FASE 5.24 — Admin support operations
+
+**Objetivo:** preparar un panel admin/support basico para beta cerrada, read-only y protegido server-side.
+
+**Cambios principales:**
+- Se agregaron endpoints admin autenticados:
+  - `GET /api/admin/access`
+  - `GET /api/admin/overview`
+  - `GET /api/admin/shipments`
+  - `GET /api/admin/balance-movements`
+- El guard admin valida usuario verificado y luego `profiles.role = 'admin'` o allowlist server-side temporal `ADMIN_EMAILS`.
+- Los endpoints admin usan `service_role` solo despues de validar admin server-side y no devuelven secrets ni raw provider responses.
+- `/admin` muestra KPIs reales: users, shipments, labels purchased, labels voided, total recharged, label spend, refunds y reconciliation pending.
+- `/admin/envios` lista shipments con email, tracking, recipient, carrier/service, label/payment status, total y acciones read-only (`View shipment`, `Track`, `Download carrier label` si existe).
+- `/admin/saldo` lista movimientos de balance con usuario/email, amount, type, referencia y tracking cuando existe.
+- La seccion de couriers queda read-only para no permitir cambios de pricing/catalogo desde esta fase.
+- `Manual adjustment` queda deshabilitado. No se creo recarga real ni endpoint para acreditar saldo.
+
+**Pendiente:** panel admin de ajustes manuales controlados, audit/reconciliation queue persistente, RBAC formal mas alla de allowlist temporal, Stripe/recharge real.
+
+## Estado FASE 5.25 — Admin manual balance adjustments
+
+**Objetivo:** permitir ajustes manuales de saldo para beta cerrada sin SQL manual y sin presentarlos como pagos reales.
+
+**Cambios principales:**
+- Nuevo endpoint `POST /api/admin/balance-adjustments`.
+- Requiere usuario autenticado, email verificado y admin server-side.
+- Usa `service_role` solo despues del guard admin.
+- Crea `balance_movements` con:
+  - `type = adjustment`
+  - `concept = Manual adjustment`
+  - `reference_type = admin_manual_adjustment`
+  - `created_by = admin user id`
+  - `metadata` con `adminUserId`, `adminEmail`, `reason`, `note`, `createdFrom`, timestamp y balance before/after.
+- Límite beta: maximo absoluto `$500` por ajuste.
+- Bloquea `amount = 0`, reason vacio, usuario inexistente y ajustes negativos que dejarian saldo final bajo cero.
+- Idempotencia por `idempotency_key = admin-adjustment:<key>`.
+- `/admin/saldo` ahora incluye formulario de `Manual adjustment` con Add funds / Deduct funds, reason obligatorio y note opcional.
+- `/saldo` del usuario sigue mostrando solo `Manual adjustment`, sin metadata interna.
+
+**Pendiente:** audit_logs formal, RBAC granular por accion, aprobaciones de ajustes grandes, Stripe/recharge real y reconciliation queue persistente.
+
+## Estado FASE 5.26 — Audit logs y reconciliation foundation
+
+**Objetivo:** registrar eventos operativos criticos y preparar una base read-only de reconciliacion sin comprar labels, voids ni pagos reales.
+
+**Modelo usado:**
+- Se reutiliza la tabla existente `audit_logs`; no se creo migracion.
+- `audit_logs.action` guarda el tipo de evento.
+- `audit_logs.entity_type/entity_id` apuntan al objeto afectado.
+- `audit_logs.metadata` guarda campos sanitizados:
+  - `severity`
+  - `actorEmail`
+  - `userId`
+  - `provider`
+  - `trackingNumber`
+  - `idempotencyKey`
+  - `requestId`
+  - `message`
+  - metadata operativa sin secrets.
+
+**Cambios principales:**
+- Nuevo helper server-side `lib/server/auditLog.ts` con `createAuditLog`, `createReconciliationEvent` y sanitizacion de metadata.
+- Nuevo endpoint admin `GET /api/admin/audit-events`.
+- Nueva pagina `/admin/audit` y bloque `Reconciliation & audit` en `/admin`.
+- Eventos integrados en:
+  - ShipEngine label purchase: started, insufficient balance, rate expired, provider failure, purchase succeeded, label URL missing, DB/RPC persist failed.
+  - ShipEngine void/refund: started, disabled, already voided/duplicate, provider fail, provider approved, refund/RPC failed, persisted succeeded.
+  - Admin manual adjustments: created, rejected, idempotent duplicate.
+  - Admin access denied: desde el guard admin.
+
+**Seguridad:**
+- No se guardan API keys, service role, Authorization headers ni raw provider responses completos.
+- Metadata se sanitiza y trunca.
+- Audit UI es admin-only y read-only.
+- Si `audit_logs` no existe en algun entorno, la UI muestra estado vacio/pendiente sin romper el panel.
+
+**Pendiente:** tabla/cola dedicada con status `open/resolved`, owner, comentarios, SLA y workflow de cierre; audit_logs formal con columnas first-class para severity/request/tracking si se decide migrar.
+
+## Estado FASE 5.27 — Mobile responsive beta review
+
+**Objetivo:** revisar y ajustar la experiencia responsive web para beta sin tocar mobile nativo, backend critico, labels, voids, pagos ni migraciones.
+
+**Pantallas revisadas y ajustadas:**
+- Shell principal y shell admin: contenedores `min-w-0`, header mas flexible, emails truncados y navegacion admin con scroll horizontal en mobile.
+- `/dashboard`: KPIs y recent shipments mantienen desktop, con cards compactas en mobile para evitar tablas imposibles de leer.
+- `/crear-guia`: formulario con padding mobile, grid responsive para paquete, rate cards mas estables, resumen de compra con wrapping y modal de confirmacion con `max-height` y scroll interno.
+- AddressInput/mapa: contenedores sin overflow, campos manuales responsive y resumen de direccion con wrapping.
+- `/envios`: lista mobile en cards con acciones `View shipment`, `Track`, `Download carrier label` y void guard sin depender solo de tabla ancha.
+- `/guia/[trackingNumber]`: acciones full-width en mobile, resumen con padding responsive y tracking/barcode text sin overflow.
+- `/tracking`: busqueda/resultados con cards y timelines que envuelven textos largos.
+- `/saldo`: balance y movements apilados correctamente en mobile.
+- Admin views: filtros apilados, tablas con scroll horizontal real, cards/admin balance con emails y tracking largos sin romper layout.
+
+**Pendiente:** prueba visual final en dispositivos reales antes de beta publica; optimizar warnings legacy de Google Maps en fase futura si se decide migrar a APIs nuevas.
+
+## Estado FASE 5.28 — Full end-to-end beta QA
+
+**Objetivo:** hacer una revision completa antes de staging sin deploy, commit, migraciones, compras nuevas, voids nuevos, pagos reales ni lectura de `.env.local`.
+
+**Rutas revisadas por codigo/QA:**
+- Public/auth: `/`, `/login`, `/registro`, `/verifica-tu-correo`.
+- User app: `/dashboard`, `/crear-guia`, `/envios`, `/guia/[trackingNumber]`, `/tracking`, `/saldo`.
+- Admin/support: `/admin`, `/admin/envios`, `/admin/saldo`, `/admin/audit`, `/admin/couriers`.
+- APIs criticas: `/api/config/status`, `/api/rates`, `/api/labels`, `/api/tracking`, `/api/balance`, `/api/admin/*`.
+
+**Correcciones puntuales:**
+- Copy visible de loading protegido paso a ingles.
+- Errores fallback de `/api/rates` pasaron a ingles.
+- Placeholder de password corrupto fue reemplazado por `********`.
+- Admin labels con valor tecnico `internal` se muestran como `Processed`.
+- Audit UI ya no menciona raw provider responses; usa copy comercial/seguro.
+- Fallback tracking local paso de textos en espanol a ingles.
+
+**Estado QA:**
+- Rates siguen basados en providers reales agregados; internal/mock/dummy siguen filtrados.
+- Label purchase sigue detras de `ENABLE_REAL_LABEL_PURCHASE`.
+- Void/refund sigue detras de `ENABLE_REAL_LABEL_VOID`.
+- Tracking basico no llama carriers externos y muestra estado honesto sin realtime.
+- Balance no permite recarga online; `Add funds` solo muestra mensaje beta.
+- Admin/audit sigue protegido server-side y read-only donde corresponde, excepto manual adjustments controlados.
+
+**Checklist antes de staging:**
+- Aplicar migraciones requeridas, incluida RPC endurecida de labels/void si el entorno no la tiene.
+- Configurar variables server-side sin exponer secrets: Supabase, service role, ShipEngine TEST key, providers de rates, `ADMIN_EMAILS` o `profiles.role = admin`.
+- Mantener guards apagados por defecto: `ENABLE_REAL_LABEL_PURCHASE` y `ENABLE_REAL_LABEL_VOID`.
+- Confirmar Google Maps key publica solo si se quiere mapa/autocomplete.
+- Ejecutar `npm run lint`, `npm run typecheck`, `npm run build`, `git diff --check`.
+- Probar manualmente auth, rates, shipment existente, tracking, balance, admin, audit y responsive 390/430/768.
+
+**Pendiente:** QA visual con servidor local y navegador antes de staging; no se ejecuto compra/void/pago en esta fase.
+
+## Estado FASE 5.29 — Staging deploy preparation and operational runbook
+
+**Objetivo:** preparar staging sin desplegar, sin commit, sin migraciones nuevas, sin compras, sin voids y sin pagos reales.
+
+**Cambios principales:**
+- `shipflow-web/.env.example` ahora documenta defaults seguros para staging:
+  - `ENABLE_REAL_LABEL_PURCHASE=false`
+  - `ENABLE_REAL_LABEL_VOID=false`
+  - `SHIPSTATION_API_MODE=shipengine`
+  - `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`
+  - placeholders sandbox/test para ShipEngine, Shippo y Easyship.
+- `README.md` refleja el estado beta actual: rates reales, ShipEngine sandbox labels detras de guard, tracking basico, balance, admin y audit.
+- `docs/DEPLOYMENT.md` contiene runbook de staging:
+  - variables esperadas.
+  - preflight local.
+  - checklist de migraciones/RPCs.
+  - SQL de verificacion.
+  - health check post-deploy.
+  - test plan staging.
+  - riesgos y rollback.
+- `docs/DATABASE.md`, `docs/SECURITY.md`, `docs/ROADMAP.md` y `docs/LOGISTICS_INTEGRATION.md` quedan alineados con staging.
+
+**Reglas para staging:**
+- Usar solo keys sandbox/test.
+- Mantener purchase/void apagados por defecto.
+- Activar guards solo temporalmente para pruebas sandbox controladas.
+- No usar production/live labels ni pagos reales.
+- Confirmar admin con `ADMIN_EMAILS` o `profiles.role = admin`.
+
+## Estado FASE 5.31 — Staging deploy execution and visual QA handoff
+
+**Objetivo:** preparar la ejecucion real de staging con verificacion local, sin desplegar desde Codex, sin commit, sin compras, sin voids, sin pagos reales y sin leer `.env.local`.
+
+**Estado local pre-deploy:**
+- Scripts disponibles en `shipflow-web`: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run start`.
+- `.env.local` permanece ignorado y no debe versionarse.
+- `shipflow-web/.env.example` mantiene placeholders seguros y defaults `ENABLE_REAL_LABEL_PURCHASE=false` / `ENABLE_REAL_LABEL_VOID=false`.
+- El deploy externo queda como paso manual porque requiere hosting, credenciales y variables reales de staging.
+
+**Reglas de staging 5.31:**
+- Configurar solo keys sandbox/test: ShipEngine TEST, Shippo test, Easyship sandbox y Supabase staging/controlado.
+- Confirmar `/api/config/status` despues del deploy: `labelPurchaseEnabled=false` y `labelVoidEnabled=false`.
+- Ejecutar QA visual post-deploy en desktop, 390px, 430px y 768px.
+- No activar label purchase ni void salvo prueba sandbox controlada por el humano; apagar flags al terminar.
+- Si falta alguna migracion/RPC en staging, detener prueba de labels/voids y aplicar el runbook SQL antes de continuar.
+
+## Estado FASE 5.32 — Stripe/payment design for balance recharge
+
+**Objetivo:** disenar recarga real de balance con Stripe sin implementar pagos, sin endpoints nuevos, sin migraciones, sin deploy, sin commit y sin leer `.env.local`.
+
+**Auditoria actual:**
+- El saldo actual se calcula sumando `balance_movements`.
+- `/api/balance` es autenticado, read-only y filtra por usuario.
+- `balance_movements.type` ya soporta `recharge`, `debit`, `refund`, `adjustment` y `fee`.
+- Admin manual adjustments usan `type = adjustment`, idempotencia `admin-adjustment:<key>` y audit logs.
+- No existe tabla `payment_recharges` ni endpoints Stripe.
+
+**Diseno Stripe futuro:**
+- `/saldo` mostrara `Add funds` con montos fijos recomendados `$10`, `$25`, `$50`, `$100`.
+- Frontend llamara `POST /api/billing/checkout-session`.
+- Backend validara usuario autenticado/verificado, monto permitido, currency `USD` y limites beta.
+- Stripe Checkout redirigira al usuario a pago seguro.
+- `POST /api/webhooks/stripe` verificara firma con `STRIPE_WEBHOOK_SECRET`.
+- Solo el webhook verificado podra crear `balance_movement` tipo `recharge`.
+- La success URL nunca acredita saldo; solo muestra estado y la UI vuelve a leer `/api/balance`.
+
+**Modelo recomendado:**
+- Mantener `balance_movements` como ledger final.
+- Crear en fase futura tabla `payment_recharges` para estado de pago (`pending`, `paid`, `failed`, `canceled`, `refunded`), Stripe session/payment intent y reconciliacion.
+- Idempotencia por `stripe_event_id`, `stripe_checkout_session_id` y `stripe_payment_intent_id`.
+
+**Variables futuras documentadas:**
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_PRICE_ID_10`, `STRIPE_PRICE_ID_25`, `STRIPE_PRICE_ID_50`, `STRIPE_PRICE_ID_100`
+
+**Eventos audit/reconciliation propuestos:**
+- `payment_checkout_started`
+- `payment_checkout_created`
+- `payment_checkout_failed`
+- `payment_webhook_received`
+- `payment_recharge_succeeded`
+- `payment_recharge_duplicate_ignored`
+- `payment_recharge_db_failed`
+- `payment_recharge_amount_mismatch`
+- `payment_recharge_signature_failed`
+
+**Pendiente:** implementar Stripe en fase futura con migracion dedicada, SDK, webhook raw body, test cards, QA sandbox, refund/chargeback/dispute design y controles de produccion.
+
+## Estado FASE 5.33 — Stripe Checkout + webhook sandbox implementation
+
+**Objetivo:** implementar recarga de saldo con Stripe Checkout sandbox/test, sin deploy, sin commit, sin pagos reales/live, sin labels, sin voids y sin leer `.env.local`.
+
+**Cambios principales:**
+- Dependencia `stripe` agregada al proyecto web.
+- Nueva migracion preparada, no aplicada automaticamente: `shipflow-web/supabase/migrations/20260519_add_payment_recharges.sql`.
+- Nueva tabla futura `payment_recharges` para estado de recargas Stripe (`pending`, `paid`, `failed`, `canceled`, `refunded`), Stripe session/payment intent/event, amount, currency, `balance_movement_id` y metadata.
+- Nuevo helper server-side `lib/server/stripe.ts` para cargar `STRIPE_SECRET_KEY` y `STRIPE_WEBHOOK_SECRET` sin exponerlos al cliente.
+- Nuevo endpoint `POST /api/billing/checkout-session`:
+  - requiere usuario verificado.
+  - permite montos fijos `$10`, `$25`, `$50`, `$100`.
+  - crea `payment_recharges` pending.
+  - crea Stripe Checkout Session con metadata segura.
+  - devuelve solo `checkoutUrl`.
+- Nuevo endpoint `POST /api/webhooks/stripe`:
+  - lee raw body.
+  - verifica `stripe-signature`.
+  - maneja `checkout.session.completed`, `checkout.session.expired` y `payment_intent.payment_failed`.
+  - solo acredita saldo si `payment_status = paid`, amount/currency coinciden y el evento es idempotente.
+  - crea `balance_movements` con `type = recharge`, `concept = Payment recharge` y `idempotency_key = stripe-event:<event_id>`.
+- `/api/config/status` expone solo boolean `stripeRechargeConfigured`.
+- `/saldo` ahora muestra modal `Add funds` con montos fijos y redireccion a Checkout cuando Stripe esta configurado; si no, muestra `Online recharge is not available yet.`
+
+**Regla de seguridad mantenida:** la success URL `/saldo?recharge=success` no acredita saldo; solo muestra mensaje y la UI vuelve a leer `/api/balance`.
+
+**Pendiente:** aplicar migracion en Supabase test/staging, configurar Stripe test keys/webhook secret, probar con Stripe CLI/Dashboard y test cards, disenar refunds/chargebacks/disputes antes de produccion.
+
+## Estado FASE 5.34 — Stripe sandbox verification and recharge QA
+
+**Objetivo:** preparar la verificacion de Stripe sandbox sin usar live keys, sin deploy, sin commit, sin pagos reales, sin labels/voids y sin leer `.env.local`.
+
+**Precheck local:**
+- `stripe` instalado: version `22.1.1`.
+- `npm run lint` queda en warnings preexistentes de `MockAdapter.ts` y `trackingService.ts`.
+- `npm run typecheck` y `git diff --check` pasan.
+- `.env.local` no debe versionarse ni mostrarse.
+
+**Migracion revisada:**
+- `20260519_add_payment_recharges.sql` crea `payment_recharges`.
+- Constraints: `amount > 0`, `currency = 'usd'`, status en `pending/paid/failed/canceled/refunded`.
+- Unique: `stripe_checkout_session_id`, `stripe_payment_intent_id`, `stripe_event_id`.
+- RLS activa: usuarios leen sus propias recargas, admin lee todas via `public.is_admin()`.
+- No hay policies de insert/update/delete para cliente; writes solo server/service role.
+
+**Ajustes de QA seguros:**
+- `/api/config/status` expone `stripeRechargeConfigured` y `stripeRechargeEnabled` como booleans.
+- Checkout requiere `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, Supabase y service role antes de crear sesiones.
+- Checkout envia metadata tambien en `payment_intent_data` para facilitar conciliacion de `payment_intent.payment_failed`.
+
+**Plan manual Stripe test:**
+- Aplicar migracion en Supabase test/staging.
+- Configurar manualmente `STRIPE_SECRET_KEY=sk_test_...`, `STRIPE_WEBHOOK_SECRET=whsec_...`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`.
+- Usar Stripe CLI: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+- Probar `/saldo` -> Add funds -> `$10` -> Checkout test card `4242 4242 4242 4242`.
+- Confirmar `payment_recharges.status = paid`, `balance_movements.type = recharge`, saldo actualizado y webhook duplicado sin doble credito.
+
+**Pendiente:** no se ejecuto pago sandbox desde Codex. Falta prueba manual con Stripe CLI/Dashboard, QA de eventos duplicados y diseno de refunds/chargebacks/disputes.
+
+## Estado FASE 5.35 — Stripe sandbox controlled test handoff
+
+**Objetivo:** ejecutar o guiar una prueba controlada de Stripe sandbox sin live keys, sin produccion, sin deploy, sin commit, sin labels/voids y sin mostrar `.env.local` ni secrets.
+
+**Resultado Codex:**
+- Se ejecutaron prechecks locales: lint/typecheck/build/diff.
+- Se reviso `20260519_add_payment_recharges.sql`.
+- No se aplico migracion en Supabase desde Codex.
+- No se inicio Checkout ni pago sandbox desde Codex porque requiere:
+  - migracion aplicada en Supabase test/staging.
+  - `STRIPE_SECRET_KEY=sk_test_...`.
+  - `STRIPE_WEBHOOK_SECRET=whsec_...`.
+  - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`.
+  - Stripe CLI/Dashboard activo para reenviar webhooks.
+
+**Estado esperado antes de prueba:**
+- `/api/config/status` debe devolver `stripeRechargeConfigured: true` y `stripeRechargeEnabled: true`.
+- Si esos flags son `false`, no iniciar Checkout; revisar env vars manualmente sin imprimirlas.
+
+**Validacion manual requerida:**
+- Aplicar/verificar migracion.
+- Ejecutar `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+- Correr `npm run dev`.
+- En `/saldo`, Add funds -> `$10` -> Checkout test card.
+- Confirmar DB:
+  - `payment_recharges.status = paid`.
+  - `balance_movements.type = recharge`.
+  - saldo aumenta exactamente `$10`.
+  - reenvio de webhook no duplica saldo.
+- Confirmar audit:
+  - `payment_checkout_started`.
+  - `payment_checkout_created`.
+  - `payment_webhook_received`.
+  - `payment_recharge_succeeded`.
+  - duplicate resend: `payment_recharge_duplicate_ignored`.
+
+**Pendiente:** ejecutar prueba con Stripe CLI/Dashboard y documentar resultado real de DB/audit/idempotencia.
+
+## Estado FASE 5.37 — Stripe recharge UX polish and failure states
+
+**Contexto validado por humano:** Stripe Checkout test funciono, Stripe CLI recibio eventos, `/api/webhooks/stripe` respondio 200, se creo `Payment recharge +$10.00` y el saldo subio por webhook verificado. El frontend no acredito saldo.
+
+**Objetivo:** pulir UX y failure states sin usar live keys, sin deploy, sin commit, sin labels/voids, sin leer `.env.local` y sin cambiar la logica critica del webhook salvo ajustes seguros.
+
+**Cambios principales:**
+- `/saldo` muestra mensajes de retorno dismissibles:
+  - success: `Payment received. Your balance will update once Stripe confirms the payment.`
+  - canceled: `Payment canceled. No funds were added.`
+  - pending: `Payment is still being confirmed.`
+- Si Stripe no esta configurado, la UI mantiene `Online recharge is not available yet.` sin mostrar nombres de env vars ni detalles tecnicos.
+- Errores de checkout se traducen a mensajes seguros:
+  - sign in requerido.
+  - email verification requerido.
+  - invalid amount.
+  - online recharge unavailable.
+  - fallback generico para errores de Stripe/API.
+- `POST /api/billing/checkout-session` ya no devuelve errores internos/Stripe raw en el catch general; loggea server-side y responde mensaje generico seguro.
+- `/admin/audit` muestra labels legibles para eventos Stripe como `Payment recharge succeeded` y `Duplicate payment ignored`.
+
+**Estado de seguridad:**
+- Success URL no acredita saldo.
+- Webhook verificado sigue siendo la fuente de verdad.
+- No se guardan secrets ni raw Stripe completo.
+- Idempotencia de webhook duplicado se mantiene.
+
+**Pendiente futuro:** disenar e implementar refunds de recarga, disputes/chargebacks, reversals de balance, bloqueo de saldo disputado y reconciliation queue formal.
