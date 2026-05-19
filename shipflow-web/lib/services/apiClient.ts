@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import type { Envio, TrackingEvent } from "@/lib/types";
+import type { Envio, MovimientoSaldo, TrackingEvent, Usuario } from "@/lib/types";
 import type { LogisticsProvider, RateResult } from "@/lib/logistics/types";
 
 async function getToken(): Promise<string | null> {
@@ -59,6 +59,7 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
 
 export type BalanceMovement = {
   id: string;
+  userId?: string;
   concept: string;
   amount: number;
   date: string;
@@ -68,14 +69,115 @@ export type BalanceMovement = {
   shipmentId?: string | null;
 };
 
+export type BalanceTotals = {
+  totalRecharged: number;
+  totalSpent: number;
+  totalRefunded: number;
+  totalAdjustments: number;
+  totalFees: number;
+};
+
 export type BalanceData = {
   balance: number;
+  availableBalance: number;
   currency: string;
+  totals: BalanceTotals;
+  movements: BalanceMovement[];
   recentMovements: BalanceMovement[];
 };
 
 export async function apiGetBalance(): Promise<BalanceData> {
   return apiFetch<BalanceData>("/api/balance");
+}
+
+// ── Admin support ───────────────────────────────────────────────────────────
+
+export type AdminShipment = Envio & {
+  userEmail?: string | null;
+  userName?: string | null;
+};
+
+export type AdminBalanceMovement = MovimientoSaldo & {
+  userEmail?: string | null;
+  trackingNumber?: string | null;
+  reason?: string | null;
+  note?: string | null;
+  adminEmail?: string | null;
+};
+
+export type AdminTotals = {
+  totalUsers: number;
+  totalShipments: number;
+  labelsPurchased: number;
+  labelsVoided: number;
+  totalRecharged: number;
+  totalLabelSpend: number;
+  totalRefunded: number;
+};
+
+export type AdminOverviewData = {
+  users: Usuario[];
+  shipments: AdminShipment[];
+  movements: AdminBalanceMovement[];
+  totals: AdminTotals;
+  reconciliation: {
+    pendingCount: number;
+    notes: string[];
+  };
+};
+
+export async function apiGetAdminOverview(): Promise<AdminOverviewData> {
+  return apiFetch<AdminOverviewData>("/api/admin/overview");
+}
+
+export async function apiGetAdminShipments(params?: {
+  limit?: number;
+  trackingNumber?: string;
+  labelStatus?: string;
+  paymentStatus?: string;
+  email?: string;
+}): Promise<{ shipments: AdminShipment[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.trackingNumber) qs.set("trackingNumber", params.trackingNumber);
+  if (params?.labelStatus) qs.set("labelStatus", params.labelStatus);
+  if (params?.paymentStatus) qs.set("paymentStatus", params.paymentStatus);
+  if (params?.email) qs.set("email", params.email);
+  const query = qs.toString();
+  return apiFetch<{ shipments: AdminShipment[]; limit: number }>(`/api/admin/shipments${query ? `?${query}` : ""}`);
+}
+
+export async function apiGetAdminBalanceMovements(params?: {
+  limit?: number;
+  type?: string;
+  email?: string;
+  trackingNumber?: string;
+}): Promise<{ movements: AdminBalanceMovement[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.type) qs.set("type", params.type);
+  if (params?.email) qs.set("email", params.email);
+  if (params?.trackingNumber) qs.set("trackingNumber", params.trackingNumber);
+  const query = qs.toString();
+  return apiFetch<{ movements: AdminBalanceMovement[]; limit: number }>(`/api/admin/balance-movements${query ? `?${query}` : ""}`);
+}
+
+export type AdminBalanceAdjustmentBody = {
+  userId?: string;
+  userEmail?: string;
+  amount: number;
+  reason: string;
+  note?: string;
+  idempotencyKey?: string;
+};
+
+export async function apiCreateAdminBalanceAdjustment(
+  body: AdminBalanceAdjustmentBody,
+): Promise<{ movement: AdminBalanceMovement; existing: boolean }> {
+  return apiFetch<{ movement: AdminBalanceMovement; existing: boolean }>("/api/admin/balance-adjustments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Shipments ────────────────────────────────────────────────────────────────

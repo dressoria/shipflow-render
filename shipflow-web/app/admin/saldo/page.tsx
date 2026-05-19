@@ -5,7 +5,7 @@ export default function AdminBalancePage() {
   return (
     <AdminShell
       title="Balance"
-      description="Registered top-up and usage activity."
+      description="Read-only balance movements, refunds, and beta support activity."
     >
       <AdminBalanceView />
     </AdminShell>

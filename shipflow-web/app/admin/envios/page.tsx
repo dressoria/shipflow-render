@@ -5,7 +5,7 @@ export default function AdminShipmentsPage() {
   return (
     <AdminShell
       title="Shipments"
-      description="All labels created inside the platform."
+      description="Read-only shipment, label, carrier, and payment support view."
     >
       <AdminShipmentsView />
     </AdminShell>

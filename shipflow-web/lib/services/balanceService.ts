@@ -5,26 +5,85 @@ import {
   getBalanceMovements as getLocalBalanceMovements,
   setBalance,
 } from "@/lib/storage";
-import { apiGetBalance, type BalanceMovement } from "@/lib/services/apiClient";
+import { apiGetBalance, type BalanceData, type BalanceMovement } from "@/lib/services/apiClient";
 import type { MovimientoSaldo } from "@/lib/types";
 
 function fromApiMovement(m: BalanceMovement): MovimientoSaldo {
   let concept = m.concept;
-  if (m.amount < 0 && /shipping label/i.test(m.concept)) {
+
+  if (m.type === "debit" || (m.amount < 0 && /shipping|label|shipment/i.test(m.concept))) {
     concept = "Carrier label purchase";
-  } else if (m.amount > 0 && (/void/i.test(m.concept) || m.type === "refund")) {
+  } else if (m.type === "refund" || (m.amount > 0 && /void|refund/i.test(m.concept))) {
     concept = "Carrier label void refund";
+  } else if (m.type === "recharge") {
+    concept = /test|manual/i.test(m.concept) ? "Test balance top-up" : "Payment recharge";
+  } else if (m.type === "adjustment") {
+    concept = "Manual adjustment";
+  } else if (m.type === "fee") {
+    concept = "Service fee";
   }
-  return { id: m.id, concept, amount: m.amount, date: m.date };
+
+  return {
+    id: m.id,
+    userId: m.userId,
+    concept,
+    amount: m.amount,
+    date: m.date,
+    type: m.type,
+    referenceType: m.referenceType,
+    referenceId: m.referenceId,
+    shipmentId: m.shipmentId,
+  };
+}
+
+function fromApiBalanceData(data: BalanceData): BalanceData {
+  return {
+    ...data,
+    balance: data.balance ?? data.availableBalance ?? 0,
+    availableBalance: data.availableBalance ?? data.balance ?? 0,
+    movements: (data.movements ?? data.recentMovements ?? []).map(fromApiMovement),
+    recentMovements: (data.recentMovements ?? data.movements ?? []).map(fromApiMovement),
+    totals: data.totals ?? {
+      totalRecharged: 0,
+      totalSpent: 0,
+      totalRefunded: 0,
+      totalAdjustments: 0,
+      totalFees: 0,
+    },
+  };
 }
 
 export async function getAvailableBalance(): Promise<number> {
   if (isSupabaseConfigured) {
     const data = await apiGetBalance();
-    return data.balance;
+    return data.availableBalance ?? data.balance;
   }
 
   return getBalance();
+}
+
+export async function getBalanceSummary(): Promise<BalanceData> {
+  if (isSupabaseConfigured) {
+    const data = await apiGetBalance();
+    return fromApiBalanceData(data);
+  }
+
+  const movements = getLocalBalanceMovements();
+  const balance = getBalance();
+  return {
+    balance,
+    availableBalance: balance,
+    currency: "USD",
+    totals: {
+      totalRecharged: movements.reduce((sum, movement) => sum + (movement.amount > 0 ? movement.amount : 0), 0),
+      totalSpent: movements.reduce((sum, movement) => sum + (movement.amount < 0 ? Math.abs(movement.amount) : 0), 0),
+      totalRefunded: 0,
+      totalAdjustments: 0,
+      totalFees: 0,
+    },
+    movements,
+    recentMovements: movements,
+  };
 }
 
 export async function getBalanceMovements(): Promise<MovimientoSaldo[]> {
@@ -36,7 +95,7 @@ export async function getBalanceMovements(): Promise<MovimientoSaldo[]> {
   return getLocalBalanceMovements();
 }
 
-export async function addBalance(amount: number, concept = "Recarga de saldo"): Promise<MovimientoSaldo> {
+export async function addBalance(amount: number, concept = "Test balance top-up"): Promise<MovimientoSaldo> {
   // Demo mode only — Supabase RLS blocks positive balance inserts from clients.
   const movement: MovimientoSaldo = {
     id: `MOV-${Date.now()}`,

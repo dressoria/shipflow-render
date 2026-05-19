@@ -1,13 +1,13 @@
-import { AdminCouriersManager } from "@/components/AdminCouriersManager";
+import { AdminCouriersView } from "@/components/AdminDataViews";
 import { AdminShell } from "@/components/AdminShell";
 
 export default function AdminCouriersPage() {
   return (
     <AdminShell
       title="Couriers"
-      description="Proveedores logísticos conectados o próximos."
+      description="Read-only courier catalog for support visibility."
     >
-      <AdminCouriersManager />
+      <AdminCouriersView />
     </AdminShell>
   );
 }

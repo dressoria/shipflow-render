@@ -5,7 +5,7 @@ export default function AdminPage() {
   return (
     <AdminShell
       title="Admin Dashboard"
-      description="General metrics, recent shipments, and registered users."
+      description="Support operations, real beta metrics, and read-only reconciliation signals."
     >
       <AdminOverview />
     </AdminShell>

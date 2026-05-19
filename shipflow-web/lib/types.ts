@@ -66,6 +66,10 @@ export type MovimientoSaldo = {
   concept: string;
   date: string;
   amount: number;
+  type?: "recharge" | "debit" | "refund" | "adjustment" | "fee" | string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  shipmentId?: string | null;
 };
 
 export type Courier = {
