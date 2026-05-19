@@ -119,11 +119,29 @@ export type AdminOverviewData = {
   users: Usuario[];
   shipments: AdminShipment[];
   movements: AdminBalanceMovement[];
+  auditEvents?: AdminAuditEvent[];
   totals: AdminTotals;
   reconciliation: {
     pendingCount: number;
     notes: string[];
   };
+};
+
+export type AdminAuditEvent = {
+  id: string;
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  userId?: string | null;
+  eventType: string;
+  severity: "info" | "warning" | "error" | "critical" | string;
+  entityType?: string | null;
+  entityId?: string | null;
+  provider?: string | null;
+  trackingNumber?: string | null;
+  idempotencyKey?: string | null;
+  requestId?: string | null;
+  message: string;
+  createdAt: string;
 };
 
 export async function apiGetAdminOverview(): Promise<AdminOverviewData> {
@@ -160,6 +178,19 @@ export async function apiGetAdminBalanceMovements(params?: {
   if (params?.trackingNumber) qs.set("trackingNumber", params.trackingNumber);
   const query = qs.toString();
   return apiFetch<{ movements: AdminBalanceMovement[]; limit: number }>(`/api/admin/balance-movements${query ? `?${query}` : ""}`);
+}
+
+export async function apiGetAdminAuditEvents(params?: {
+  limit?: number;
+  severity?: string;
+  eventType?: string;
+}): Promise<{ events: AdminAuditEvent[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.severity) qs.set("severity", params.severity);
+  if (params?.eventType) qs.set("eventType", params.eventType);
+  const query = qs.toString();
+  return apiFetch<{ events: AdminAuditEvent[]; limit: number }>(`/api/admin/audit-events${query ? `?${query}` : ""}`);
 }
 
 export type AdminBalanceAdjustmentBody = {

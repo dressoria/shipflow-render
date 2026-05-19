@@ -2,15 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
-import { AdminBalanceTable, AdminShipmentsTable, AdminUsersTable } from "@/components/AdminOverview";
+import { AdminAuditEventsTable, AdminBalanceTable, AdminShipmentsTable, AdminUsersTable } from "@/components/AdminOverview";
 import { LoadingState } from "@/components/LoadingState";
 import {
   createAdminBalanceAdjustment,
+  getAdminAuditEvents,
   getAdminBalanceMovements,
   getAdminShipments,
   getAdminStats,
 } from "@/lib/services/adminService";
-import type { AdminBalanceMovement, AdminShipment } from "@/lib/services/apiClient";
+import type { AdminAuditEvent, AdminBalanceMovement, AdminShipment } from "@/lib/services/apiClient";
 import type { Usuario } from "@/lib/types";
 
 type AdminStats = Awaited<ReturnType<typeof getAdminStats>>;
@@ -225,6 +226,63 @@ export function AdminBalanceView() {
         />
       ) : null}
       <AdminBalanceTable movements={filteredMovements} />
+    </div>
+  );
+}
+
+export function AdminAuditView() {
+  const [events, setEvents] = useState<AdminAuditEvent[] | null>(null);
+  const [severity, setSeverity] = useState("");
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.setTimeout(() => {
+      getAdminAuditEvents().then(setEvents).catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "We could not load audit events.");
+      });
+    }, 0);
+  }, []);
+
+  if (error) return <AdminLoadError message={error} />;
+  if (!events) return <LoadingState />;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredEvents = events.filter((event) => {
+    const matchesSeverity = !severity || event.severity === severity;
+    const matchesQuery =
+      !normalizedQuery ||
+      event.eventType.toLowerCase().includes(normalizedQuery) ||
+      event.message.toLowerCase().includes(normalizedQuery) ||
+      event.trackingNumber?.toLowerCase().includes(normalizedQuery) ||
+      event.requestId?.toLowerCase().includes(normalizedQuery);
+    return matchesSeverity && matchesQuery;
+  });
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+        <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search event, message, tracking, or request ID"
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#FF1493]"
+          />
+          <select
+            value={severity}
+            onChange={(event) => setSeverity(event.target.value)}
+            className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#FF1493]"
+          >
+            <option value="">All severities</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <AdminAuditEventsTable events={filteredEvents} />
     </div>
   );
 }

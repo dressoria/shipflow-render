@@ -9,6 +9,7 @@ import { StatCard } from "@/components/StatCard";
 import { formatDate } from "@/lib/forms";
 import { getAdminStats } from "@/lib/services/adminService";
 import type { AdminBalanceMovement, AdminShipment } from "@/lib/services/apiClient";
+import type { AdminAuditEvent } from "@/lib/services/apiClient";
 import type { Envio, MovimientoSaldo, Usuario } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -85,9 +86,19 @@ export function AdminOverview() {
         <RecentShipments shipments={stats.shipments.slice(0, 6)} />
         <RecentBalanceActivity movements={stats.movements.slice(0, 6)} />
       </div>
+      <div className="mt-6">
+        <AdminAuditEventsTable events={(stats.auditEvents ?? []).slice(0, 8)} compact />
+      </div>
       <ReconciliationNotice notes={stats.reconciliation.notes} />
     </>
   );
+}
+
+function severityTone(severity?: string): "blue" | "green" | "amber" | "slate" {
+  if (severity === "critical" || severity === "error") return "amber";
+  if (severity === "warning") return "amber";
+  if (severity === "info") return "blue";
+  return "slate";
 }
 
 export function AdminUsersTable({ users }: { users: Usuario[] }) {
@@ -210,6 +221,49 @@ export function AdminBalanceTable({ movements }: { movements: AdminBalanceMoveme
           })
         )}
       </div>
+    </div>
+  );
+}
+
+export function AdminAuditEventsTable({ events, compact = false }: { events: AdminAuditEvent[]; compact?: boolean }) {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <div>
+          <h2 className="font-black text-slate-950">Reconciliation & audit</h2>
+          <p className="text-sm text-slate-500">Read-only operational events. No raw provider responses or secrets.</p>
+        </div>
+        <Badge tone="amber">Persistent resolve workflow pending</Badge>
+      </div>
+      {events.length === 0 ? (
+        <div className="px-5 py-8 text-sm text-slate-500">No audit events yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="grid min-w-[900px] grid-cols-[0.8fr_1.3fr_1fr_1fr_1.8fr_1fr] gap-4 border-b border-slate-200 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+            <span>Severity</span>
+            <span>Event</span>
+            <span>Entity</span>
+            <span>Tracking</span>
+            <span>Message</span>
+            <span>Date</span>
+          </div>
+          {events.map((event) => (
+            <div key={event.id} className="grid min-w-[900px] grid-cols-[0.8fr_1.3fr_1fr_1fr_1.8fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
+              <span><Badge tone={severityTone(event.severity)}>{displayStatus(event.severity)}</Badge></span>
+              <span className="font-bold text-slate-950">{event.eventType}</span>
+              <span className="text-slate-600">{event.entityType ?? "Not available"}</span>
+              <span className="text-slate-600">{event.trackingNumber ?? "Not available"}</span>
+              <span className="text-slate-600">{event.message}</span>
+              <span className="text-slate-600">{formatDate(event.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {compact ? (
+        <div className="border-t border-slate-100 px-5 py-3">
+          <Link className="text-sm font-black text-[#FF1493]" href="/admin/audit">View all audit events</Link>
+        </div>
+      ) : null}
     </div>
   );
 }

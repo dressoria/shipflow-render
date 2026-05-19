@@ -13,6 +13,7 @@ import {
   createServiceSupabaseClient,
   isServiceRoleConfigured,
 } from "@/lib/server/supabaseServer";
+import { createAuditLog, createReconciliationEvent } from "@/lib/server/auditLog";
 import type { Address, CreateLabelInput, LabelResult, Parcel, RateResult } from "@/lib/logistics/types";
 import type { Envio } from "@/lib/types";
 
@@ -343,6 +344,27 @@ function logReconciliationFailure(
   });
 }
 
+async function auditShipEngineLabelEvent(
+  eventType: string,
+  userId: string,
+  idempotencyKey: string,
+  message: string,
+  metadata: Record<string, unknown> = {},
+  severity: "info" | "warning" | "error" | "critical" = "info",
+) {
+  await createAuditLog({
+    actorUserId: userId,
+    userId,
+    eventType,
+    severity,
+    entityType: "shipment",
+    provider: "shipstation",
+    idempotencyKey,
+    message,
+    metadata,
+  });
+}
+
 export async function createShipEngineShipment(
   supabase: SupabaseClient,
   userId: string,
@@ -360,19 +382,78 @@ export async function createShipEngineShipment(
   const idempotencyKey = body.idempotencyKey?.trim() || crypto.randomUUID();
   const existingShipment = await checkMigrationAndIdempotency(supabase, userId, idempotencyKey);
   if (existingShipment?.label_status === "purchased" && existingShipment.provider_label_id) {
+    await auditShipEngineLabelEvent(
+      "idempotency_conflict",
+      userId,
+      idempotencyKey,
+      "Existing purchased label returned for duplicate idempotency key.",
+      {
+        shipmentId: existingShipment.id,
+        trackingNumber: existingShipment.tracking_number,
+        providerLabelId: existingShipment.provider_label_id,
+      },
+      "warning",
+    );
     return buildExistingResult(existingShipment);
   }
   if (existingShipment) {
+    await auditShipEngineLabelEvent(
+      "idempotency_conflict",
+      userId,
+      idempotencyKey,
+      "Ambiguous label purchase idempotency state blocked.",
+      {
+        shipmentId: existingShipment.id,
+        labelStatus: existingShipment.label_status ?? null,
+        paymentStatus: existingShipment.payment_status ?? null,
+      },
+      "warning",
+    );
     throw new Response(
       "This purchase is already being processed. Please refresh your shipments before trying again.",
       { status: 409 },
     );
   }
 
-  const revalidatedRate = await revalidateShipEngineRate(body);
+  await auditShipEngineLabelEvent("label_purchase_started", userId, idempotencyKey, "ShipEngine label purchase started.", {
+    carrierCode: body.carrierCode,
+    serviceCode: body.serviceCode,
+    providerRateId: body.providerRateId ?? null,
+  });
+
+  let revalidatedRate: RateResult;
+  try {
+    revalidatedRate = await revalidateShipEngineRate(body);
+  } catch (error) {
+    await auditShipEngineLabelEvent(
+      "label_purchase_failed",
+      userId,
+      idempotencyKey,
+      "Selected rate is no longer available or could not be revalidated.",
+      {
+        carrierCode: body.carrierCode,
+        serviceCode: body.serviceCode,
+        cause: error instanceof Error ? error.message : String(error ?? "unknown"),
+      },
+      "warning",
+    );
+    throw error;
+  }
+
   const pricing = calculateCustomerPrice(revalidatedRate.pricing.providerCost);
   const balance = await getAvailableBalance(supabase, userId);
   if (balance < pricing.customerPrice) {
+    await auditShipEngineLabelEvent(
+      "label_purchase_failed",
+      userId,
+      idempotencyKey,
+      "Insufficient balance blocked label purchase before provider call.",
+      {
+        availableBalance: balance,
+        requiredBalance: pricing.customerPrice,
+      },
+      "warning",
+    );
     throw new InsufficientFundsError(
       `Insufficient balance. Available: $${balance.toFixed(2)} USD, required: $${pricing.customerPrice.toFixed(2)} USD.`,
     );
@@ -382,12 +463,79 @@ export async function createShipEngineShipment(
   await assertLabelTransactionRpcSupportsProviderFields(serviceClient, userId);
 
   const labelInput = buildCreateLabelInput(body, idempotencyKey, revalidatedRate);
-  const labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
+  let labelResult: LabelResult;
+  try {
+    labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
+  } catch (error) {
+    await auditShipEngineLabelEvent(
+      "label_purchase_failed",
+      userId,
+      idempotencyKey,
+      "Carrier could not generate this label.",
+      {
+        carrierCode: revalidatedRate.courierId,
+        serviceCode: revalidatedRate.serviceCode,
+        providerRateId: revalidatedRate.providerRateId ?? null,
+        cause: error instanceof Error ? error.message : String(error ?? "unknown"),
+      },
+      "error",
+    );
+    throw error;
+  }
+
+  await auditShipEngineLabelEvent(
+    "label_purchase_succeeded",
+    userId,
+    idempotencyKey,
+    "Carrier purchased label successfully.",
+    {
+      trackingNumber: labelResult.trackingNumber,
+      providerShipmentId: labelResult.providerShipmentId ?? null,
+      providerLabelId: labelResult.providerLabelId ?? null,
+      providerRateId: labelResult.rate.providerRateId ?? null,
+      carrier: labelResult.rate.courierName || labelResult.rate.courierId,
+      service: labelResult.rate.serviceName,
+      hasLabelUrl: Boolean(labelResult.labelUrl),
+    },
+  );
+
+  if (!labelResult.labelUrl) {
+    await auditShipEngineLabelEvent(
+      "label_url_missing",
+      userId,
+      idempotencyKey,
+      "Carrier label URL was missing after successful purchase.",
+      {
+        trackingNumber: labelResult.trackingNumber,
+        providerLabelId: labelResult.providerLabelId ?? null,
+      },
+      "warning",
+    );
+  }
+
   const actualPricing = calculateCustomerPrice(labelResult.rate.pricing.providerCost);
 
   if (balance < actualPricing.customerPrice) {
     const requestId = crypto.randomUUID();
     logReconciliationFailure(requestId, userId, idempotencyKey, labelResult, "INSUFFICIENT_FUNDS_AFTER_PURCHASE");
+    await createReconciliationEvent({
+      actorUserId: userId,
+      userId,
+      eventType: "label_purchase_db_persist_failed",
+      entityType: "shipment",
+      provider: "shipstation",
+      trackingNumber: labelResult.trackingNumber,
+      idempotencyKey,
+      requestId,
+      message: "Label was purchased but could not be saved because balance became insufficient after purchase.",
+      metadata: {
+        providerLabelId: labelResult.providerLabelId ?? null,
+        providerShipmentId: labelResult.providerShipmentId ?? null,
+        providerRateId: labelResult.rate.providerRateId ?? null,
+        carrier: labelResult.rate.courierName || labelResult.rate.courierId,
+        service: labelResult.rate.serviceName,
+      },
+    }, serviceClient);
     throw new Response(
       `Label was purchased but could not be saved. Please contact support with the request ID: ${requestId}.`,
       { status: 500 },
@@ -403,6 +551,25 @@ export async function createShipEngineShipment(
   if (rpcError || !rpcData) {
     const requestId = crypto.randomUUID();
     logReconciliationFailure(requestId, userId, idempotencyKey, labelResult, rpcError ?? "EMPTY_RPC_RESPONSE");
+    await createReconciliationEvent({
+      actorUserId: userId,
+      userId,
+      eventType: "label_purchase_db_persist_failed",
+      entityType: "shipment",
+      provider: "shipstation",
+      trackingNumber: labelResult.trackingNumber,
+      idempotencyKey,
+      requestId,
+      message: "Label was purchased but the atomic DB/RPC persistence failed.",
+      metadata: {
+        providerLabelId: labelResult.providerLabelId ?? null,
+        providerShipmentId: labelResult.providerShipmentId ?? null,
+        providerRateId: labelResult.rate.providerRateId ?? null,
+        carrier: labelResult.rate.courierName || labelResult.rate.courierId,
+        service: labelResult.rate.serviceName,
+        cause: rpcError?.message ?? "EMPTY_RPC_RESPONSE",
+      },
+    }, serviceClient);
     throw new Response(
       `Label was purchased but could not be saved. Please contact support with the request ID: ${requestId}.`,
       { status: 500 },
@@ -442,6 +609,19 @@ export async function createShipEngineShipment(
     value: actualPricing.customerPrice,
     date: new Date().toISOString(),
   };
+
+  await auditShipEngineLabelEvent(
+    "label_purchase_succeeded",
+    userId,
+    idempotencyKey,
+    "ShipEngine label purchase persisted successfully.",
+    {
+      shipmentId: fetchId,
+      trackingNumber: labelResult.trackingNumber,
+      providerLabelId: labelResult.providerLabelId ?? null,
+      customerPrice: actualPricing.customerPrice,
+    },
+  );
 
   return {
     shipment,

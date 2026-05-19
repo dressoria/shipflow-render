@@ -5,6 +5,7 @@ import { getShipments } from "@/lib/services/shipmentService";
 import {
   apiCreateAdminBalanceAdjustment,
   apiGetAdminBalanceMovements,
+  apiGetAdminAuditEvents,
   apiGetAdminOverview,
   apiGetAdminShipments,
   type AdminBalanceAdjustmentBody,
@@ -60,6 +61,7 @@ export async function getAdminStats() {
       pendingCount: 0,
       notes: ["Reconciliation queue is not implemented yet."],
     },
+    auditEvents: [],
   };
 }
 
@@ -79,6 +81,15 @@ export async function getAdminBalanceMovements() {
   }
 
   return getBalanceMovements();
+}
+
+export async function getAdminAuditEvents() {
+  if (isSupabaseConfigured) {
+    const data = await apiGetAdminAuditEvents({ limit: 100 });
+    return data.events;
+  }
+
+  return [];
 }
 
 export async function createAdminBalanceAdjustment(body: AdminBalanceAdjustmentBody) {

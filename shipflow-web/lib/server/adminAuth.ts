@@ -3,6 +3,7 @@ import {
   createServiceSupabaseClient,
   requireVerifiedUser,
 } from "@/lib/server/supabaseServer";
+import { createAuditLog } from "@/lib/server/auditLog";
 
 type ProfileRoleRow = {
   role?: string | null;
@@ -35,6 +36,19 @@ export async function requireAdminUser(request: Request): Promise<{
   const isAllowlisted = Boolean(email && allowedEmails.includes(email));
 
   if (!isProfileAdmin && !isAllowlisted) {
+    await createAuditLog({
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      userId: user.id,
+      eventType: "admin_access_denied",
+      severity: "warning",
+      entityType: "auth",
+      entityId: user.id,
+      message: "Non-admin user attempted to access admin support.",
+      metadata: {
+        profileRole: profile?.role ?? null,
+      },
+    });
     throw new Response("Admin access required.", { status: 403 });
   }
 

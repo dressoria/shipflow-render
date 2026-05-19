@@ -1,5 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { requireAdminUser } from "@/lib/server/adminAuth";
+import { createAuditLog } from "@/lib/server/auditLog";
 import {
   loadProfiles,
   mapAdminMovement,
@@ -51,6 +52,24 @@ function findTargetProfile(profiles: ProfileRow[], body: AdjustmentBody) {
   return null;
 }
 
+async function auditAdjustment(
+  adminUser: { id: string; email?: string | null },
+  eventType: "balance_adjustment_created" | "balance_adjustment_rejected" | "idempotency_conflict",
+  message: string,
+  severity: "info" | "warning" | "error",
+  metadata: Record<string, unknown>,
+) {
+  await createAuditLog({
+    actorUserId: adminUser.id,
+    actorEmail: adminUser.email ?? null,
+    eventType,
+    severity,
+    entityType: "admin",
+    message,
+    metadata,
+  });
+}
+
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured || !isServiceRoleConfigured) {
     return apiError("Admin support is not configured correctly.", 503);
@@ -66,16 +85,39 @@ export async function POST(request: Request) {
     const note = cleanText(body.note, MAX_NOTE_LENGTH);
     const idempotencyKey = normalizeIdempotencyKey(body.idempotencyKey);
 
-    if (amount == null) return apiError("Amount must be a valid number.", 400);
-    if (amount === 0) return apiError("Amount cannot be zero.", 400);
+    if (amount == null) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because amount was invalid.", "warning", { idempotencyKey });
+      return apiError("Amount must be a valid number.", 400);
+    }
+    if (amount === 0) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because amount was zero.", "warning", { idempotencyKey });
+      return apiError("Amount cannot be zero.", 400);
+    }
     if (Math.abs(amount) > MAX_ADJUSTMENT_ABS) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because amount exceeded beta limit.", "warning", {
+        amount,
+        limit: MAX_ADJUSTMENT_ABS,
+        idempotencyKey,
+      });
       return apiError(`Manual adjustment cannot exceed $${MAX_ADJUSTMENT_ABS.toFixed(2)} during beta.`, 400);
     }
-    if (!reason) return apiError("Reason is required.", 400);
+    if (!reason) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because reason was missing.", "warning", { amount, idempotencyKey });
+      return apiError("Reason is required.", 400);
+    }
 
     const { profiles, byId: profilesById } = await loadProfiles(serviceSupabase);
     const targetProfile = findTargetProfile(profiles, body);
-    if (!targetProfile) return apiError("Target user was not found.", 404);
+    if (!targetProfile) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because target user was not found.", "warning", {
+        amount,
+        reason,
+        requestedUserId: cleanText(body.userId, 120) || null,
+        requestedUserEmail: cleanText(body.userEmail, 254) || null,
+        idempotencyKey,
+      });
+      return apiError("Target user was not found.", 404);
+    }
 
     const { data: existing, error: existingError } = await serviceSupabase
       .from("balance_movements")
@@ -86,6 +128,13 @@ export async function POST(request: Request) {
 
     if (existingError) throw existingError;
     if (existing) {
+      await auditAdjustment(adminUser, "idempotency_conflict", "Duplicate manual adjustment request returned existing movement.", "warning", {
+        targetUserId: targetProfile.id,
+        targetEmail: targetProfile.email,
+        amount,
+        idempotencyKey,
+        movementId: existing.id,
+      });
       return apiSuccess({
         movement: mapAdminMovement(existing, profilesById, new Map()),
         existing: true,
@@ -103,6 +152,15 @@ export async function POST(request: Request) {
     const currentBalance = (balanceRows ?? []).reduce((sum, movement) => sum + Number(movement.amount), 0);
     const nextBalance = Number((currentBalance + amount).toFixed(2));
     if (nextBalance < 0) {
+      await auditAdjustment(adminUser, "balance_adjustment_rejected", "Manual adjustment rejected because it would make balance negative.", "warning", {
+        targetUserId: targetProfile.id,
+        targetEmail: targetProfile.email,
+        amount,
+        reason,
+        currentBalance: Number(currentBalance.toFixed(2)),
+        nextBalance,
+        idempotencyKey,
+      });
       return apiError("This adjustment would make the user's balance negative.", 400);
     }
 
@@ -135,6 +193,29 @@ export async function POST(request: Request) {
       .single<BalanceMovementRow>();
 
     if (insertError) throw insertError;
+
+    await createAuditLog({
+      actorUserId: adminUser.id,
+      actorEmail: adminUser.email ?? null,
+      userId: targetProfile.id,
+      eventType: "balance_adjustment_created",
+      severity: "info",
+      entityType: "balance_movement",
+      entityId: inserted.id,
+      idempotencyKey,
+      message: "Admin manual balance adjustment created.",
+      metadata: {
+        targetUserId: targetProfile.id,
+        targetEmail: targetProfile.email,
+        amount,
+        reason,
+        note: note || null,
+        adminUserId: adminUser.id,
+        adminEmail: adminUser.email ?? null,
+        balanceBefore: Number(currentBalance.toFixed(2)),
+        balanceAfter: nextBalance,
+      },
+    }, serviceSupabase);
 
     return apiSuccess({
       movement: mapAdminMovement(inserted, profilesById, new Map()),

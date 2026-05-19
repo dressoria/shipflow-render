@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CreditCard,
+  FileSearch,
   LayoutDashboard,
   LogOut,
   PackageCheck,
@@ -22,6 +23,7 @@ const menu = [
   { label: "Shipments", href: "/admin/envios", icon: Truck },
   { label: "Couriers", href: "/admin/couriers", icon: Warehouse },
   { label: "Balance", href: "/admin/saldo", icon: CreditCard },
+  { label: "Audit", href: "/admin/audit", icon: FileSearch },
 ];
 
 export function AdminShell({
