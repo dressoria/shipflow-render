@@ -81,7 +81,7 @@ export function AdminShipmentsView() {
             <option value="">All labels</option>
             <option value="purchased">Purchased</option>
             <option value="voided">Voided</option>
-            <option value="internal">Internal</option>
+            <option value="internal">Processed</option>
             <option value="failed">Failed</option>
           </select>
           <select
@@ -400,7 +400,7 @@ function ManualAdjustmentForm({
             maxLength={500}
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Optional internal support note"
+            placeholder="Optional support note"
             className="min-h-24 rounded-2xl border border-slate-200 bg-slate-50 p-4 outline-none transition focus:border-pink-400 focus:bg-white"
           />
         </label>

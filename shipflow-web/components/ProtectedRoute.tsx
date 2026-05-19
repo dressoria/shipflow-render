@@ -23,8 +23,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
             <PackageCheck className="h-6 w-6" />
           </span>
-          <p className="mt-4 font-black text-slate-950">Validando sesión</p>
-          <p className="mt-2 text-sm text-slate-500">Preparando tu panel operativo.</p>
+          <p className="mt-4 font-black text-slate-950">Validating session</p>
+          <p className="mt-2 text-sm text-slate-500">Preparing your dashboard.</p>
         </div>
       </div>
     );

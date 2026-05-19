@@ -32,6 +32,7 @@ function statusTone(status?: string | null): "blue" | "green" | "amber" | "slate
 
 function displayStatus(status?: string | null) {
   if (!status) return "Not available";
+  if (status === "internal") return "Processed";
   return status
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -231,7 +232,7 @@ export function AdminAuditEventsTable({ events, compact = false }: { events: Adm
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
         <div>
           <h2 className="font-black text-slate-950">Reconciliation & audit</h2>
-          <p className="text-sm text-slate-500">Read-only operational events. No raw provider responses or secrets.</p>
+          <p className="text-sm text-slate-500">Read-only operational events. Sensitive provider data is hidden.</p>
         </div>
         <Badge tone="amber">Persistent resolve workflow pending</Badge>
       </div>

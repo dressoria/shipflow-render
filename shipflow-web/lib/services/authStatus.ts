@@ -13,7 +13,7 @@ export async function getEmailVerificationStatus(): Promise<EmailVerificationSta
 
 export async function resendVerificationEmail(email: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) {
-    throw new Error("El servicio no está disponible en este momento.");
+    throw new Error("The service is not available right now.");
   }
   const { error } = await supabase.auth.resend({ type: "signup", email });
   if (error) throw error;

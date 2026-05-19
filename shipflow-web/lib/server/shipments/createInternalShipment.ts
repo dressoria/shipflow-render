@@ -441,7 +441,7 @@ export async function createInternalShipment(
     shipment_id: shipment.id,
     user_id: userId,
     tracking_number: shipment.tracking_number,
-    title: "Guía creada",
+    title: "Label created",
     description: "The shipment was created in ShipFlow.",
     status: shipment.status,
   });
@@ -451,7 +451,7 @@ export async function createInternalShipment(
   const balanceMovementRow = {
     id: `MOV-${crypto.randomUUID()}`,
     user_id: userId,
-    concept: `Guía ${shipment.tracking_number}`,
+    concept: `Shipment ${shipment.tracking_number}`,
     amount: -rate.total,
   };
   const logisticsBalanceFields = {

@@ -101,7 +101,7 @@ export function AuthCard({ mode }: AuthCardProps) {
             name="password"
             label="Password"
             type="password"
-            placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+            placeholder="********"
             error={errors.password}
           />
           <button

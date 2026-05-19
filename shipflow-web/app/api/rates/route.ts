@@ -128,8 +128,8 @@ export async function POST(request: Request) {
       });
     }
 
-    return apiError("Usa el cotizador de tarifas reales para obtener opciones disponibles.", 400);
+    return apiError("Use the real rate quote flow to get available options.", 400);
   } catch (error) {
-    return apiErrorFromUnknown(error, "No se pudieron calcular tarifas.");
+    return apiErrorFromUnknown(error, "We could not calculate rates.");
   }
 }

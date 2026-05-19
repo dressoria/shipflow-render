@@ -111,7 +111,7 @@ export async function loginUser(input: AuthInput): Promise<Usuario> {
   }
 
   if (input.email === "admin@shipflow.local" && input.password !== "admin123") {
-    throw new Error("Credenciales de administrador inválidas.");
+    throw new Error("Invalid administrator credentials.");
   }
 
   const currentUser = getUser();
