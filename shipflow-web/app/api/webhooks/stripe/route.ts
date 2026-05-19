@@ -282,7 +282,8 @@ async function handleExpiredCheckout(event: Stripe.Event, session: Stripe.Checko
 async function handlePaymentFailed(event: Stripe.Event, paymentIntent: Stripe.PaymentIntent) {
   const serviceSupabase = createServiceSupabaseClient();
   const id = paymentIntent.id;
-  const { error } = await serviceSupabase
+  const rechargeId = typeof paymentIntent.metadata?.rechargeId === "string" ? paymentIntent.metadata.rechargeId : null;
+  const query = serviceSupabase
     .from("payment_recharges")
     .update({
       status: "failed",
@@ -293,9 +294,11 @@ async function handlePaymentFailed(event: Stripe.Event, paymentIntent: Stripe.Pa
         stripePaymentIntentId: id,
         reason: "payment_intent_failed",
       },
-    })
-    .eq("stripe_payment_intent_id", id)
-    .eq("status", "pending");
+    });
+
+  const { error } = rechargeId
+    ? await query.eq("id", rechargeId).eq("status", "pending")
+    : await query.eq("stripe_payment_intent_id", id).eq("status", "pending");
 
   if (error) throw error;
   await createAuditLog({

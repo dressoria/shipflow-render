@@ -14,12 +14,15 @@ export async function GET() {
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()?.length,
   );
 
+  const stripeRechargeEnabled = isStripeConfigured && isStripeWebhookConfigured && isServiceRoleConfigured;
+
   return apiSuccess({
     supabaseConfigured: isServerSupabaseConfigured,
     serviceRoleConfigured: isServiceRoleConfigured,
     ratesConfigured: aggregationProviders.length > 0,
     googleMapsConfigured,
-    stripeRechargeConfigured: isStripeConfigured && isStripeWebhookConfigured && isServiceRoleConfigured,
+    stripeRechargeConfigured: stripeRechargeEnabled,
+    stripeRechargeEnabled,
     activeRateProviders: aggregationProviders.length,
     labelPurchaseEnabled: process.env.ENABLE_REAL_LABEL_PURCHASE === "true",
     labelVoidEnabled: process.env.ENABLE_REAL_LABEL_VOID === "true",

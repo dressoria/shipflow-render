@@ -33,6 +33,7 @@ export type ConfigStatus = {
   ratesConfigured: boolean;
   googleMapsConfigured: boolean;
   stripeRechargeConfigured: boolean;
+  stripeRechargeEnabled: boolean;
   activeRateProviders: number;
   labelPurchaseEnabled: boolean;
   labelVoidEnabled: boolean;
@@ -49,6 +50,7 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
       ratesConfigured: false,
       googleMapsConfigured: false,
       stripeRechargeConfigured: false,
+      stripeRechargeEnabled: false,
       activeRateProviders: 0,
       labelPurchaseEnabled: false,
       labelVoidEnabled: false,

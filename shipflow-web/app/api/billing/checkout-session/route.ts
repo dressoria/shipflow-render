@@ -6,7 +6,7 @@ import {
   isServiceRoleConfigured,
   requireVerifiedUser,
 } from "@/lib/server/supabaseServer";
-import { getStripeClient, isStripeConfigured } from "@/lib/server/stripe";
+import { getStripeClient, isStripeConfigured, isStripeWebhookConfigured } from "@/lib/server/stripe";
 
 export const runtime = "nodejs";
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return apiError("Billing is not configured correctly.", 503);
   }
 
-  if (!isStripeConfigured) {
+  if (!isStripeConfigured || !isStripeWebhookConfigured) {
     return apiError("Online recharge is not available yet.", 503);
   }
 
@@ -143,6 +143,15 @@ export async function POST(request: Request) {
         amount: String(amount),
         currency: CURRENCY,
         environment: "test_beta",
+      },
+      payment_intent_data: {
+        metadata: {
+          userId: user.id,
+          rechargeId: recharge.id,
+          amount: String(amount),
+          currency: CURRENCY,
+          environment: "test_beta",
+        },
       },
     });
 
