@@ -41,8 +41,8 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     <ProtectedRoute>
     <div className="min-h-screen bg-[#F8F9FC]">
       <header className="sticky top-0 z-40 border-b border-white/40 bg-white/70 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
             <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
               <PackageCheck className="h-5 w-5" />
             </span>
@@ -74,16 +74,16 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           </button>
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[260px_1fr] lg:px-8">
-        <aside className="h-fit rounded-3xl border border-white/10 bg-[#12182B] p-3 shadow-2xl shadow-[#12182B]/15">
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:px-8">
+        <aside className="h-fit min-w-0 rounded-3xl border border-white/10 bg-[#12182B] p-3 shadow-2xl shadow-[#12182B]/15">
           <div className="dark-glass rounded-2xl p-4 text-white">
             <div className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10">
                 <BarChart3 className="h-5 w-5 text-[#22C55E]" />
               </span>
-              <div>
-              <p className="text-sm font-bold">System operational</p>
-                <p className="text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Shipping balance"}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold">System operational</p>
+                <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Shipping balance"}</p>
               </div>
             </div>
           </div>
@@ -120,9 +120,9 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             ) : null}
           </nav>
         </aside>
-        <main>
+        <main className="min-w-0">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF1493]">
                 Dashboard
               </p>

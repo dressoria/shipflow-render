@@ -249,8 +249,8 @@ export function AddressInput({
   const summary = [value.street1, value.city, value.state, value.postalCode].filter(Boolean).join(", ");
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid min-w-0 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <InputField
           label="Name"
           value={value.name ?? ""}
@@ -271,7 +271,7 @@ export function AddressInput({
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Search or paste address
           <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
+            <div className="relative min-w-0 flex-1">
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 ref={searchRef}
@@ -314,9 +314,9 @@ export function AddressInput({
               : "border-amber-200 bg-amber-50 text-amber-700"
           }`}
         >
-          <div className="flex items-center gap-2 font-bold">
+          <div className="flex min-w-0 items-start gap-2 font-bold">
             {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
-            <span>{sectionLabel}: {summary}</span>
+            <span className="min-w-0 break-words">{sectionLabel}: {summary}</span>
           </div>
           {needsReview ? <p className="mt-1">Review city, state, and ZIP.</p> : null}
         </div>
@@ -349,8 +349,8 @@ export function AddressInput({
       ) : null}
 
       {showManual ? (
-        <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
-          <div className="md:col-span-2">
+        <div className="grid min-w-0 gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
             <InputField
               label="Street address"
               value={value.street1}
@@ -381,7 +381,7 @@ export function AddressInput({
             placeholder="94041"
             error={errors.postalCode}
           />
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
+          <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
             Country
             <input
               value="United States"
@@ -405,7 +405,7 @@ function StateSelect({
   error?: string;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
       State
       <select
         value={value}
@@ -440,7 +440,7 @@ function InputField({
   inputRef?: Ref<HTMLInputElement>;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
       {label}
       <input
         ref={inputRef}

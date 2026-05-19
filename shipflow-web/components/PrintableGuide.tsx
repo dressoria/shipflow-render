@@ -61,13 +61,13 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 print:bg-white print:p-0">
+    <main className="min-h-screen bg-slate-100 px-3 py-6 sm:px-4 sm:py-8 print:bg-white print:p-0">
       <div className="print-hidden mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-3">
-        <Link href="/envios" className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
+        <Link href="/envios" className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm sm:w-auto">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to shipments
         </Link>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
           {shipment.labelStatus === "voided" ? (
             <span className="inline-flex h-11 items-center rounded-2xl bg-amber-50 px-4 text-sm font-bold text-amber-800">
               Voided label - do not use
@@ -77,27 +77,27 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               href={shipment.labelUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-11 items-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20"
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20"
             >
               <Download className="mr-2 h-4 w-4" />
               Download carrier label
             </a>
           ) : (
-            <span className="inline-flex h-11 items-center rounded-2xl bg-amber-50 px-4 text-sm font-bold text-amber-800">
+            <span className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800">
               Carrier label unavailable
             </span>
           )}
-          <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
+          <button onClick={() => window.print()} className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
             <Printer className="mr-2 h-4 w-4" />
             Print summary
           </button>
-          <button onClick={() => window.print()} className="inline-flex h-11 items-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20">
+          <button onClick={() => window.print()} className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20">
             <Download className="mr-2 h-4 w-4" />
             Download summary PDF
           </button>
           <Link
             href={`/tracking?trackingNumber=${encodeURIComponent(shipment.trackingNumber)}`}
-            className="inline-flex h-11 items-center rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-[#06B6D4]"
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-[#06B6D4]"
           >
             Track shipment
           </Link>
@@ -106,7 +106,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
 
       <GuideFrame>
         <section className="print-label rounded-[28px] border border-slate-300 bg-white shadow-2xl shadow-slate-950/10 print:rounded-none print:border-slate-900 print:shadow-none">
-          <header className="grid min-w-0 gap-5 border-b-2 border-slate-900 p-6 md:grid-cols-[minmax(0,1fr)_auto_auto] print:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <header className="grid min-w-0 gap-5 border-b-2 border-slate-900 p-4 sm:p-6 md:grid-cols-[minmax(0,1fr)_auto_auto] print:grid-cols-[minmax(0,1fr)_auto_auto]">
             <div className="flex min-w-0 items-center gap-3 text-left">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-[#22C55E] print:border print:border-slate-900 print:bg-white print:text-slate-950">
                 <PackageCheck className="h-6 w-6" />
@@ -126,7 +126,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
             <StatusPanel shipment={shipment} />
           </header>
 
-          <div className="grid min-w-0 gap-4 p-6">
+          <div className="grid min-w-0 gap-4 p-4 sm:p-6">
             <InfoBlock
               title="Sender"
               rows={[
@@ -206,7 +206,7 @@ function Barcode({ codeBlocks, trackingNumber }: { codeBlocks: string[]; trackin
           <span key={index} className={`${width} h-full bg-slate-950`} />
         ))}
       </div>
-      <p className="mt-3 text-lg font-black tracking-[0.16em] text-slate-950">{trackingNumber}</p>
+      <p className="mt-3 break-words text-base font-black tracking-[0.08em] text-slate-950 sm:text-lg sm:tracking-[0.16em]">{trackingNumber}</p>
     </section>
   );
 }

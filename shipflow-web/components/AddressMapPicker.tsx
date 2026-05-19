@@ -153,7 +153,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
 
   if (!mapsReady) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
+      <div className="flex h-56 min-w-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 sm:h-64">
         <div className="flex flex-col items-center gap-2 text-slate-400">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span className="text-sm">Loading map...</span>
@@ -163,10 +163,10 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <div
         ref={mapDivRef}
-        className="h-56 w-full overflow-hidden rounded-2xl border border-slate-200"
+        className="h-56 w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 sm:h-64"
       />
       {geocoding && (
         <div className="flex items-center gap-2 text-xs text-slate-500">

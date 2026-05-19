@@ -21,10 +21,10 @@ export function StatCard({ label, value, detail, icon: Icon, tone = "blue" }: St
         >
           <Icon className="h-5 w-5" />
         </div>
-        <span className="text-xs font-semibold text-[#16a34a]">{detail}</span>
+        <span className="text-right text-xs font-semibold text-[#16a34a]">{detail}</span>
       </div>
       <p className="mt-5 text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+      <p className="mt-1 break-words text-3xl font-black tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }

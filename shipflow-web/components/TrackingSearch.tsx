@@ -84,8 +84,8 @@ export function TrackingSearch() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+    <div className="grid min-w-0 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
         <form onSubmit={handleSubmit} className="grid gap-4">
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             Tracking number
@@ -107,11 +107,11 @@ export function TrackingSearch() {
       </div>
 
       {shipment ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-slate-500">Shipment</p>
-              <h2 className="mt-1 text-3xl font-black text-slate-950">{shipment.trackingNumber}</h2>
+              <h2 className="mt-1 break-words text-2xl font-black text-slate-950 sm:text-3xl">{shipment.trackingNumber}</h2>
             </div>
             <Badge tone={statusTone[shipment.status]}>
               {displayShipmentStatus(shipment.status)}
@@ -159,7 +159,7 @@ export function TrackingSearch() {
                 href={shipment.labelUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-10 items-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white"
+                className="inline-flex h-10 w-full items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white sm:w-auto"
               >
                 <Download className="mr-2 h-4 w-4" />
                 Download carrier label
@@ -167,7 +167,7 @@ export function TrackingSearch() {
             ) : null}
             <Link
               href={`/guia/${shipment.trackingNumber}`}
-              className="inline-flex h-10 items-center rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-[#06B6D4]"
+              className="inline-flex h-10 w-full items-center justify-center rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-[#06B6D4] sm:w-auto"
             >
               View shipment
             </Link>
@@ -175,9 +175,9 @@ export function TrackingSearch() {
           <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5">
             <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Timeline</h3>
             {events.length ? events.map((event) => (
-                <div key={event.id} className="flex gap-4">
+                <div key={event.id} className="flex min-w-0 gap-4">
                   <span className="mt-1 h-3 w-3 rounded-full bg-green-500" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-bold text-slate-950">{event.title}</p>
                     {event.description ? <p className="text-sm text-slate-500">{event.description}</p> : null}
                     <p className="text-sm text-slate-500">{formatDate(event.date)}</p>
@@ -186,9 +186,9 @@ export function TrackingSearch() {
               )) : (
                 <div className="grid gap-3">
                   {shipment.labelStatus === "purchased" ? (
-                    <div className="flex gap-4">
+                    <div className="flex min-w-0 gap-4">
                       <span className="mt-1 h-3 w-3 rounded-full bg-green-500" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-bold text-slate-950">Label purchased</p>
                         <p className="text-sm text-slate-500">{formatDate(shipment.date)}</p>
                       </div>
@@ -224,9 +224,9 @@ export function TrackingSearch() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="min-w-0 rounded-2xl bg-slate-50 p-4">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 font-bold text-slate-950">{value}</p>
+      <p className="mt-1 break-words font-bold text-slate-950">{value}</p>
     </div>
   );
 }

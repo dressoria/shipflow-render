@@ -131,6 +131,80 @@ export function ShipmentsTable() {
   }
 
   const canVoid = (s: Envio) => s.provider === "shipstation" && s.labelStatus === "purchased";
+  const renderActions = (shipment: Envio) => (
+    <div className="flex flex-wrap items-start gap-2">
+      <Link
+        href={`/guia/${shipment.trackingNumber}`}
+        className="rounded-2xl bg-pink-50 px-3 py-1.5 text-xs font-black text-[#FF1493]"
+      >
+        View shipment
+      </Link>
+      <Link
+        href={`/tracking?trackingNumber=${encodeURIComponent(shipment.trackingNumber)}`}
+        className="rounded-2xl bg-cyan-50 px-3 py-1.5 text-xs font-black text-[#06B6D4]"
+      >
+        Track
+      </Link>
+
+      {shipment.labelStatus === "purchased" && shipment.labelUrl ? (
+        <a
+          href={shipment.labelUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center rounded-2xl bg-slate-950 px-3 py-1.5 text-xs font-black text-white"
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          Download carrier label
+        </a>
+      ) : shipment.labelStatus === "voided" ? (
+        <span className="rounded-2xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+          Voided label - do not use
+        </span>
+      ) : shipment.labelStatus === "purchased" ? (
+        <span className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
+          Carrier label unavailable
+        </span>
+      ) : null}
+
+      {canVoid(shipment) ? (
+        voidingId === shipment.id ? (
+          <div className="grid gap-1">
+            <div className="flex items-center gap-1 rounded-2xl bg-amber-50 px-3 py-1.5">
+              <AlertTriangle className="h-3 w-3 text-amber-600" />
+              <span className="text-xs font-bold text-amber-700">Void?</span>
+            </div>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => confirmVoid(shipment.id)}
+                className="rounded-xl bg-red-100 px-2 py-1 text-xs font-black text-red-700 hover:bg-red-200"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={cancelVoid}
+                className="rounded-xl bg-slate-100 px-2 py-1 text-xs font-black text-slate-600 hover:bg-slate-200"
+              >
+                No
+              </button>
+            </div>
+            {voidError ? (
+              <p className="text-xs font-semibold text-red-600">{voidError}</p>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => startVoid(shipment.id)}
+            className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-red-50 hover:text-red-700"
+          >
+            Void label
+          </button>
+        )
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="grid gap-3">
@@ -144,7 +218,70 @@ export function ShipmentsTable() {
           {voidError}
         </div>
       )}
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
+      <div className="grid gap-3 md:hidden">
+        {shipments.map((shipment) => (
+          <article
+            key={shipment.id}
+            className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="break-words font-black text-slate-950 tabular-nums">
+                  {shipment.trackingNumber}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">
+                  {shipment.recipientName}
+                </p>
+                <p className="text-xs text-slate-400">{shipment.destinationCity}</p>
+              </div>
+              <Badge tone={statusTone[shipment.status] ?? "amber"}>
+                {displayShipmentStatus(shipment.status)}
+              </Badge>
+            </div>
+
+            <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Carrier</span>
+                <span className="break-words text-right font-bold text-slate-950">{shipment.courier}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Label</span>
+                <span>
+                  {shipment.labelStatus ? (
+                    <Badge tone={labelStatusTone[shipment.labelStatus] ?? "slate"}>
+                      {labelStatusLabel[shipment.labelStatus] ?? shipment.labelStatus}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </span>
+              </div>
+              {shipment.paymentStatus ? (
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Payment</span>
+                  <span className="font-bold text-slate-950">
+                    {displayPaymentStatus(shipment.paymentStatus)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Price</span>
+                <span className="font-bold text-slate-950">
+                  {formatCurrency(shipment.customerPrice ?? shipment.value)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Date</span>
+                <span className="font-bold text-slate-950">{formatDate(shipment.date)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4">{renderActions(shipment)}</div>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 md:block">
         <div className="overflow-x-auto">
           <div className="grid min-w-[1100px] grid-cols-[1.2fr_1.2fr_1fr_0.8fr_0.8fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
             <span>Shipment / Status</span>
@@ -199,78 +336,7 @@ export function ShipmentsTable() {
               <span className="text-slate-600">{formatDate(shipment.date)}</span>
 
               {/* Actions */}
-              <div className="flex flex-wrap items-start gap-2">
-                <Link
-                  href={`/guia/${shipment.trackingNumber}`}
-                  className="rounded-2xl bg-pink-50 px-3 py-1.5 text-xs font-black text-[#FF1493]"
-                >
-                  View shipment
-                </Link>
-                <Link
-                  href={`/tracking?trackingNumber=${encodeURIComponent(shipment.trackingNumber)}`}
-                  className="rounded-2xl bg-cyan-50 px-3 py-1.5 text-xs font-black text-[#06B6D4]"
-                >
-                  Track
-                </Link>
-
-                {shipment.labelStatus === "purchased" && shipment.labelUrl ? (
-                  <a
-                    href={shipment.labelUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center rounded-2xl bg-slate-950 px-3 py-1.5 text-xs font-black text-white"
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Download carrier label
-                  </a>
-                ) : shipment.labelStatus === "voided" ? (
-                  <span className="rounded-2xl bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-                    Voided label - do not use
-                  </span>
-                ) : shipment.labelStatus === "purchased" ? (
-                  <span className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-                    Carrier label unavailable
-                  </span>
-                ) : null}
-
-                {canVoid(shipment) ? (
-                  voidingId === shipment.id ? (
-                    <div className="grid gap-1">
-                      <div className="flex items-center gap-1 rounded-2xl bg-amber-50 px-3 py-1.5">
-                        <AlertTriangle className="h-3 w-3 text-amber-600" />
-                        <span className="text-xs font-bold text-amber-700">Void?</span>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => confirmVoid(shipment.id)}
-                          className="rounded-xl bg-red-100 px-2 py-1 text-xs font-black text-red-700 hover:bg-red-200"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelVoid}
-                          className="rounded-xl bg-slate-100 px-2 py-1 text-xs font-black text-slate-600 hover:bg-slate-200"
-                        >
-                          No
-                        </button>
-                      </div>
-                      {voidError ? (
-                        <p className="text-xs font-semibold text-red-600">{voidError}</p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startVoid(shipment.id)}
-                      className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-red-50 hover:text-red-700"
-                    >
-                      Void label
-                    </button>
-                  )
-                ) : null}
-              </div>
+              {renderActions(shipment)}
             </div>
           ))}
         </div>

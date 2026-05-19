@@ -66,7 +66,7 @@ export function AdminShipmentsView() {
   return (
     <div className="grid gap-4">
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_180px]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -178,7 +178,7 @@ export function AdminBalanceView() {
   return (
     <div className="grid gap-4">
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_220px]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_220px]">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -262,7 +262,7 @@ export function AdminAuditView() {
   return (
     <div className="grid gap-4">
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -328,9 +328,9 @@ function ManualAdjustmentForm({
   }
 
   return (
-    <form onSubmit={submit} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <form onSubmit={submit} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="font-black text-slate-950">Manual balance adjustment</h2>
           <p className="mt-1 text-sm text-slate-500">
             This creates an administrative balance adjustment. It is not a payment.
@@ -339,8 +339,8 @@ function ManualAdjustmentForm({
         <Badge tone="amber">Beta admin action</Badge>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+      <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
           User
           <select
             required
@@ -356,7 +356,7 @@ function ManualAdjustmentForm({
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
           Type
           <select
             value={mode}
@@ -368,7 +368,7 @@ function ManualAdjustmentForm({
           </select>
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
           Amount
           <input
             required
@@ -382,7 +382,7 @@ function ManualAdjustmentForm({
           />
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
           Reason
           <input
             required
@@ -394,7 +394,7 @@ function ManualAdjustmentForm({
           />
         </label>
 
-        <label className="grid gap-2 text-sm font-bold text-slate-700 md:col-span-2">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
           Note
           <textarea
             maxLength={500}
@@ -412,7 +412,7 @@ function ManualAdjustmentForm({
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="submit"
           disabled={submitting}

@@ -104,16 +104,16 @@ function severityTone(severity?: string): "blue" | "green" | "amber" | "slate" {
 export function AdminUsersTable({ users }: { users: Usuario[] }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
-      <div className="grid min-w-[680px] grid-cols-[1.2fr_1fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
-        <span>Email</span>
-        <span>Name</span>
-        <span>Role</span>
-        <span>Registered</span>
-      </div>
       <div className="overflow-x-auto">
+        <div className="grid min-w-[680px] grid-cols-[1.2fr_1fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+          <span>Email</span>
+          <span>Name</span>
+          <span>Role</span>
+          <span>Registered</span>
+        </div>
         {users.map((user) => (
           <div key={user.id} className="grid min-w-[680px] grid-cols-[1.2fr_1fr_1fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
-            <span className="font-bold text-slate-950">{user.email}</span>
+            <span className="break-words font-bold text-slate-950">{user.email}</span>
             <span className="text-slate-600">{user.businessName ?? "No name"}</span>
             <span><Badge tone={user.role === "admin" ? "blue" : "slate"}>{user.role}</Badge></span>
             <span className="text-slate-600">{formatDate(user.createdAt)}</span>
@@ -127,18 +127,18 @@ export function AdminUsersTable({ users }: { users: Usuario[] }) {
 export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] | Envio[] }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
-      <div className="grid min-w-[1180px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1fr_1.2fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
-        <span>Tracking</span>
-        <span>User</span>
-        <span>Recipient</span>
-        <span>Destination</span>
-        <span>Carrier</span>
-        <span>Label</span>
-        <span>Payment</span>
-        <span>Total</span>
-        <span>Actions</span>
-      </div>
       <div className="overflow-x-auto">
+        <div className="grid min-w-[1180px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1fr_1.2fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+          <span>Tracking</span>
+          <span>User</span>
+          <span>Recipient</span>
+          <span>Destination</span>
+          <span>Carrier</span>
+          <span>Label</span>
+          <span>Payment</span>
+          <span>Total</span>
+          <span>Actions</span>
+        </div>
         {shipments.length === 0 ? (
           <div className="px-5 py-8 text-sm text-slate-500">No shipments found.</div>
         ) : (
@@ -146,8 +146,8 @@ export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] 
             const adminShipment = shipment as AdminShipment;
             return (
               <div key={shipment.id} className="grid min-w-[1180px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1fr_1.2fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
-                <span className="font-black text-slate-950">{shipment.trackingNumber}</span>
-                <span className="text-slate-600">{adminShipment.userEmail ?? shipment.userId ?? "Unknown"}</span>
+                <span className="break-words font-black text-slate-950">{shipment.trackingNumber}</span>
+                <span className="break-words text-slate-600">{adminShipment.userEmail ?? shipment.userId ?? "Unknown"}</span>
                 <span className="text-slate-600">{shipment.recipientName}</span>
                 <span className="text-slate-600">{shipment.destinationCity}</span>
                 <span className="text-slate-600">{shipment.courier}</span>
@@ -176,7 +176,7 @@ export function AdminBalanceTable({ movements }: { movements: AdminBalanceMoveme
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="font-black text-slate-950">Recent balance activity</h2>
           <p className="text-sm text-slate-500">Read-only during beta. Manual adjustments are disabled.</p>
         </div>
@@ -195,10 +195,10 @@ export function AdminBalanceTable({ movements }: { movements: AdminBalanceMoveme
           movements.map((movement) => {
             const adminMovement = movement as AdminBalanceMovement;
             return (
-              <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
-                <div>
-                  <p className="font-bold text-slate-950">{movement.concept}</p>
-                  <p className="text-sm text-slate-500">
+              <div key={movement.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
+                  <p className="break-words font-bold text-slate-950">{movement.concept}</p>
+                  <p className="break-words text-sm text-slate-500">
                     {adminMovement.userEmail ? `${adminMovement.userEmail} · ` : ""}
                     {adminMovement.trackingNumber ? `Tracking ${adminMovement.trackingNumber} · ` : ""}
                     {formatDate(movement.date)}
@@ -213,7 +213,7 @@ export function AdminBalanceTable({ movements }: { movements: AdminBalanceMoveme
                     </p>
                   ) : null}
                 </div>
-                <p className={movement.amount > 0 ? "font-black text-[#15803d]" : "font-black text-slate-700"}>
+                <p className={movement.amount > 0 ? "shrink-0 font-black text-[#15803d]" : "shrink-0 font-black text-slate-700"}>
                   {formatCurrency(movement.amount)}
                 </p>
               </div>
@@ -250,10 +250,10 @@ export function AdminAuditEventsTable({ events, compact = false }: { events: Adm
           {events.map((event) => (
             <div key={event.id} className="grid min-w-[900px] grid-cols-[0.8fr_1.3fr_1fr_1fr_1.8fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
               <span><Badge tone={severityTone(event.severity)}>{displayStatus(event.severity)}</Badge></span>
-              <span className="font-bold text-slate-950">{event.eventType}</span>
+              <span className="break-words font-bold text-slate-950">{event.eventType}</span>
               <span className="text-slate-600">{event.entityType ?? "Not available"}</span>
               <span className="text-slate-600">{event.trackingNumber ?? "Not available"}</span>
-              <span className="text-slate-600">{event.message}</span>
+              <span className="break-words text-slate-600">{event.message}</span>
               <span className="text-slate-600">{formatDate(event.createdAt)}</span>
             </div>
           ))}
@@ -277,9 +277,9 @@ function RecentShipments({ shipments }: { shipments: AdminShipment[] | Envio[] }
           <p className="text-sm text-slate-500">No shipments yet.</p>
         ) : (
           shipments.map((shipment) => (
-            <div key={shipment.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
-              <div>
-                <p className="font-bold text-slate-950">{shipment.trackingNumber}</p>
+            <div key={shipment.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="min-w-0">
+                <p className="break-words font-bold text-slate-950">{shipment.trackingNumber}</p>
                 <p className="text-sm text-slate-500">{shipment.destinationCity} · {shipment.courier}</p>
               </div>
               <Badge tone={shipment.status === "Pendiente" ? "amber" : "blue"}>{displayShipmentStatus(shipment.status)}</Badge>
@@ -300,12 +300,12 @@ function RecentBalanceActivity({ movements }: { movements: AdminBalanceMovement[
           <p className="text-sm text-slate-500">No balance activity yet.</p>
         ) : (
           movements.map((movement) => (
-            <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
-              <div>
-                <p className="font-bold text-slate-950">{movement.concept}</p>
+            <div key={movement.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="min-w-0">
+                <p className="break-words font-bold text-slate-950">{movement.concept}</p>
                 <p className="text-sm text-slate-500">{formatDate(movement.date)}</p>
               </div>
-              <span className={movement.amount > 0 ? "font-black text-[#15803d]" : "font-black text-slate-700"}>
+              <span className={movement.amount > 0 ? "shrink-0 font-black text-[#15803d]" : "shrink-0 font-black text-slate-700"}>
                 {formatCurrency(movement.amount)}
               </span>
             </div>

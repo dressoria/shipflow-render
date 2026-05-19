@@ -43,8 +43,8 @@ export function BalancePanel() {
   }, []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <div className="rounded-3xl border border-pink-400/20 bg-slate-950 p-6 text-white shadow-2xl shadow-pink-950/20">
+    <div className="grid min-w-0 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="rounded-3xl border border-pink-400/20 bg-slate-950 p-5 text-white shadow-2xl shadow-pink-950/20 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
             <CreditCard className="h-6 w-6 text-[#22C55E]" />
@@ -52,7 +52,7 @@ export function BalancePanel() {
           <Badge tone="green">Operational</Badge>
         </div>
         <p className="mt-8 text-sm text-slate-300">Available balance</p>
-        <p className="mt-2 text-5xl font-black">
+        <p className="mt-2 break-words text-4xl font-black sm:text-5xl">
           {loading ? "—" : formatCurrency(balance)}
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -77,7 +77,7 @@ export function BalancePanel() {
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid min-w-0 gap-6">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Total recharged</p>
@@ -105,7 +105,7 @@ export function BalancePanel() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
           <div className="flex items-center justify-between gap-4">
             <h2 className="font-black text-slate-950">Balance activity</h2>
             <Badge tone="blue">{movements.length} movements</Badge>
@@ -117,12 +117,12 @@ export function BalancePanel() {
               <p className="text-sm text-slate-500">No balance activity yet.</p>
             ) : (
               movements.map((movement) => (
-                <div key={movement.id} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
-                  <div>
+                <div key={movement.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <div className="min-w-0">
                     <p className="font-bold text-slate-950">{movement.concept}</p>
                     <p className="text-sm text-slate-500">{formatDate(movement.date)}</p>
                   </div>
-                  <p className={`font-black ${movementTone(movement)}`}>
+                  <p className={`shrink-0 font-black ${movementTone(movement)}`}>
                     {formatCurrency(movement.amount)}
                   </p>
                 </div>
