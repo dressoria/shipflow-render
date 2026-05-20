@@ -995,6 +995,69 @@ Pendiente posterior:
 - Disenar refunds, chargebacks/disputes y balance reversals.
 - Preparar production readiness checklist para pagos.
 
+## FASE 5.38 — Stripe refunds, chargebacks y disputes (diseno)
+
+Estado: diseno/documentacion completada. Sin codigo nuevo, sin migracion, sin deploy.
+
+Objetivo:
+
+- Auditar estructura actual de tablas y codigo relacionado con pagos Stripe.
+- Definir reglas de negocio para refunds, disputes, chargebacks y reversals.
+- Recomendar modelo de datos para fase de implementacion futura.
+- Documentar webhook events futuros de Stripe.
+- Documentar reglas de balance reversal y negative balance policy.
+- Documentar UI/UX propuesta para eventos de reversal.
+- Documentar reglas de seguridad e idempotencia.
+- Documentar audit/reconciliation events propuestos.
+
+Estructura auditada:
+
+- `payment_recharges`: tiene `status = refunded` disponible; falta `disputed`/`dispute_won`/`dispute_lost`.
+- `balance_movements`: `type = adjustment` puede usarse para reversals como interim.
+- `audit_logs`: ya soporta todos los event types necesarios con severity.
+- Webhook `/api/webhooks/stripe`: actualmente maneja `checkout.session.completed`, `checkout.session.expired` y `payment_intent.payment_failed`.
+
+Modelo de datos recomendado:
+
+- Opcion B (tabla futura `payment_reversals`) es la solucion productiva recomendada.
+- Como interim: usar `balance_movements type = adjustment` con metadata descriptiva.
+- No crear migracion hasta decidir modelo final y completar prueba sandbox del interim.
+
+Reglas de negocio aprobadas (ver DATABASE.md y SECURITY.md para detalle completo):
+
+- Saldo no usado: refund automatico permitido con audit.
+- Saldo ya usado: no refund automatico; reconciliation critica.
+- Dispute con saldo: hold negativo + bloqueo de compras.
+- Dispute sin saldo: balance negativo + reconciliation critica + bloqueo.
+- Webhook duplicado: ignorar, loguear warning.
+- Dispute ganado: restaurar hold.
+- Dispute perdido: confirmar descuento, reconciliation critica.
+- Balance negativo: bloquear `/api/labels` con 402.
+
+Webhook events futuros diseñados:
+
+- `charge.refunded`
+- `refund.created`, `refund.updated`
+- `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+- (ya existentes) `payment_intent.payment_failed`, `checkout.session.expired`
+
+Validaciones ejecutadas:
+
+- lint: 0 errores, 6 warnings preexistentes.
+- typecheck: limpio.
+- build: exitoso, 26 rutas.
+- git diff --check: limpio.
+
+Pendiente posterior (FASE 5.39 o posterior):
+
+- Crear migracion para ampliar `payment_recharges.status` constraint.
+- Crear tabla `payment_reversals`.
+- Agregar `profiles.account_status` o equivalente para bloqueo por dispute.
+- Implementar handlers `charge.refunded` y `charge.dispute.*` en webhook Stripe.
+- QA sandbox de refund via Stripe CLI (`stripe refunds create`).
+- Prueba de idempotencia de webhook de refund.
+- Production readiness checklist para pagos live.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:

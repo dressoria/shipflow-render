@@ -718,6 +718,141 @@ Void/refund:
 - ShipEngine void sigue sin implementarse.
 - `/api/labels/[id]/void` debe responder `Void is not supported for this label yet.` para ShipEngine.
 
+## FASE 5.20F - Label purchase success UX
+
+Estado:
+
+- Primera compra sandbox ShipEngine/Stamps.com validada manualmente.
+- Tracking de prueba: `9434650899563003146315`.
+- `label_url` es la fuente de verdad para descargar/ver la label oficial del carrier.
+
+Reglas de UI:
+
+- **Carrier label**: PDF/URL oficial recibido desde ShipEngine en `label_url`.
+- **Shipment summary**: pagina interna de ShipFlow para revisar shipment, tracking, pricing y estados. No reemplaza la label oficial.
+- Si `label_status = purchased` y `label_url` existe, mostrar `Download carrier label`.
+- Si no existe `label_url`, no mostrar enlaces rotos; mostrar `Carrier label unavailable`.
+- La pagina `/guia/[trackingNumber]` debe llamarse `Shipment summary`.
+- El QR vacio fue eliminado; se mantiene tracking number y barcode visual.
+
+Pendientes:
+
+- Void/refund ShipEngine.
+- Webhooks/tracking real del carrier.
+- Retencion permanente de PDFs si las URLs del provider expiran.
+
+## FASE 5.20G - ShipEngine sandbox QA and edge cases
+
+Estado:
+
+- No se compro otra label durante la fase.
+- La primera label sandbox sigue siendo la referencia de prueba: `9434650899563003146315`.
+- PDF oficial SAMPLE confirmado desde `label_url`.
+
+Hardening:
+
+- Doble click: el modal de compra queda en `Purchasing label...` y deshabilita acciones mientras procesa.
+- Idempotencia: `idempotency_key` se scopea por usuario. Si ya existe shipment `purchased`, se devuelve existente; si existe estado ambiguo, se bloquea con 409.
+- Rate expirado/no disponible: no se llama purchase si no hay match seguro tras revalidar rates.
+- Saldo insuficiente: no se llama purchase y se responde 402 con mensaje claro.
+- Provider error: errores de ShipEngine se sanitizan como carrier errors; no se expone raw provider response.
+- Response incompleta: si faltan `label_id` o `tracking_number`, se loggea server-side un evento sanitizado y se bloquea el flujo.
+- `label_url` faltante: si el provider devuelve label/tracking sin URL, se persiste sin boton roto; UI muestra `Carrier label unavailable`.
+- Tracking: sin webhooks aun; la UI no promete realtime y muestra estado vacio honesto.
+- Void/refund: sigue bloqueado; no se llama provider ni se toca balance.
+
+Pendiente futuro:
+
+- Implementar void/refund ShipEngine confirmado por provider.
+- Webhooks/tracking carrier.
+- Reconciliacion persistente/audit log para fallos post-compra.
+- Migrar Google Maps legacy Autocomplete/Marker a APIs modernas.
+
+## FASE 5.21 - Basic tracking experience
+
+Estado:
+
+- Tracking basico implementado sobre datos guardados en ShipFlow.
+- No hay webhook carrier ni realtime tracking todavia.
+- No se llama ShipEngine tracking API ni carrier API en esta fase.
+
+Flujo:
+
+```text
+/tracking?trackingNumber=...
+→ GET /api/tracking?trackingNumber=...
+→ requireVerifiedUser
+→ shipments por user_id + tracking_number
+→ tracking_events por shipment_id
+→ UI muestra shipment + timeline
+```
+
+Datos devueltos:
+
+- `shipmentId`
+- `trackingNumber`
+- `shipmentStatus`
+- `labelStatus`
+- `paymentStatus`
+- carrier/service
+- recipient/destination
+- `labelUrl`
+- `events[]`
+
+UX:
+
+- Si hay eventos, se muestran en timeline.
+- Si no hay eventos carrier, se muestra `No tracking events yet` y `Tracking updates will appear once the carrier reports movement.`
+- `/envios` y `Shipment summary` enlazan hacia `/tracking?trackingNumber=...`.
+
+Seguridad:
+
+- El endpoint filtra por usuario autenticado.
+- No devuelve raw provider response ni metadata sensible.
+- No expone `labelUrl` si el shipment no pertenece al usuario.
+
+## FASE 5.22 - ShipEngine sandbox void/refund
+
+Estado:
+
+- Implementado en codigo, protegido por `ENABLE_REAL_LABEL_VOID`.
+- No se ejecuto void sandbox durante la fase.
+- Shippo, Easyship y EasyPost siguen sin void.
+
+Provider:
+
+- ShipEngine void usa `PUT /v1/labels/{label_id}/void` con `API-Key`.
+- Solo se considera exitoso si la respuesta trae `approved: true`.
+- La respuesta del provider se normaliza y no se devuelve raw al cliente.
+
+Guards:
+
+- `ENABLE_REAL_LABEL_VOID === "true"`.
+- Usuario verificado y owner del shipment.
+- `provider = shipstation` + `SHIPSTATION_API_MODE=shipengine`.
+- `label_status = purchased`.
+- `payment_status = paid`.
+- `provider_label_id` existente.
+
+Refund interno:
+
+- Solo despues de confirmacion del provider.
+- Usa RPC `void_label_refund_transaction`.
+- Refund amount viene de `customer_price`/`total` en DB, nunca del frontend.
+- Idempotencia por refund existente para el shipment.
+
+UI:
+
+- `/envios` muestra `Void label`.
+- Con guard apagado, muestra `Void is not enabled yet.`
+- Si la label queda voided, tracking/summary muestran `This label was voided and should not be used.`
+
+Pendiente:
+
+- Ejecutar prueba sandbox manual controlada.
+- Reconciliacion persistente si provider void OK pero DB/RPC falla.
+- Void/refund multi-provider.
+
 ## Pricing futuro
 
 Campos necesarios:
@@ -765,3 +900,148 @@ Tracking futuro deberia poder venir de:
 - Polling controlado.
 
 El fallback debe estar claramente marcado como fallback para no confundirse con estado real.
+
+## Balance y recargas futuras
+
+FASE 5.23 deja balance listo para beta sin pagos reales:
+
+- Compra de label: `balance_movements.type = debit`, amount negativo.
+- Void confirmado: `balance_movements.type = refund`, amount positivo.
+- Top-up manual sandbox: `balance_movements.type = recharge`, amount positivo, mostrado como `Test balance top-up`.
+- Ajustes manuales futuros: `adjustment`, con permisos/admin y auditoria.
+- Fees separadas futuras: `fee`, si se decide separarlas del `customer_price`.
+
+`/api/balance` es solo lectura y devuelve saldo disponible, movimientos y totales. No existe endpoint de recarga publica.
+
+Flujo Stripe futuro recomendado:
+
+1. Usuario hace click en `Add funds`.
+2. Backend crea Stripe Checkout Session.
+3. Usuario paga en Stripe.
+4. Stripe webhook verificado confirma el pago.
+5. Backend crea `balance_movement` tipo `recharge`.
+6. Idempotencia por Stripe event id/payment intent id.
+7. Si el pago fue exitoso pero la DB falla, soporte debe reconciliar antes de acreditar de nuevo.
+
+Regla de seguridad: nunca acreditar saldo desde el frontend ni desde parametros enviados por el cliente.
+
+## Admin/support beta operations
+
+FASE 5.24 agrega un panel de soporte read-only para operar beta cerrada:
+
+- Ver usuarios, shipments, labels compradas/voided y movimientos de balance.
+- Abrir shipment summary, tracking y carrier label si `label_url` existe.
+- Revisar debits/refunds vinculados a shipments.
+- Ver bloque `Reconciliation pending` para recordar casos aun manuales:
+  - Carrier label purchased but DB save failed.
+  - Void approved but refund failed.
+  - Missing label URL.
+  - Ambiguous idempotency state.
+
+El panel no permite:
+
+- Comprar labels.
+- Ejecutar void.
+- Crear recargas.
+- Crear manual adjustments.
+- Cambiar pricing/couriers.
+
+Guard:
+
+- `profiles.role = admin` o allowlist temporal server-side `ADMIN_EMAILS`.
+- Los endpoints admin usan service role solo despues de validar admin.
+
+## Audit/reconciliation events
+
+FASE 5.26 registra eventos operativos en `audit_logs` existente:
+
+- `label_purchase_started`
+- `label_purchase_succeeded`
+- `label_purchase_failed`
+- `label_purchase_db_persist_failed`
+- `label_void_started`
+- `label_void_succeeded`
+- `label_void_failed`
+- `label_void_refund_failed`
+- `balance_adjustment_created`
+- `balance_adjustment_rejected`
+- `admin_access_denied`
+- `idempotency_conflict`
+- `label_url_missing`
+
+Casos de reconciliacion manual:
+
+- ShipEngine label purchased OK pero DB/RPC fallo.
+- ShipEngine void approved OK pero refund/RPC fallo.
+- Carrier response sin label URL.
+- Estado ambiguo por idempotencia.
+- Admin adjustment rechazado por validacion.
+
+Los eventos no guardan secrets ni raw provider responses completos. `metadata` se sanitiza en backend antes de insertarse.
+
+UI:
+
+- `/admin/audit` muestra eventos read-only.
+- `/admin` muestra resumen `Reconciliation & audit`.
+- No hay resolver/cerrar eventos todavia.
+
+## FASE 5.28 — End-to-end beta QA
+
+La revision pre-staging confirma el estado operativo actual:
+
+- Rates reales: ShipEngine/ShipStation API nueva, Shippo y Easyship cuando estan configurados.
+- Internal/mock/dummy no deben participar en tarifas visibles al usuario.
+- Label purchase: solo ShipEngine sandbox y solo si `ENABLE_REAL_LABEL_PURCHASE=true`.
+- Void/refund: solo ShipEngine sandbox y solo si `ENABLE_REAL_LABEL_VOID=true`.
+- Shippo/Easyship/EasyPost siguen rates-only para labels/void.
+- Tracking basico usa shipments y `tracking_events` guardados; no hay webhooks carrier ni realtime.
+- Carrier label oficial sigue siendo `label_url`; `/guia/[trackingNumber]` es `Shipment summary`.
+
+Checklist logistico antes de staging:
+
+- Usar ShipEngine TEST key, no production key.
+- Verificar `/api/config/status` sin exponer secretos.
+- Confirmar que guards de label purchase y void estan apagados por defecto.
+- Confirmar que la RPC endurecida de label purchase y void/refund esta aplicada si se van a probar sandbox actions.
+- Probar ruta de rates USA con:
+  - From: `350 5th Ave, New York, NY 10118`
+  - To: `700-798 Borello Way, Mountain View, CA 94041`
+  - Package: `1 lb, 6 x 4 x 2 in`
+- No comprar labels ni ejecutar void en staging salvo prueba sandbox controlada y documentada.
+
+## FASE 5.29 — Staging logistics runbook
+
+Staging debe quedar configurado como sandbox:
+
+```text
+SHIPSTATION_API_MODE=shipengine
+SHIPSTATION_API_KEY=TEST_...
+SHIPSTATION_BASE_URL=https://api.shipengine.com/v1
+SHIPPO_API_KEY=shippo_test_...
+EASYSHIP_API_KEY=sand_...
+EASYSHIP_BASE_URL=https://public-api-sandbox.easyship.com
+ENABLE_REAL_LABEL_PURCHASE=false
+ENABLE_REAL_LABEL_VOID=false
+```
+
+Verificaciones:
+
+- `/api/config/status` debe mostrar `ratesConfigured=true` si al menos un provider real esta configurado.
+- `activeRateProviders` debe ser mayor a 0 cuando ShipEngine/Shippo/Easyship sandbox estan disponibles.
+- `labelPurchaseEnabled=false` por defecto.
+- `labelVoidEnabled=false` por defecto.
+
+Plan de prueba staging:
+
+1. Cotizar NY → Mountain View con paquete `1 lb, 6 x 4 x 2 in`.
+2. Confirmar rates reales limpios, sin Dummy/Mock/Internal visible.
+3. Seleccionar rate y confirmar que purchase esta bloqueado con guard apagado.
+4. Solo en prueba controlada, activar purchase, comprar una label ShipEngine TEST, validar PDF SAMPLE y apagar purchase.
+5. Solo con label SAMPLE, activar void, ejecutar un void, validar refund y apagar void.
+
+Rollback logistico:
+
+- Apagar `ENABLE_REAL_LABEL_PURCHASE`.
+- Apagar `ENABLE_REAL_LABEL_VOID`.
+- Revertir deploy si hay regresion.
+- Revisar audit logs antes de reintentar acciones sandbox.

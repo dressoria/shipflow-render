@@ -934,4 +934,74 @@ Antes de produccion:
 - Agregar logs/auditoria.
 - Validar webhooks.
 - Separar variables publicas y privadas.
+
+## FASE 5.38 — Stripe refunds, disputes y reversals: notas de produccion
+
+Antes de activar Stripe live, ademas de los checks anteriores, confirmar:
+
+Migraciones pendientes para refunds/disputes:
+
+```sql
+-- 1. Ampliar payment_recharges.status para disputes
+ALTER TABLE public.payment_recharges
+  DROP CONSTRAINT IF EXISTS payment_recharges_status_check;
+ALTER TABLE public.payment_recharges
+  ADD CONSTRAINT payment_recharges_status_check
+  CHECK (status IN ('pending', 'paid', 'failed', 'canceled', 'refunded',
+                    'disputed', 'dispute_won', 'dispute_lost'));
+
+-- 2. Crear payment_reversals (ver DATABASE.md para schema completo)
+-- 3. Agregar profiles.account_status para bloqueo por dispute
+```
+
+No aplicar estas migraciones hasta que los handlers de webhook esten implementados y probados en sandbox.
+
+Webhook events que deben estar implementados antes de live:
+
+- `charge.refunded` — refund de recarga
+- `charge.dispute.created` — hold de saldo
+- `charge.dispute.closed` — cierre de dispute (won/lost)
+
+QA de refunds antes de live:
+
+```bash
+# Crear refund de prueba con Stripe CLI
+stripe refunds create --payment-intent pi_... --amount 1000
+
+# Reenviar evento para probar idempotencia
+stripe events resend evt_...
+```
+
+Verificar post-refund en Supabase:
+
+```sql
+-- Un solo balance_movement de adjustment negativo
+select id, concept, amount, type, idempotency_key, metadata
+from public.balance_movements
+where user_id = '<user_id>'
+  and type = 'adjustment'
+order by created_at desc
+limit 5;
+
+-- payment_recharges actualizado a refunded
+select id, status, metadata
+from public.payment_recharges
+where user_id = '<user_id>'
+order by created_at desc
+limit 5;
+
+-- audit event registrado
+select action, metadata
+from public.audit_logs
+where action like 'payment_refund%'
+order by created_at desc
+limit 5;
+```
+
+Politica de negative balance en produccion:
+
+- Si `GET /api/balance` devuelve `availableBalance < 0`: bloquear `/api/labels` con 402.
+- Si se registra `payment_negative_balance_created`: notificar al equipo de soporte.
+- No restaurar balance negativo automaticamente; requiere decision admin documentada.
+- Todo ajuste admin post-dispute debe tener `reason` obligatorio y quedar en audit.
 - No habilitar dinero real hasta que balance sea seguro.

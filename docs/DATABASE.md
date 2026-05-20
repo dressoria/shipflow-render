@@ -313,6 +313,235 @@ Pendiente de modelo futuro:
 - disputes/chargebacks deben quedar en tabla de pagos y audit/reconciliation antes de afectar saldo.
 - si se bloquea saldo disputado, definir columna/ledger separado para balance disponible vs retenido.
 
+### Stripe refunds, disputes y reversals — FASE 5.38 (diseno)
+
+Esta seccion documenta el diseno aprobado para manejar refunds, chargebacks, disputes y reversals de Stripe en una fase futura. Ningun codigo ni migracion fue implementado en FASE 5.38. Esta seccion es solo diseno/documentacion.
+
+#### Estado actual de tablas relevantes
+
+`payment_recharges`:
+- `status` ya incluye `refunded` en el constraint.
+- Faltan: `disputed`, `dispute_won`, `dispute_lost`. Requieren migracion futura para ampliar el check constraint.
+- `stripe_event_id` es unique; sirve como idempotencia por evento de webhook.
+- `metadata` puede almacenar temporalmente `stripeRefundId`, `stripeDisputeId`, `reversalReason`.
+
+`balance_movements`:
+- `type` soporta: `recharge`, `debit`, `refund`, `adjustment`, `fee`.
+- Para reversals de Stripe: usar `type = adjustment` con `amount` negativo y `concept = "Payment reversal"` hasta que exista tabla/tipo dedicado.
+- No alterar el constraint `balance_movements_type_check` en esta fase.
+- Ledger es append-only; nunca editar ni borrar movimientos existentes.
+
+`audit_logs`:
+- Admite cualquier `action` string; puede registrar todos los eventos de esta seccion.
+- `metadata.severity` acepta: `info`, `warning`, `error`, `critical`.
+
+#### Modelo de datos recomendado
+
+Se recomienda la **Opcion B**: tabla futura `payment_reversals` dedicada.
+
+Razon: `payment_recharges` registra el estado de un cobro Stripe. Un mismo cobro puede tener multiples eventos (un refund parcial, luego una dispute, luego cierre). Una tabla separada permite rastrear cada evento de reversal de forma independiente con su propio lifecycle.
+
+Estructura propuesta para `payment_reversals` (migracion futura, NO crear todavia):
+
+```text
+id                   uuid primary key default gen_random_uuid()
+user_id              uuid not null references auth.users(id)
+payment_recharge_id  uuid not null references payment_recharges(id)
+stripe_refund_id     text unique null         -- id del refund en Stripe (re_...)
+stripe_dispute_id    text unique null         -- id del dispute en Stripe (dp_...)
+stripe_event_id      text not null unique     -- idempotencia por stripe event id
+amount               numeric(10,2) not null   -- monto del reversal (positivo; direction en type)
+currency             text not null default 'usd'
+type                 text not null            -- 'refund' | 'dispute' | 'chargeback' | 'partial_refund'
+status               text not null            -- 'pending' | 'processed' | 'failed' | 'won' | 'lost'
+balance_movement_id  text null references balance_movements(id) on delete set null
+reason               text null                -- razon del refund/dispute de Stripe
+metadata             jsonb not null default '{}'
+created_at           timestamptz not null default now()
+updated_at           timestamptz not null default now()
+```
+
+Indices necesarios:
+- `payment_reversals_user_id_idx` en `user_id`
+- `payment_reversals_recharge_id_idx` en `payment_recharge_id`
+- `payment_reversals_stripe_event_id_unique_idx` unico en `stripe_event_id`
+- `payment_reversals_status_idx` en `status`
+
+RLS:
+- Usuario puede leer sus propios reversals.
+- Admin puede leer todos.
+- No insert/update/delete para usuarios; solo backend via service_role.
+
+Mientras no exista esta tabla, los reversals se registran como `balance_movements type = adjustment` con metadata detallada.
+
+#### Reglas de negocio para reversals
+
+**Caso 1: Refund de recarga, saldo no usado**
+
+- El saldo recargado no ha sido usado (no hay debits desde esa recarga).
+- Accion: crear `balance_movement` negativo con `type = adjustment`, `concept = "Payment reversal"`, metadata con `stripeRefundId` y `originalRechargeId`.
+- Actualizar `payment_recharges.status = refunded`.
+- Registrar `payment_refund_succeeded` en audit.
+
+**Caso 2: Refund de recarga, saldo ya gastado**
+
+- El usuario ya uso parte o todo el saldo recargado para comprar labels.
+- NO permitir refund automatico sin revision.
+- Registrar `payment_reconciliation_required` con severity `critical` en audit.
+- El caso debe ir a la cola de reconciliation/admin para resolucion manual.
+- No modificar balance ni labels ya compradas automaticamente.
+
+**Caso 3: Dispute/chargeback con saldo suficiente**
+
+- El saldo actual del usuario cubre el monto disputado.
+- Crear `balance_movement` negativo con `type = adjustment`, `concept = "Payment dispute hold"`, `amount = -disputedAmount`.
+- Actualizar `payment_recharges.status = disputed` (requiere ampliar constraint futuro).
+- Registrar `payment_dispute_created` con severity `warning`.
+- Bloquear nuevas compras de labels hasta resolver (requiere campo futuro en `profiles`).
+
+**Caso 4: Dispute/chargeback sin saldo suficiente**
+
+- El usuario no tiene saldo suficiente para cubrir el monto disputado.
+- El balance quedaria negativo.
+- Crear el `balance_movement` negativo de todas formas (saldo puede quedar negativo).
+- Registrar `payment_negative_balance_created` con severity `critical`.
+- Registrar `payment_reconciliation_required` con severity `critical`.
+- Bloquear nuevas compras de labels.
+- Admin debe resolver manualmente.
+
+**Caso 5: Refund parcial**
+
+- Registrar el monto parcial exacto como `balance_movement` negativo.
+- Usar `stripeRefundId` como idempotencia; no duplicar si llega dos veces.
+- `payment_recharges.status` permanece `paid` para refunds parciales; solo cambia a `refunded` en refund total.
+- Registrar `payment_refund_succeeded` con monto parcial en metadata.
+
+**Caso 6: Webhook duplicado de refund**
+
+- Verificar si ya existe `balance_movement` con `idempotency_key = stripe-refund-event:<event_id>`.
+- Si existe: registrar `payment_refund_duplicate_ignored` con severity `warning` y retornar 200.
+- No crear segundo movimiento.
+
+**Caso 7: Payment intent tardio marcado como failed**
+
+- Si `payment_recharges.status` ya es `paid` (ya fue acreditado): registrar `payment_reconciliation_required` con severity `critical`. No revertir saldo automaticamente.
+- Si `payment_recharges.status` es `pending` o `failed`: solo marcar como `failed` en `payment_recharges`. No modificar balance.
+
+**Caso 8: Dispute cerrado con outcome won**
+
+- Stripe confirma que ganamos el dispute: el cargo se mantiene.
+- Si habia un `balance_movement` negativo de hold: crear movimiento positivo de restauracion `type = adjustment`, `concept = "Payment dispute resolved - won"`.
+- Actualizar `payment_recharges.status = paid` (o `dispute_won` si se amplia constraint).
+- Registrar `payment_dispute_won` con severity `info`.
+
+**Caso 9: Dispute cerrado con outcome lost**
+
+- Stripe confirma que perdimos el dispute: el dinero se va definitivamente.
+- Si habia un hold temporal y el saldo quedo en negativo: no restaurar.
+- Si NO habia hold previo y el saldo aun no fue descontado: crear `balance_movement` negativo definitivo.
+- Registrar `payment_dispute_lost` con severity `critical`.
+- Registrar `payment_reconciliation_required` con severity `critical`.
+
+#### Reglas de balance reversal
+
+Principio fundamental: el ledger es append-only. Nunca editar ni borrar movimientos existentes.
+
+Movimientos de balance para reversals:
+
+```text
+recharge      positivo   credito de pago confirmado
+debit         negativo   compra de carrier label
+refund        positivo   void confirmado por carrier (label void)
+adjustment    negativo   reversal de pago Stripe / dispute hold / correccion admin
+adjustment    positivo   restauracion de hold si dispute es ganado / correccion admin positiva
+fee           negativo   cargo separado futuro si aplica
+```
+
+Para Stripe reversals el movimiento es siempre `type = adjustment` con estas convenciones:
+
+- `concept = "Payment reversal"` para refunds
+- `concept = "Payment dispute hold"` para disputes activos
+- `concept = "Payment dispute resolved"` para cierre de dispute
+- `reference_type = "stripe_refund"` | `"stripe_dispute"`
+- `reference_id = stripeRefundId | stripeDisputeId`
+- `idempotency_key = "stripe-refund-event:<stripe_event_id>"`
+
+Si el balance queda negativo despues de un reversal:
+
+- Crear audit event `payment_negative_balance_created` severity `critical`.
+- Bloquear compra de labels via server-side check en `/api/labels` (balance < 0 → 402).
+- Admin debe resolver manualmente via `/api/admin/balance-adjustments`.
+- No resolver automaticamente; requiere decision de negocio.
+
+#### Webhook events futuros de Stripe
+
+Los siguientes eventos deben manejarse en `/api/webhooks/stripe` en una fase futura:
+
+```text
+charge.refunded
+  - modifica balance: si (negativo, adjustment)
+  - actualiza status: payment_recharges.status = refunded
+  - crea audit: payment_refund_succeeded (info) o payment_refund_failed (warning)
+  - idempotencia: stripe_event_id en balance_movements
+
+refund.created
+  - modifica balance: no (ya manejado por charge.refunded o payment_intent events)
+  - actualiza status: si, actualizar metadata de payment_recharges
+  - crea audit: payment_refund_requested (info)
+  - nota: puede llegar antes de charge.refunded; solo loguear
+
+refund.updated
+  - modifica balance: no
+  - actualiza status: si, metadata de payment_recharges/payment_reversals
+  - crea audit: info solo si status cambia a failed
+  - idempotencia: por stripe_event_id en audit
+
+charge.dispute.created
+  - modifica balance: si (negativo, adjustment hold)
+  - actualiza status: payment_recharges.status = disputed (requiere constraint ampliado)
+  - crea audit: payment_dispute_created (warning)
+  - bloquea compras: si, hasta resolver
+  - requiere revision admin: si
+
+charge.dispute.updated
+  - modifica balance: no (no hasta cierre)
+  - actualiza status: metadata de payment_recharges/payment_reversals
+  - crea audit: payment_dispute_updated (info)
+  - requiere revision admin: si (para seguimiento)
+
+charge.dispute.closed
+  - modifica balance: si (segun outcome: won = restaurar hold; lost = confirmar descuento)
+  - actualiza status: payment_recharges.status = dispute_won | dispute_lost
+  - crea audit: payment_dispute_won (info) | payment_dispute_lost (critical)
+  - si lost: crea reconciliation event critical
+  - desbloquea compras si won
+
+payment_intent.payment_failed
+  - modifica balance: no (si ya fue acreditado, es reconciliation manual)
+  - actualiza status: payment_recharges.status = failed (solo si status = pending)
+  - crea audit: payment_checkout_failed (warning)
+  - ya manejado parcialmente en FASE 5.33
+
+checkout.session.expired
+  - modifica balance: no
+  - actualiza status: payment_recharges.status = canceled (solo si status = pending)
+  - crea audit: payment_checkout_failed (warning)
+  - ya manejado en FASE 5.33
+```
+
+Nota: No implementar estos handlers hasta que `payment_reversals` este creada o se decida usar `adjustment` como interim.
+
+#### Estado de migracion para FASE 5.38
+
+NO crear ninguna migracion en FASE 5.38. Las tablas que se necesitan en fases futuras son:
+
+1. Ampliar `payment_recharges.status` check constraint para incluir `disputed`, `dispute_won`, `dispute_lost`.
+2. Crear tabla `payment_reversals` segun modelo propuesto arriba.
+3. Agregar columna `profiles.account_status` o `profiles.balance_hold` para bloquear cuentas con disputes activos.
+4. Agregar indices correspondientes.
+
+Estas migraciones deben ser preparadas, revisadas y aplicadas manualmente en una fase futura despues de decidir el modelo final.
+
 ### tracking_events
 
 Campos principales base:

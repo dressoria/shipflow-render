@@ -608,3 +608,87 @@ Eventos de auditoria propuestos:
   - `Online recharge is not available yet.`
 - Admin audit muestra eventos Stripe con labels legibles, sin raw payloads ni secrets.
 - Refunds, disputes, chargebacks y balance reversals siguen pendientes y deben crear audit/reconciliation critical events cuando se implementen.
+
+## Notas FASE 5.38 — Stripe refunds, chargebacks y disputes (diseno)
+
+Esta seccion documenta las reglas de seguridad aprobadas para cuando se implementen refunds, disputes y reversals de Stripe. Ningun codigo nuevo fue implementado en FASE 5.38.
+
+### Reglas fundamentales
+
+- El frontend nunca puede iniciar un refund directamente. Cualquier reversal de balance debe nacer de un webhook Stripe verificado o de una accion admin explicita.
+- El webhook Stripe es la fuente de verdad para el estado de un pago. No confiar en success/cancel URLs ni en datos del cliente.
+- El ledger `balance_movements` es append-only. Nunca editar ni borrar movimientos existentes. Reversals crean un nuevo movimiento negativo.
+- No exponer raw Stripe response al frontend ni a logs. Solo campos sanitizados.
+- No guardar secrets (webhook secret, secret key) en DB ni en audit logs.
+
+### Idempotencia para reversals
+
+- Cada reversal debe tener `idempotency_key = "stripe-refund-event:<stripe_event_id>"` en `balance_movements`.
+- Si llega el mismo `stripe_event_id` dos veces: ignorar y registrar `payment_refund_duplicate_ignored` con severity `warning`.
+- No confiar en `stripe_refund_id` o `stripe_dispute_id` solos como unica idempotencia; usar siempre el `stripe_event_id` del webhook.
+
+### Negative balance policy
+
+- Si un reversal deja el balance de un usuario en negativo: registrar `payment_negative_balance_created` con severity `critical`.
+- Bloquear `/api/labels` si `balance < 0` antes de cualquier compra. Responder 402 con mensaje seguro: `"Insufficient balance."`.
+- No restaurar balance negativo automaticamente. Requiere resolucion admin manual.
+- Admin puede usar `/api/admin/balance-adjustments` con reason documentado para resolver.
+- El ajuste admin de resolucion debe usar `type = adjustment` con `concept = "Balance restored after dispute resolution"` y metadata con el admin user id y razon.
+
+### Reglas de bloqueo por dispute activo
+
+- Si un usuario tiene un dispute activo sin resolver: bloquear nuevas compras de labels.
+- Este bloqueo requiere una columna futura en `profiles` como `account_status` o `balance_hold`. No existe todavia.
+- Mientras no exista el campo: el bloqueo se aplica implicitamente si el balance queda negativo o cero por el hold.
+- No notificar al usuario con detalles del dispute; solo mostrar mensaje generico: `"Your account has a pending balance issue. Please contact support."`
+
+### Admin y reconciliation
+
+- `/admin/audit` debe mostrar todos los eventos de dispute/reversal con severity y accion requerida.
+- El admin debe poder ver: usuario, monto, payment recharge id, stripe event id, status y accion recomendada.
+- Ninguna accion de reversal automatica debe ejecutarse sin log previo en audit.
+- Adjustments manuales relacionados a disputes deben usar `reason` explicito y quedan visibles en `/admin/audit`.
+- No confundir ajuste manual admin (tipo `adjustment`) con refund automatico de Stripe (futuro).
+
+### Separacion de conceptos
+
+```text
+balance_movements.type = recharge     credito por pago Stripe confirmado
+balance_movements.type = debit        compra de carrier label
+balance_movements.type = refund       void de label confirmado por carrier
+balance_movements.type = adjustment   reversal de Stripe / dispute hold / admin manual / correccion
+balance_movements.type = fee          cargo de plataforma separado (futuro)
+```
+
+Los reversals de Stripe usan `adjustment` con `concept` y `metadata` descriptivos hasta que exista tipo dedicado o tabla `payment_reversals`.
+
+### Audit events propuestos para refunds/disputes
+
+Severidad y cuando registrar:
+
+```text
+payment_refund_requested          info      Stripe envia refund.created
+payment_refund_succeeded          info      Refund procesado y balance ajustado
+payment_refund_failed             warning   Fallo al procesar refund en DB
+payment_refund_duplicate_ignored  warning   Mismo evento de refund recibido dos veces
+payment_dispute_created           warning   Dispute iniciado; hold aplicado si es posible
+payment_dispute_updated           info      Estado de dispute actualizado
+payment_dispute_won               info      Dispute resuelto a favor de ShipFlow; hold restaurado
+payment_dispute_lost              critical  Dispute perdido; balance puede ser negativo
+payment_reversal_created          info      Balance movement negativo creado por reversal
+payment_reversal_failed           critical  Error al crear balance movement de reversal
+payment_negative_balance_created  critical  Balance quedo negativo despues de reversal
+payment_reconciliation_required   critical  Caso requiere revision/accion manual del admin
+```
+
+Todos los eventos deben incluir en metadata: `userId`, `stripeEventId`, `amount`, `currency` y opcionalmente `stripeRefundId` o `stripeDisputeId`. Nunca incluir raw Stripe response completo ni secrets.
+
+### Lo que NO debe ocurrir
+
+- El frontend no puede enviar un refund request directo a Stripe ni a un endpoint propio sin flujo de aprobacion.
+- El exito de un webhook de refund no debe acreditar saldo (solo revertir lo que fue acreditado).
+- Un dispute no debe resolverse automaticamente sin confirmacion de Stripe (evento `charge.dispute.closed`).
+- Un usuario con balance disputado no debe poder comprar labels hasta resolver.
+- Si el saldo queda negativo no se permite comprar aunque sea por un centavo.
+- No crear dos `balance_movements` para el mismo `stripe_event_id`.
+- No exponer el motivo interno del dispute al usuario final; solo mensaje generico de soporte.

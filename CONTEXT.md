@@ -1790,3 +1790,63 @@ SHIPPO_API_KEY=   # server-side only; nunca NEXT_PUBLIC
 - Idempotencia de webhook duplicado se mantiene.
 
 **Pendiente futuro:** disenar e implementar refunds de recarga, disputes/chargebacks, reversals de balance, bloqueo de saldo disputado y reconciliation queue formal.
+
+## Estado FASE 5.38 — Stripe refunds, chargebacks y disputes (diseno)
+
+**Objetivo:** Disenar reglas claras para refunds, chargebacks, disputes y reversals de Stripe antes de implementarlos. Sin codigo nuevo, sin migracion, sin deploy, sin pagos reales.
+
+**Archivos revisados:**
+- `app/api/webhooks/stripe/route.ts` — handlers actuales: `checkout.session.completed`, `checkout.session.expired`, `payment_intent.payment_failed`.
+- `app/api/billing/checkout-session/route.ts` — crea sesion y recharge record `pending`.
+- `lib/services/balanceService.ts` — ya interpreta `type = adjustment` como `"Manual adjustment"`.
+- `supabase/migrations/20260519_add_payment_recharges.sql` — `payment_recharges.status` incluye `refunded` pero no `disputed`.
+- `lib/server/auditLog.ts` — sanitizacion de metadata lista para eventos de disputes.
+- `docs/DATABASE.md`, `docs/SECURITY.md`, `docs/ROADMAP.md`, `docs/DEPLOYMENT.md` — actualizados con el diseno.
+
+**Hallazgos principales del audit:**
+- `payment_recharges.status` ya tiene `refunded` en el constraint. Falta agregar `disputed`, `dispute_won`, `dispute_lost`.
+- `balance_movements.type = adjustment` puede usarse para reversals de Stripe como interim.
+- `audit_logs` ya soporta cualquier `eventType` con `severity = critical`.
+- Idempotencia por `stripe_event_id` ya existe en webhook actual y puede extenderse a reversals.
+- Ledger es append-only por diseno; reversals crean nuevo movimiento negativo, no editan el positivo existente.
+
+**Modelo de datos recomendado:**
+- Opcion B (tabla futura `payment_reversals`) para produccion.
+- Interim: `balance_movements type = adjustment` con metadata: `stripeRefundId`, `stripeDisputeId`, `originalRechargeId`, `reversalReason`, `stripeEventId`.
+- No crear migracion hasta decidir modelo final.
+
+**Reglas de negocio aprobadas (resumen):**
+- Saldo no usado → refund permitido con audit.
+- Saldo gastado → reconciliation critica, no refund automatico.
+- Dispute con saldo → hold negativo + bloqueo de compras.
+- Dispute sin saldo → balance negativo + reconciliation critica.
+- Balance negativo → `/api/labels` devuelve 402 (bloqueo server-side).
+- Webhook duplicado → `payment_refund_duplicate_ignored` warning, no doble movimiento.
+- Dispute ganado → restaurar hold, audit info.
+- Dispute perdido → confirmar descuento, audit critical, reconciliation.
+
+**Webhook events futuros disenados (no implementados):**
+- `charge.refunded` — crea adjustment negativo, actualiza recharge a `refunded`.
+- `refund.created`, `refund.updated` — solo log/metadata.
+- `charge.dispute.created` — hold de saldo, bloqueo de compras, audit warning.
+- `charge.dispute.updated` — solo log.
+- `charge.dispute.closed` — segun outcome: restaurar o confirmar descuento, audit critico si lost.
+
+**UI/UX propuesta para `/saldo`:**
+- `"A payment was reversed. Your balance was adjusted."` — para refunds.
+- `"A payment dispute requires support review."` — para disputes activos.
+- `"Your account has a pending balance issue. Please contact support."` — para negative balance.
+
+**Validaciones ejecutadas:**
+- lint: 0 errores, 6 warnings preexistentes (sin cambios en codigo).
+- typecheck: limpio.
+- build: exitoso, 26 rutas.
+- git diff --check: limpio.
+
+**Pendiente de implementacion (FASE 5.39 o posterior):**
+- Ampliar constraint `payment_recharges.status` para `disputed`, `dispute_won`, `dispute_lost`.
+- Crear tabla `payment_reversals` segun modelo propuesto en DATABASE.md.
+- Agregar `profiles.account_status` o `profiles.balance_hold` para bloqueo por dispute.
+- Implementar handlers `charge.refunded` y `charge.dispute.*` en webhook.
+- QA sandbox con `stripe refunds create` y verificacion de idempotencia.
+- Production readiness checklist para pagos live.
