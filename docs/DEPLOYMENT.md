@@ -1452,3 +1452,198 @@ NEXT_PUBLIC_ENABLE_DEMO_AUTH=true
 ```
 
 En producción, aunque alguien ponga `NEXT_PUBLIC_ENABLE_DEMO_AUTH=true` en el build, el guard `NODE_ENV === "production"` lo bloquea a nivel de bundler.
+
+## Docker build-time public env vars
+
+### Por qué env_file no es suficiente para el cliente
+
+Next.js bake los valores de `NEXT_PUBLIC_*` en el bundle de JavaScript durante `npm run build`. Esto significa:
+
+- `env_file` en docker-compose **solo inyecta variables en el servidor en runtime**. No tiene efecto sobre el código que ya fue compilado.
+- Si el contenedor fue construido **sin** las variables `NEXT_PUBLIC_*` en el entorno del builder, el cliente verá esas variables como vacías (`undefined`) aunque el servidor las tenga en runtime.
+- Cambiar `.env.production` y hacer solo `docker compose up -d` **NO actualiza el código del cliente**. Se requiere `docker compose build` primero.
+
+### Archivos en el repo
+
+| Archivo | Propósito |
+|---------|-----------|
+| `shipflow-web/Dockerfile` | Multi-stage build: deps → builder (bake NEXT_PUBLIC_*) → runner |
+| `docker-compose.yml` | Orquestación: `build.args` pasan las vars públicas al builder |
+| `shipflow-web/.dockerignore` | Excluye `node_modules`, `.env.*`, `.next`, tooling del contexto de build |
+
+### Flujo correcto de rebuild en la VM
+
+```bash
+# 1. Ir al directorio del repo en la VM
+cd /home/ubuntu/appsolux-apps/shipflow/shipflow
+
+# 2. Actualizar código
+git pull origin main
+
+# 3. Exportar .env.production al shell (REQUIRED antes del build)
+#    Esto hace que las NEXT_PUBLIC_* estén disponibles en el entorno del shell.
+#    docker compose las leerá desde ahí via build.args.
+set -a
+source shipflow-web/.env.production
+set +a
+
+# 4. Construir (--no-cache para forzar re-bake de variables)
+docker compose build --no-cache shipflow-web
+
+# 5. Reiniciar contenedor
+docker compose up -d shipflow-web
+
+# 6. Reconectar a la red si es necesario
+docker network connect appsolux-network shipflow-web || true
+
+# 7. Verificar health
+curl -s http://localhost:3003/api/config/status
+```
+
+### Health check esperado después del rebuild
+
+```json
+{
+  "buildEnvOk": true,
+  "supabaseConfigured": true,
+  "appUrlConfigured": true,
+  "appUrlHost": "sendiflash.com",
+  "googleMapsConfigured": true,
+  "labelPurchaseEnabled": false,
+  "labelVoidEnabled": false,
+  "stripeRechargeConfigured": true
+}
+```
+
+- `buildEnvOk: false` → El contenedor fue construido sin `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` o `NEXT_PUBLIC_APP_URL`. Volver al paso 3 y reconstruir.
+- `supabaseConfigured: false` → Lo mismo; las variables no llegaron al cliente.
+- `googleMapsConfigured: false` → `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` ausente en el build. Agregar al `.env.production` y reconstruir.
+
+### Variables públicas (se bakean en el build)
+
+Deben estar en `.env.production` y exportadas al shell **antes** de `docker compose build`:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_APP_URL=https://sendiflash.com
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...           # opcional
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...    # opcional mientras pagos no sean live
+NEXT_PUBLIC_ENABLE_DEMO_AUTH=                     # dejar vacío o ausente en producción
+```
+
+### Variables de servidor (solo runtime, no requieren rebuild)
+
+Estas viven en `.env.production` y se inyectan en el contenedor en runtime via `env_file`. No necesitan `NEXT_PUBLIC_` y nunca deben tenerlo:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+INTERNAL_API_SECRET=...
+ADMIN_EMAILS=admin@sendiflash.com
+ENABLE_REAL_LABEL_PURCHASE=false
+ENABLE_REAL_LABEL_VOID=false
+SHIPSTATION_API_KEY=TEST_...
+SHIPSTATION_API_MODE=shipengine
+SHIPSTATION_BASE_URL=https://api.shipengine.com/v1
+SHIPSTATION_WEBHOOK_SECRET=...
+SHIPPO_API_KEY=shippo_test_...
+EASYSHIP_API_KEY=sand_...
+EASYSHIP_BASE_URL=https://public-api-sandbox.easyship.com
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+## Supabase Auth email SMTP — Error sending confirmation email
+
+### Síntoma
+
+El registro crea el usuario en `auth.users` de Supabase pero la respuesta incluye:
+
+```
+Error sending confirmation email
+```
+
+O el usuario aparece en Supabase pero nunca recibe el correo de verificación.
+
+### Causa
+
+Este error es de **email delivery**, no de auth core. El problema no está en el código de la app — la sesión y el usuario se crean correctamente. El proveedor de email (SMTP) no está configurado o tiene un error.
+
+Supabase tiene un servidor de email interno con un rate limit muy bajo (~3 emails/hora por proyecto en el plan gratuito). En producción **no debe usarse** el servidor interno de Supabase.
+
+### Solución: Custom SMTP con Resend
+
+Configurar en **Supabase Dashboard → Authentication → SMTP Settings**:
+
+| Campo | Valor |
+|-------|-------|
+| Enable Custom SMTP | ✓ habilitado |
+| Sender name | SendiFlash |
+| Sender email | `no-reply@sendiflash.com` |
+| SMTP Host | `smtp.resend.com` |
+| SMTP Port | `465` |
+| Username | `resend` |
+| Password | API key de Resend *(nunca exponerla en docs, commits ni chats)* |
+
+**Pasos para configurar Resend:**
+1. Crear cuenta en [resend.com](https://resend.com)
+2. Ir a Domains → Add domain → `sendiflash.com`
+3. Agregar los registros DNS indicados (SPF, DKIM, DMARC) en el proveedor de dominio
+4. Esperar verificación del dominio
+5. Generar API key en Resend (con permiso `Send emails`)
+6. Pegar la API key como **Password** en Supabase Custom SMTP
+7. Enviar un email de prueba desde Supabase Dashboard
+
+**No poner la API key de Resend en ningún archivo versionado.**
+
+### Supabase URL Configuration (necesaria para que los links funcionen)
+
+En **Supabase Dashboard → Authentication → URL Configuration**:
+
+**Site URL:**
+```
+https://sendiflash.com
+```
+
+**Redirect URLs (agregar todas):**
+```
+https://sendiflash.com
+https://sendiflash.com/login
+https://sendiflash.com/dashboard
+https://sendiflash.com/verifica-tu-correo
+https://www.sendiflash.com
+https://www.sendiflash.com/login
+https://www.sendiflash.com/dashboard
+https://www.sendiflash.com/verifica-tu-correo
+http://localhost:3000
+http://localhost:3000/verifica-tu-correo
+```
+
+Sin estas URLs en la allowlist, los links de verificación de correo son rechazados por Supabase aunque el email llegue correctamente.
+
+### Beta manual: confirmar usuario sin SMTP
+
+Mientras el SMTP no esté configurado, confirmar usuarios beta manualmente:
+
+1. **Supabase Dashboard → Authentication → Users**
+2. Buscar el usuario por email
+3. Hacer clic en el usuario → editar `email_confirmed_at` o usar "Send magic link"
+
+Alternativa via SQL (solo para beta/testing controlado):
+
+```sql
+-- NO usar en producción con usuarios reales sin proceso aprobado
+update auth.users
+set email_confirmed_at = now()
+where email = 'usuario@ejemplo.com';
+```
+
+### Verificación post-SMTP
+
+Después de configurar SMTP y reconstruir (si era necesario):
+
+1. Registrar usuario nuevo desde incógnito.
+2. Verificar que llega email de confirmación a la bandeja de entrada (no spam).
+3. Hacer clic en el link → debe redirigir a `/verifica-tu-correo`.
+4. Confirmar que el usuario pasa a `email_confirmed_at` no null en Supabase.
+5. Hacer clic en "I already verified my email" → dashboard visible.

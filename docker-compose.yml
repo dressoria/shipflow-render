@@ -1,0 +1,41 @@
+# docker-compose.yml — root of the ShipFlow repo
+#
+# NEXT_PUBLIC_* variables must be present in the shell environment at build time.
+# They are baked into the client bundle by Next.js during `npm run build`.
+# Changing .env.production and restarting the container WITHOUT rebuilding has
+# NO effect on the browser-side code.
+#
+# Correct rebuild procedure (run from repo root on the VM):
+#
+#   cd /home/ubuntu/appsolux-apps/shipflow/shipflow
+#   git pull origin main
+#   set -a
+#   source shipflow-web/.env.production
+#   set +a
+#   docker compose build --no-cache shipflow-web
+#   docker compose up -d shipflow-web
+#   docker network connect appsolux-network shipflow-web || true
+#   curl -s http://localhost:3003/api/config/status
+
+services:
+  shipflow-web:
+    container_name: shipflow-web
+    build:
+      context: ./shipflow-web
+      dockerfile: Dockerfile
+      args:
+        # These args are read from the current shell environment (sourced above).
+        # docker compose passes shell vars to build args when no explicit value is given.
+        - NEXT_PUBLIC_SUPABASE_URL
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY
+        - NEXT_PUBLIC_APP_URL
+        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        - NEXT_PUBLIC_ENABLE_DEMO_AUTH
+    env_file:
+      # Runtime-only env vars (server-side secrets, API keys, etc.).
+      # These are injected at container start, not baked into the build.
+      - ./shipflow-web/.env.production
+    ports:
+      - "3003:3000"
+    restart: unless-stopped

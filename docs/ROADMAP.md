@@ -1058,6 +1058,99 @@ Pendiente posterior (FASE 5.39 o posterior):
 - Prueba de idempotencia de webhook de refund.
 - Production readiness checklist para pagos live.
 
+## FASE 5.39 — Label purchase flow hardening antes de labels reales
+
+Estado: planificada. Sin código nuevo, sin migraciones, sin deploy.
+
+Objetivo:
+
+- Cerrar los prerrequisitos de seguridad, auth y QA antes de activar compras de labels reales.
+- Diseñar el flujo de pago directo por guía con Stripe (label-as-checkout).
+- Investigar y documentar soporte de labels Paperless/QR.
+- Establecer criterios de go/no-go para activar `ENABLE_REAL_LABEL_PURCHASE=true` en producción.
+
+### 1. Prerrequisitos antes de activar labels reales
+
+Mantener `ENABLE_REAL_LABEL_PURCHASE=false` hasta confirmar:
+
+- [ ] Auth corregida: no hay localStorage fallback, solo Supabase Auth válida (FASE 5.38D completada).
+- [ ] SMTP configurado: los correos de verificación llegan correctamente a usuarios reales.
+- [ ] Usuario verificado puede registrarse, iniciar sesión y ver su saldo real.
+- [ ] `/api/config/status` retorna `buildEnvOk: true`, `supabaseConfigured: true`.
+- [ ] No hay sesiones cruzadas ni saldo de otro usuario visible.
+- [ ] QA completo del flujo: registro → verificación → login → cotización → confirmación.
+
+### 2. Verificación del flujo actual con balance sandbox
+
+Pasos de QA antes de activar purchase real:
+
+1. Usuario confirmado con saldo sandbox en `balance_movements`.
+2. Cotizar desde `/crear-guia` con dirección US válida y paquete real.
+3. Seleccionar rate real (ShipEngine sandbox).
+4. Confirmar el modal con desglose de precio.
+5. Verificar que la app llama `/api/labels` y retorna bloqueo controlado (`ENABLE_REAL_LABEL_PURCHASE=false`).
+6. Verificar que el balance no cambió (no debitó por rate bloqueado).
+7. Activar temporalmente `ENABLE_REAL_LABEL_PURCHASE=true` en entorno controlado.
+8. Comprar una sola label ShipEngine TEST.
+9. Verificar: shipment creado, balance debitado, PDF/tracking visible, audit log.
+10. Volver a `ENABLE_REAL_LABEL_PURCHASE=false`.
+
+### 3. Pago directo por guía (diseño futuro — label-as-checkout)
+
+El flujo actual usa balance pre-cargado. El flujo futuro permite pago directo por guía:
+
+```
+usuario selecciona rate
+→ backend crea PendingLabelOrder con snapshot del rate (proveedor, costo, expiración)
+→ Stripe Checkout Session para esa guía específica (amount = customerPrice en centavos)
+→ usuario paga en Stripe
+→ webhook `checkout.session.completed` confirma pago
+→ backend compra label server-side con el rate snapshot
+→ idempotencia por checkout_session_id y/o payment_intent_id
+→ si compra label falla después del pago: estado action_required, no refund automático
+→ frontend NO compra label solo por success_url (no se confía en redirect del browser)
+```
+
+Reglas de negocio clave:
+
+- El frontend nunca compra labels directamente.
+- El rate snapshot tiene expiración: si el rate expiró antes del pago, rechazar y pedir nueva cotización.
+- Si Stripe cobró pero la compra de label falló: registrar `label_purchase_payment_orphan` en audit, no reintentar automáticamente sin revisión.
+- Idempotencia doble: por `checkout_session_id` (no crear segunda label) y por `payment_intent_id` (no cobrar dos veces).
+
+Variables futuras necesarias (ya documentadas en `.env.example`):
+
+```text
+STRIPE_SECRET_KEY=sk_test_...       # server-side only
+STRIPE_WEBHOOK_SECRET=whsec_...     # server-side only
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+### 4. Paperless labels / QR (investigación pendiente)
+
+Investigar antes de implementar:
+
+- ShipEngine `display_scheme: paperless` — verificar carriers disponibles (USPS, UPS, FedEx, DHL).
+- USPS Label Broker — genera QR sin PDF completo; el destinatario puede imprimir en ventanilla.
+- Carrier capability matrix: qué carriers/servicios soportan paperless en sandbox y en producción.
+- Fallback: si el carrier no soporta paperless, retornar PDF normal sin error.
+- UX: botón "Ver QR" vs "Descargar PDF" según el tipo de label retornada.
+
+No implementar hasta tener confirmación de ShipEngine sandbox con `display_scheme: paperless` probado manualmente.
+
+### 5. Gate de go/no-go antes de producción real
+
+No activar `ENABLE_REAL_LABEL_PURCHASE=true` en producción hasta cumplir:
+
+- [ ] Labels activadas solo por tenant específico (feature flag por usuario/organización), no global.
+- [ ] Límites de monto por compra (ej. máximo $50 por label en beta inicial).
+- [ ] Audit log completo: purchase, void, refund, orphan.
+- [ ] Retry y void/refund flow verificados en sandbox.
+- [ ] Reconciliación balance vs provider vs Stripe documentada y probada.
+- [ ] SMTP activo y correos de verificación funcionando en producción.
+- [ ] No hay balance negativo activo en ningún usuario de producción.
+- [ ] `ENABLE_REAL_LABEL_VOID=false` mientras void/refund no estén auditados.
+
 ## FASE 6 - Mobile backend seguro
 
 Objetivo:
