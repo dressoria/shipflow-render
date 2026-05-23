@@ -8,6 +8,7 @@ import {
   loginUser,
   logoutUser,
 } from "@/lib/services/authService";
+import { clearLegacyAuthStorage, isDemoAuthEnabled } from "@/lib/services/legacyAuthCleanup";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Usuario } from "@/lib/types";
 
@@ -34,14 +35,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
-      // Demo/local mode: load from localStorage, no auth events to wait for
+      // Demo/local mode: only allowed in local dev with explicit opt-in.
+      // In production this always results in user=null (no localStorage fallback).
+      // Promise.resolve keeps setState out of the synchronous effect body to satisfy
+      // the react-hooks/set-state-in-effect lint rule.
+      if (!isDemoAuthEnabled()) {
+        void Promise.resolve(null).then(setUser).finally(() => setLoading(false));
+        return;
+      }
       getCurrentUser()
         .then(setUser)
         .finally(() => setLoading(false));
       return;
     }
 
-    // Supabase mode: onAuthStateChange fires INITIAL_SESSION with the current state,
+    // Supabase mode: purge any legacy localStorage auth data that may linger
+    // from a previous demo session or a misconfigured build.
+    clearLegacyAuthStorage();
+
+    // onAuthStateChange fires INITIAL_SESSION with the current state,
     // then SIGNED_IN / SIGNED_OUT as state changes. No setTimeout needed.
     const {
       data: { subscription },

@@ -753,3 +753,82 @@ SUPABASE_SERVICE_ROLE_KEY     # Solo backend; nunca en NEXT_PUBLIC_*; para RPCs 
 ```
 
 Un build con variables incorrectas conectara al proyecto Supabase equivocado. Reconstruir el contenedor con las variables correctas es obligatorio si se cambian.
+
+---
+
+## FASE 5.38D — Eliminación de legacy localStorage auth en producción
+
+### Causa raíz confirmada
+
+En producción, cuando `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` **no** estaban correctamente bakeados en el build Docker, `isSupabaseConfigured = false` en el cliente. Esto activaba el modo demo/localStorage heredado:
+
+- `AuthContext` cargaba `shipflow-user` desde `localStorage` → usuario ficticio con `emailVerified: true`.
+- `balanceService.getBalanceSummary()` retornaba `getBalance()` → fallback hardcodeado de **$128.70**.
+- `shipmentService.getShipments()` retornaba envíos de demo.
+- El usuario veía su dashboard completo sin ninguna sesión Supabase real.
+
+A nivel de API, los endpoints respondían correctamente (`401`, `authenticated:false`), pero la UI ignoraba esas respuestas porque servía datos locales.
+
+### Correcciones (FASE 5.38D)
+
+**Archivos modificados:**
+- `lib/services/legacyAuthCleanup.ts` (nuevo) — `clearLegacyAuthStorage()` + `isDemoAuthEnabled()`
+- `contexts/AuthContext.tsx` — limpia legacy keys al init con Supabase; bloquea demo en producción
+- `lib/services/authService.ts` — guards `isDemoAuthEnabled()` en todos los paths locales; `logoutUser()` siempre limpia legacy
+- `lib/services/balanceService.ts` — retorna balance `0` / lista vacía si demo no habilitado
+- `lib/services/shipmentService.ts` — retorna listas vacías y lanza error en creación si demo no habilitado
+- `shipflow-web/.env.example` — `NEXT_PUBLIC_ENABLE_DEMO_AUTH=false` documentado
+
+### Reglas de la nueva arquitectura
+
+| Condición | Resultado |
+|-----------|-----------|
+| Supabase configurado (prod) | `clearLegacyAuthStorage()` al init; solo Supabase Auth válida |
+| Supabase NO configurado + `NODE_ENV=production` | `user=null`; balance=0; envíos=[]; no localStorage |
+| Supabase NO configurado + `NODE_ENV=development` + `NEXT_PUBLIC_ENABLE_DEMO_AUTH=true` | Demo/localStorage permitido |
+| Supabase NO configurado + cualquier otra condición | `user=null`; balance=0; envíos=[] |
+
+### `isDemoAuthEnabled()` — lógica
+
+```typescript
+// Siempre false en producción (NODE_ENV es una constante de build time en Next.js).
+// El bundler elimina los code paths de demo en builds de producción.
+function isDemoAuthEnabled(): boolean {
+  if (typeof window === "undefined") return false;          // SSR safe
+  if (process.env.NODE_ENV === "production") return false; // hard guard
+  if (process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH !== "true") return false;
+  return !isSupabaseConfigured;
+}
+```
+
+### `clearLegacyAuthStorage()` — keys borradas
+
+```
+shipflow-user
+shipflow-users
+shipflow-balance
+shipflow-balance-movements
+shipflow-shipments
+```
+
+Nunca borra keys `sb-*` (propiedad de Supabase).
+
+### Variable nueva en `.env.example`
+
+```
+NEXT_PUBLIC_ENABLE_DEMO_AUTH=false
+```
+
+Solo usable en local dev cuando Supabase no está configurado. En producción siempre ignorada.
+
+### Verificación post-deploy 5.38D
+
+1. Abrir DevTools → Application → Local Storage → confirmar que `shipflow-user` y `shipflow-users` no existen (o son eliminadas al cargar la app con Supabase configurado).
+2. En incógnito: `/dashboard` → debe redirigir a `/login` sin mostrar datos.
+3. `curl https://sendiflash.com/api/auth/me` sin token → `{ "authenticated": false }`.
+4. `curl https://sendiflash.com/api/balance` sin token → `401 Missing authorization token`.
+5. Si hay un `shipflow-user` en localStorage y Supabase está configurado: al cargar la app, el key debe ser eliminado automáticamente.
+
+### Limitación conocida
+
+Si `NEXT_PUBLIC_*` no fueron bakeados correctamente en Docker (`buildEnvOk: false` en `/api/config/status`), el cliente aún puede caer en modo "Supabase no configurado". Con esta FASE, ese caso ya no activa localStorage — resulta en `user=null` y redirect a `/login`. La solución definitiva es reconstruir el contenedor con las variables correctas.

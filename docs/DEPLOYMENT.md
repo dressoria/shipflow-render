@@ -1375,3 +1375,80 @@ Sin estas URLs en la allowlist, los links de verificacion de Supabase pueden rec
 7. Registrar usuario B.
 8. Confirmar que usuario B aparece en Supabase.
 9. Confirmar que `/api/auth/me` retorna usuario B (no A).
+
+---
+
+## FASE 5.38D — Eliminación de legacy localStorage auth en producción
+
+### Problema confirmado
+
+En producción, cuando los `NEXT_PUBLIC_*` no estaban bakeados correctamente en Docker:
+- `isSupabaseConfigured = false` en el cliente
+- `AuthContext` cargaba `shipflow-user` desde `localStorage` → usuario demo con `emailVerified: true`
+- `balanceService` retornaba `getBalance()` → hardcoded **$128.70**
+- La UI mostraba dashboard y saldo sin ninguna sesión Supabase real
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `lib/services/legacyAuthCleanup.ts` | Nuevo: `clearLegacyAuthStorage()` + `isDemoAuthEnabled()` |
+| `contexts/AuthContext.tsx` | Limpia legacy keys al init; bloquea demo en producción |
+| `lib/services/authService.ts` | Guards en todos los paths locales; logout limpia legacy |
+| `lib/services/balanceService.ts` | Balance=0 y lista vacía si demo no habilitado |
+| `lib/services/shipmentService.ts` | Lista vacía y error en creación si demo no habilitado |
+| `shipflow-web/.env.example` | `NEXT_PUBLIC_ENABLE_DEMO_AUTH=false` documentado |
+
+### Variable de entorno nueva
+
+```
+NEXT_PUBLIC_ENABLE_DEMO_AUTH=false
+```
+
+No agregar al `.env.production` ni al Docker build. Solo para local dev.
+
+### Health check post-deploy 5.38D
+
+```bash
+# 1. API sin token — debe ser 401 / authenticated:false
+curl https://sendiflash.com/api/auth/me
+# Esperado: {"success":true,"data":{"authenticated":false},"error":null}
+
+curl https://sendiflash.com/api/balance
+# Esperado: {"success":false,"error":"Missing authorization token","data":null} HTTP 401
+
+# 2. Config status — verificar buildEnvOk
+curl https://sendiflash.com/api/config/status
+# Esperado: {"data":{"buildEnvOk":true,"supabaseConfigured":true,...}}
+# Si buildEnvOk:false → reconstruir Docker con las NEXT_PUBLIC_* vars correctas
+
+# 3. En DevTools del navegador (Application → Local Storage):
+# - shipflow-user debe estar ausente (o eliminarse automáticamente al cargar la app)
+# - shipflow-users debe estar ausente
+# - Los únicos keys deben ser sb-* (Supabase) y shipflow-couriers (config local no sensible)
+
+# 4. En incógnito:
+# /dashboard → debe redirigir a /login (no mostrar datos)
+# /saldo → debe redirigir a /login
+# /api/balance → 401
+```
+
+### Prueba de regresión localStorage
+
+1. En DevTools, crear manualmente en localStorage:
+   - `shipflow-user` = `{"email":"fake@test.com","role":"user"}`
+   - `shipflow-balance` = `999`
+2. Recargar la página.
+3. **Resultado esperado (Supabase configurado):** las keys son eliminadas automáticamente y el usuario es redirigido a `/login`.
+4. **Resultado esperado (Supabase NO configurado en producción):** `user=null`, redirect a `/login`, balance=0.
+
+### Demo mode (solo local dev)
+
+Para trabajar localmente sin Supabase:
+```bash
+# .env.local — solo para desarrollo local
+NEXT_PUBLIC_ENABLE_DEMO_AUTH=true
+# Asegurarse de que NEXT_PUBLIC_SUPABASE_URL esté vacío o no configurado
+```
+
+En producción, aunque alguien ponga `NEXT_PUBLIC_ENABLE_DEMO_AUTH=true` en el build, el guard `NODE_ENV === "production"` lo bloquea a nivel de bundler.

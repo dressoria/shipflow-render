@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { findShipment, getShipments as getLocalShipments, saveShipment } from "@/lib/storage";
 import { apiGetShipments } from "@/lib/services/apiClient";
+import { isDemoAuthEnabled } from "@/lib/services/legacyAuthCleanup";
 import type { Envio } from "@/lib/types";
 
 export async function createShipment(shipment: Envio): Promise<Envio> {
@@ -50,6 +51,9 @@ export async function createShipment(shipment: Envio): Promise<Envio> {
     return payload.data.shipment;
   }
 
+  if (!isDemoAuthEnabled()) {
+    throw new Error("Shipment creation requires Supabase Auth. Please sign in.");
+  }
   saveShipment(shipment);
   return shipment;
 }
@@ -60,6 +64,7 @@ export async function getShipments(): Promise<Envio[]> {
     return result.shipments;
   }
 
+  if (!isDemoAuthEnabled()) return [];
   return getLocalShipments();
 }
 
@@ -69,5 +74,6 @@ export async function getShipmentByTrackingNumber(trackingNumber: string): Promi
     return result.shipments[0] ?? null;
   }
 
+  if (!isDemoAuthEnabled()) return null;
   return findShipment(trackingNumber) ?? null;
 }

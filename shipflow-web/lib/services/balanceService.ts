@@ -6,6 +6,7 @@ import {
   setBalance,
 } from "@/lib/storage";
 import { apiGetBalance, type BalanceData, type BalanceMovement } from "@/lib/services/apiClient";
+import { isDemoAuthEnabled } from "@/lib/services/legacyAuthCleanup";
 import type { MovimientoSaldo } from "@/lib/types";
 
 function fromApiMovement(m: BalanceMovement): MovimientoSaldo {
@@ -53,12 +54,22 @@ function fromApiBalanceData(data: BalanceData): BalanceData {
   };
 }
 
+const EMPTY_BALANCE_DATA: BalanceData = {
+  balance: 0,
+  availableBalance: 0,
+  currency: "USD",
+  totals: { totalRecharged: 0, totalSpent: 0, totalRefunded: 0, totalAdjustments: 0, totalFees: 0 },
+  movements: [],
+  recentMovements: [],
+};
+
 export async function getAvailableBalance(): Promise<number> {
   if (isSupabaseConfigured) {
     const data = await apiGetBalance();
     return data.availableBalance ?? data.balance;
   }
 
+  if (!isDemoAuthEnabled()) return 0;
   return getBalance();
 }
 
@@ -67,6 +78,8 @@ export async function getBalanceSummary(): Promise<BalanceData> {
     const data = await apiGetBalance();
     return fromApiBalanceData(data);
   }
+
+  if (!isDemoAuthEnabled()) return EMPTY_BALANCE_DATA;
 
   const movements = getLocalBalanceMovements();
   const balance = getBalance();
@@ -92,6 +105,7 @@ export async function getBalanceMovements(): Promise<MovimientoSaldo[]> {
     return data.recentMovements.map(fromApiMovement);
   }
 
+  if (!isDemoAuthEnabled()) return [];
   return getLocalBalanceMovements();
 }
 

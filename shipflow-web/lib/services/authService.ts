@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Usuario } from "@/lib/types";
 import { getDemoUsers, getUser, saveUser } from "@/lib/storage";
+import { clearLegacyAuthStorage, isDemoAuthEnabled } from "@/lib/services/legacyAuthCleanup";
 
 type AuthInput = {
   email: string;
@@ -107,6 +108,10 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
     return user;
   }
 
+  if (!isDemoAuthEnabled()) {
+    throw new Error("Registration requires Supabase Auth. Please refresh and try again.");
+  }
+
   const user: Usuario = {
     id: crypto.randomUUID(),
     email: input.email,
@@ -130,6 +135,10 @@ export async function loginUser(input: AuthInput): Promise<Usuario> {
 
     const profile = await getProfile(data.user.id, data.user.email ?? input.email);
     return { ...profile, emailVerified: !!data.user.email_confirmed_at };
+  }
+
+  if (!isDemoAuthEnabled()) {
+    throw new Error("Sign in requires Supabase Auth. Please refresh and try again.");
   }
 
   if (input.email === "admin@shipflow.local" && input.password !== "admin123") {
@@ -159,6 +168,8 @@ export async function getCurrentUser(): Promise<Usuario | null> {
     return { ...profile, emailVerified: !!data.user.email_confirmed_at };
   }
 
+  if (!isDemoAuthEnabled()) return null;
+
   const user = getUser();
   if (!user) return null;
 
@@ -173,13 +184,12 @@ export async function getCurrentUser(): Promise<Usuario | null> {
 }
 
 export async function logoutUser(): Promise<void> {
+  // Always clear legacy keys regardless of auth mode.
+  clearLegacyAuthStorage();
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    return;
   }
-
-  window.localStorage.removeItem("shipflow-user");
 }
 
 export async function getUsers(): Promise<Usuario[]> {
@@ -194,5 +204,6 @@ export async function getUsers(): Promise<Usuario[]> {
     return data.map(profileToUser);
   }
 
+  if (!isDemoAuthEnabled()) return [];
   return getDemoUsers();
 }
