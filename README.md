@@ -7,9 +7,9 @@ El proyecto esta dividido en dos aplicaciones:
 - `shipflow-web`: aplicacion web con Next.js.
 - `shipflow-mobile`: aplicacion mobile con Expo/React Native.
 
-> Advertencia: ShipStation todavia no esta conectado. Las guias actuales son internas/visuales y no deben considerarse labels oficiales de carrier.
+> Estado beta: rates reales estan conectados para ShipEngine/ShipStation API nueva, Shippo y Easyship cuando las variables server-side estan configuradas.
 
-> Advertencia: no usar en produccion con dinero real hasta corregir seguridad, RLS, balance y backend transaccional.
+> Advertencia: no usar en produccion con dinero real. Labels y void/refund reales siguen detras de guards server-side y solo se han validado en sandbox/test.
 
 ## Estructura de carpetas
 
@@ -89,6 +89,8 @@ SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL
 INTERNAL_API_SECRET
 ENABLE_REAL_LABEL_PURCHASE
+ENABLE_REAL_LABEL_VOID
+ADMIN_EMAILS
 SHIPSTATION_API_MODE
 SHIPSTATION_API_KEY
 SHIPSTATION_API_SECRET
@@ -141,38 +143,36 @@ cp shipflow-mobile/.env.example shipflow-mobile/.env
 - Las variables `NEXT_PUBLIC_*` y `EXPO_PUBLIC_*` son visibles para cliente/app.
 - Las API keys privadas de proveedores logisticos, `SUPABASE_SERVICE_ROLE_KEY`, secretos internos y secretos de pagos/webhooks no deben usar prefijos `NEXT_PUBLIC_` ni `EXPO_PUBLIC_`.
 - `ENABLE_REAL_LABEL_PURCHASE` es un switch server-side: debe quedar vacio/false hasta completar una fase dedicada de compra real de labels.
+- `ENABLE_REAL_LABEL_VOID` es un switch server-side: debe quedar vacio/false salvo pruebas sandbox controladas.
 - Los archivos `.env`, `.env.local` y `.env.*` reales estan ignorados por Git; no commitear credenciales reales.
-- FASE 1B no agrega `SUPABASE_SERVICE_ROLE_KEY`; el endpoint web de crear guia usa token Bearer de usuario y RLS.
-- Para ShipEngine/ShipStation sandbox usar `SHIPSTATION_API_MODE=shipengine`, `SHIPSTATION_API_KEY` y `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`; en ese modo no se requiere `SHIPSTATION_API_SECRET` para cotizar.
+- Para ShipEngine/ShipStation sandbox usar `SHIPSTATION_API_MODE=shipengine`, `SHIPSTATION_API_KEY` con key TEST y `SHIPSTATION_BASE_URL=https://api.shipengine.com/v1`; en ese modo no se requiere `SHIPSTATION_API_SECRET`.
 
 ## Estado actual
 
-Existe funcionalidad base para:
+Existe funcionalidad beta para:
 
 - Login/registro.
 - Dashboard.
-- Crear guia interna.
+- Cotizar rates reales multi-provider.
+- Compra de label ShipEngine sandbox detras de guard.
 - Listar envios.
-- Ver guia imprimible.
-- Tracking con fallback.
-- Balance simple basado en movimientos.
-- Admin basico.
+- Ver carrier label oficial via `label_url` y shipment summary interno.
+- Tracking basico de shipments guardados.
+- Balance basado en movimientos con debits/refunds/adjustments.
+- Admin support panel con audit/reconciliation foundation.
 - Mobile conectado a Supabase.
 
 Limitaciones actuales:
 
-- Crear guia no compra una label real.
-- Crear guia web con Supabase activo usa API backend interna (`POST /api/labels`, con `POST /api/shipments/create` como compatibilidad), pero aun no hay transaccion SQL atomica ni idempotencia persistida si la migracion no esta aplicada.
-- FASE 2 agrega endpoints internos para shipments, rates, labels, void interno, balance y tracking protegido/compatible. Siguen usando logica local/mock.
-- FASE 3 agrega `shipflow-web/lib/logistics` con Adapter Pattern internal/mock. ShipStation queda solo como skeleton sin llamadas reales.
-- FASE 1C agrega una migracion incremental para provider fields, pricing, idempotencia, webhooks y auditoria, pero debe aplicarse manualmente en Supabase.
-- FASE 1D agrega un runbook/checklist para aplicar y validar esa migracion: `docs/MIGRATION_1D_CHECKLIST.md`.
-- No existe ShipStation.
-- No existe integracion real de providers logisticos.
+- No hay pagos reales ni Stripe.
+- Add funds es solo mensaje beta; no acredita saldo.
+- Label purchase y void/refund estan apagados por defecto con guards.
+- Shippo/Easyship/EasyPost labels y void siguen pendientes.
+- Tracking realtime/webhooks carrier siguen pendientes.
+- Mobile aun debe migrarse a backend seguro en FASE 6.
 - No hay Dockerfile ni docker-compose.
 - No hay Nginx config.
-- No hay backend seguro para balance/labels/pagos.
-- RLS y balance requieren correccion antes de produccion.
+- Produccion queda bloqueada hasta staging QA, pagos reales, runbook operativo y decision de guards.
 
 ## API backend interna
 
@@ -186,16 +186,40 @@ POST /api/rates
 POST /api/labels
 POST /api/labels/[id]/void
 GET /api/balance
-POST /api/tracking
+GET /api/tracking
 ```
 
 Notas:
 
-- `POST /api/rates` usa tarifas internas desde `couriers`; no llama ShipStation.
-- `POST /api/rates` y `POST /api/labels` pasan por la capa `lib/logistics` usando el adapter internal/mock.
-- `POST /api/labels` crea una guia/label interna; no compra label real de carrier.
-- `POST /api/labels/[id]/void` solo prepara void interno si la migracion 1C esta aplicada; no hace refund ni void externo.
+- `POST /api/rates` usa el RateAggregator y consulta providers reales activos.
+- `POST /api/labels` esta bloqueado si `ENABLE_REAL_LABEL_PURCHASE !== "true"`.
+- Con guard activo, solo ShipEngine sandbox esta soportado para label purchase.
+- `POST /api/labels/[id]/void` esta bloqueado si `ENABLE_REAL_LABEL_VOID !== "true"`.
+- Con guard activo, solo ShipEngine sandbox esta soportado para void/refund.
+- `GET /api/tracking` busca shipments guardados; no hace tracking realtime externo.
 - Mobile aun no usa esta API para crear labels/rates; queda para FASE 6.
+
+## Staging beta
+
+Antes de staging:
+
+```bash
+cd shipflow-web
+npm run lint
+npm run typecheck
+npm run build
+git diff --check
+```
+
+Checklist:
+
+- Usar solo keys sandbox/test.
+- Aplicar migraciones/RPCs documentadas en `docs/DEPLOYMENT.md`.
+- Mantener `ENABLE_REAL_LABEL_PURCHASE=false` y `ENABLE_REAL_LABEL_VOID=false` por defecto.
+- Configurar `ADMIN_EMAILS` o `profiles.role = admin`.
+- Verificar `/api/config/status` despues del deploy.
+- Probar rates con la ruta NY → Mountain View y paquete `1 lb, 6 x 4 x 2 in`.
+- No comprar labels ni ejecutar void salvo prueba sandbox controlada y documentada.
 
 ## Documentacion
 
