@@ -15,6 +15,14 @@ export async function resendVerificationEmail(email: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("The service is not available right now.");
   }
-  const { error } = await supabase.auth.resend({ type: "signup", email });
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  const emailRedirectTo = `${base}/verifica-tu-correo`;
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo },
+  });
   if (error) throw error;
 }

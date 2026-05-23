@@ -21,7 +21,11 @@ export function AuthCard({ mode }: AuthCardProps) {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/dashboard");
+      if (!user.emailVerified) {
+        router.replace("/verifica-tu-correo");
+      } else {
+        router.replace("/dashboard");
+      }
     }
   }, [authLoading, router, user]);
 

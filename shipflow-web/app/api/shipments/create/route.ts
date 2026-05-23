@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { createInternalShipment, type CreateInternalShipmentInput } from "@/lib/server/shipments/createInternalShipment";
-import { isServerSupabaseConfigured, requireSupabaseUser } from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured) {
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { supabase, user } = await requireSupabaseUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
     const body = (await request.json()) as CreateInternalShipmentInput;
     const result = await createInternalShipment(supabase, user.id, body);
 

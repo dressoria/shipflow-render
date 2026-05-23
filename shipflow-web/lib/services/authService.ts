@@ -8,6 +8,13 @@ type AuthInput = {
   businessName?: string;
 };
 
+function getEmailRedirectUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  return `${base}/verifica-tu-correo`;
+}
+
 type ProfileRow = {
   id: string;
   email: string;
@@ -61,6 +68,7 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
         data: {
           business_name: input.businessName,
         },
+        emailRedirectTo: getEmailRedirectUrl(),
       },
     });
 
@@ -92,6 +100,7 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
     businessName: input.businessName,
     role: "user",
     createdAt: new Date().toISOString(),
+    emailVerified: true,
   };
   saveUser({ name: input.businessName, email: input.email, role: user.role });
   return user;
@@ -122,6 +131,7 @@ export async function loginUser(input: AuthInput): Promise<Usuario> {
     businessName: role === "admin" ? "Administrador Demo" : currentUser?.name,
     role,
     createdAt: new Date().toISOString(),
+    emailVerified: true,
   };
   saveUser({ name: user.businessName, email: input.email, role });
   return user;
@@ -145,6 +155,7 @@ export async function getCurrentUser(): Promise<Usuario | null> {
     businessName: user.name,
     role: user.role ?? (user.email === "admin@shipflow.local" ? "admin" : "user"),
     createdAt: new Date().toISOString(),
+    emailVerified: true,
   };
 }
 

@@ -6,17 +6,22 @@ import { PackageCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, emailVerified } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
     }
-  }, [loading, pathname, router, user]);
+    if (!emailVerified) {
+      router.replace("/verifica-tu-correo");
+    }
+  }, [emailVerified, loading, pathname, router, user]);
 
-  if (loading || !user) {
+  if (loading || !user || !emailVerified) {
     return (
       <div className="grid min-h-screen place-items-center bg-slate-100 px-4">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-2xl shadow-pink-950/10">

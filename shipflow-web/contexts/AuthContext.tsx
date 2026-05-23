@@ -33,23 +33,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    window.setTimeout(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      // Demo/local mode: load from localStorage, no auth events to wait for
       getCurrentUser()
         .then(setUser)
         .finally(() => setLoading(false));
-    }, 0);
+      return;
+    }
 
-    if (!isSupabaseConfigured || !supabase) return;
-
+    // Supabase mode: onAuthStateChange fires INITIAL_SESSION with the current state,
+    // then SIGNED_IN / SIGNED_OUT as state changes. No setTimeout needed.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
         setUser(null);
+        setLoading(false);
         return;
       }
 
-      getCurrentUser().then(setUser);
+      getCurrentUser().then((u) => {
+        setUser(u);
+        setLoading(false);
+      });
     });
 
     return () => subscription.unsubscribe();

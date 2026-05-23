@@ -1005,3 +1005,128 @@ Politica de negative balance en produccion:
 - No restaurar balance negativo automaticamente; requiere decision admin documentada.
 - Todo ajuste admin post-dispute debe tener `reason` obligatorio y quedar en audit.
 - No habilitar dinero real hasta que balance sea seguro.
+
+## FASE 5.38A — Auth session, email verification y wrong-user state
+
+### Problema corregido
+
+Despues del deploy Docker en la VM, la app cargaba en https://shipflow.appsolux.com pero mostraba sesion equivocada, no enviaba correos de verificacion y la pagina `/verifica-tu-correo` redireccionaba prematuramente a `/login`.
+
+Causas encontradas:
+
+1. Variables `NEXT_PUBLIC_*` se hornean en el build Docker. Si el build usaba `.env.local` de desarrollo (con URL/key de un proyecto Supabase diferente), produccion apuntaba al proyecto equivocado.
+2. `signUp()` y `resend()` no pasaban `emailRedirectTo`. Supabase usaba el Site URL del dashboard, que puede ser `localhost`.
+3. `/verifica-tu-correo` llamaba `supabase.auth.getUser()` directamente. Al llegar desde el link de verificacion con `?code=`, el exchange PKCE estaba en vuelo y `getUser()` retornaba null, causando redirect a `/login`.
+4. `AuthContext` usaba `window.setTimeout` + `onAuthStateChange` en modo Supabase — doble llamada con race condition; `setLoading(false)` nunca se llamaba desde `onAuthStateChange`.
+5. `ProtectedRoute` solo revisaba si `user` existia, no `emailVerified` — usuario sin verificar podia entrar al dashboard y recibir 403 en las APIs.
+6. `AuthCard` redireccionaba al dashboard sin revisar `emailVerified`.
+7. `shipments/create` usaba `requireSupabaseUser` en lugar de `requireVerifiedUser`.
+
+### Variables criticas para deploy correcto
+
+Estas variables deben estar correctas en el servidor antes de hacer el build Docker:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://TU_PROYECTO.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_APP_URL=https://shipflow.appsolux.com
+```
+
+IMPORTANTE: `NEXT_PUBLIC_*` se hornean en tiempo de build. Un cambio en el servidor no tiene efecto hasta reconstruir el contenedor. El contenedor debe construirse con las variables correctas del entorno de produccion.
+
+Para sendiflash.com:
+
+```text
+NEXT_PUBLIC_APP_URL=https://sendiflash.com
+```
+
+### Supabase Auth — configuracion requerida
+
+En Supabase Dashboard > Authentication > URL Configuration:
+
+**Site URL** (elegir uno):
+```
+https://sendiflash.com
+```
+
+**Redirect URLs permitidas** (agregar todas):
+```
+https://sendiflash.com
+https://sendiflash.com/login
+https://sendiflash.com/dashboard
+https://sendiflash.com/verifica-tu-correo
+https://shipflow.appsolux.com
+https://shipflow.appsolux.com/login
+https://shipflow.appsolux.com/dashboard
+https://shipflow.appsolux.com/verifica-tu-correo
+http://localhost:3000
+http://localhost:3000/verifica-tu-correo
+```
+
+Sin estas entradas, Supabase rechaza el redirect del link de verificacion y el login OAuth falla.
+
+### SMTP — configuracion requerida
+
+Sin SMTP configurado, Supabase usa su servidor interno con rate limit muy bajo. Los correos de verificacion no llegan o tardan.
+
+Configurar en Supabase Dashboard > Authentication > Email:
+
+- **Custom SMTP**: habilitado
+- **Sender name**: ShipFlow (o Sendiflash)
+- **Sender email**: `no-reply@sendiflash.com`
+- **SMTP Host**: `smtp.resend.com`
+- **SMTP Port**: `465`
+- **Username**: `resend`
+- **Password**: API key de Resend (no exponerla en docs ni commits)
+
+Con Resend:
+1. Crear cuenta en resend.com
+2. Verificar el dominio `sendiflash.com`
+3. Generar API key
+4. Configurarla como Password en Supabase Custom SMTP
+
+### Confirmacion manual de usuario en beta (sin SMTP)
+
+Mientras SMTP no este listo, el equipo puede confirmar usuarios manualmente:
+
+1. Ir a Supabase Dashboard > Authentication > Users.
+2. Buscar el usuario por email.
+3. Hacer clic en el usuario.
+4. Hacer clic en "Send magic link" o editar directamente el campo `email_confirmed_at`.
+5. El usuario ya puede iniciar sesion sin verificar por correo.
+
+Alternativa via SQL:
+
+```sql
+-- Solo para beta/testing controlado. No usar en produccion con usuarios reales.
+update auth.users
+set email_confirmed_at = now()
+where email = 'usuario@ejemplo.com';
+```
+
+### Flujo de auth corregido
+
+Despues de FASE 5.38A:
+
+1. **Register**: crea usuario en Supabase, `emailRedirectTo` apunta a `NEXT_PUBLIC_APP_URL/verifica-tu-correo`. Redirige a `/verifica-tu-correo`.
+2. **Email de verificacion**: el link contiene `?code=XXXX`. El cliente Supabase lo detecta automaticamente con `detectSessionInUrl: true`.
+3. **/verifica-tu-correo**: si `?code=` esta presente, espera el exchange PKCE via `onAuthStateChange` en lugar de llamar `getUser()` inmediatamente. Si `?error=`, muestra mensaje. Permite resend y sign-out.
+4. **Login**: si `emailVerified = false`, redirige a `/verifica-tu-correo`. Si `emailVerified = true`, redirige al dashboard.
+5. **ProtectedRoute**: si `user` existe pero `emailVerified = false`, redirige a `/verifica-tu-correo`.
+6. **Logout**: llama `supabase.auth.signOut()`, limpia estado React y redirige a `/login`.
+7. **APIs**: todas las rutas sensibles usan `requireVerifiedUser()` server-side.
+
+### Health check post-deploy 5.38A
+
+Sin SMTP activo, confirmar usuario manualmente y luego:
+
+1. Abrir `https://shipflow.appsolux.com/` o `https://sendiflash.com/`.
+2. Cerrar sesion.
+3. Crear cuenta nueva.
+4. Confirmar que aparece `/verifica-tu-correo` con el email correcto.
+5. Confirmar usuario manualmente desde Supabase Dashboard.
+6. Hacer clic en "I already verified my email".
+7. Confirmar redirect a `/dashboard` con el usuario correcto.
+8. Abrir `/api/config/status` y confirmar `labelPurchaseEnabled: false`.
+9. Navegar a `/saldo` y confirmar balance del usuario correcto.
+10. Cerrar sesion, confirmar redirect a `/login` y limpieza de estado.

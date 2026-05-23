@@ -692,3 +692,64 @@ Todos los eventos deben incluir en metadata: `userId`, `stripeEventId`, `amount`
 - Si el saldo queda negativo no se permite comprar aunque sea por un centavo.
 - No crear dos `balance_movements` para el mismo `stripe_event_id`.
 - No exponer el motivo interno del dispute al usuario final; solo mensaje generico de soporte.
+
+
+## FASE 5.38A — Auth guards, email verification y session correcta
+
+### Guards de API (estado actual)
+
+Todas las rutas sensibles usan guards server-side. Nunca aceptan `userId` desde el cuerpo/query del cliente — el user ID se extrae del Bearer token validado por Supabase.
+
+| Ruta | Guard | Email verificado requerido |
+|------|-------|---------------------------|
+| `GET /api/balance` | `requireVerifiedUser` | Si |
+| `GET /api/shipments` | `requireVerifiedUser` | Si |
+| `GET /api/shipments/[id]` | `requireVerifiedUser` | Si |
+| `POST /api/shipments/create` | `requireVerifiedUser` | Si (corregido en 5.38A) |
+| `POST /api/labels` | `requireVerifiedUser` | Si |
+| `POST /api/labels/[id]/void` | `requireVerifiedUser` | Si |
+| `GET /api/tracking` | `requireVerifiedUser` | Si |
+| `POST /api/rates` | `requireVerifiedUser` | Si |
+| `POST /api/billing/checkout-session` | `requireVerifiedUser` | Si |
+| `GET /api/admin/*` | `requireAdminUser` | Si (llama requireVerifiedUser internamente) |
+| `POST /api/webhooks/shipstation` | secreto timing-safe | No aplica |
+| `POST /api/webhooks/stripe` | firma Stripe | No aplica |
+
+`requireVerifiedUser` verifica:
+1. Header `Authorization: Bearer <token>` presente.
+2. Token valido via `supabase.auth.getUser(token)`.
+3. `email_confirmed_at` no es null — si es null, devuelve 403 con codigo `EMAIL_NOT_VERIFIED`.
+
+### Flujo de email verification corregido (PKCE)
+
+1. `signUp()` pasa `emailRedirectTo = NEXT_PUBLIC_APP_URL/verifica-tu-correo`.
+2. `resend()` pasa el mismo `emailRedirectTo`.
+3. El link del correo apunta a `/verifica-tu-correo?code=XXXX`.
+4. Supabase client con `detectSessionInUrl: true` detecta `?code=` y hace el exchange PKCE automaticamente.
+5. La pagina `/verifica-tu-correo` usa `onAuthStateChange` — no llama `getUser()` directamente al montar para evitar la condicion de carrera con el exchange en vuelo.
+6. Cuando `onAuthStateChange` dispara `SIGNED_IN` con usuario verificado, redirige a `/dashboard`.
+7. Si `?error=` esta presente en la URL, muestra mensaje de error sin rawdump de Supabase.
+8. El usuario puede hacer "Sign out and use another account" en cualquier momento.
+
+### ProtectedRoute
+
+`ProtectedRoute` ahora verifica dos condiciones:
+1. `user !== null` — si no hay usuario, redirige a `/login?next=<path>`.
+2. `emailVerified === true` — si el usuario existe pero no esta verificado, redirige a `/verifica-tu-correo`.
+
+Esto garantiza que ningun usuario sin email verificado pueda acceder al dashboard, incluso si encuentra un bypass en el frontend.
+
+### Demo/local mode
+
+Cuando Supabase no esta configurado (`isSupabaseConfigured = false`), la app opera en modo local con localStorage. En este modo, todos los usuarios demo tienen `emailVerified: true` para no bloquear el flujo de desarrollo. Este modo no debe llegar a produccion — el contenedor Docker debe tener `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` correctos.
+
+### Variables criticas de auth
+
+```text
+NEXT_PUBLIC_SUPABASE_URL      # URL del proyecto Supabase — baked en build Docker
+NEXT_PUBLIC_SUPABASE_ANON_KEY # Anon key — baked en build Docker; publica por diseno
+NEXT_PUBLIC_APP_URL           # URL canonica de la app — define emailRedirectTo
+SUPABASE_SERVICE_ROLE_KEY     # Solo backend; nunca en NEXT_PUBLIC_*; para RPCs y webhooks
+```
+
+Un build con variables incorrectas conectara al proyecto Supabase equivocado. Reconstruir el contenedor con las variables correctas es obligatorio si se cambian.
