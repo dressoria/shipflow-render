@@ -37,6 +37,10 @@ export type ConfigStatus = {
   activeRateProviders: number;
   labelPurchaseEnabled: boolean;
   labelVoidEnabled: boolean;
+  // Build-env diagnostics (FASE 5.38C)
+  appUrlConfigured: boolean;
+  appUrlHost: string | null;
+  buildEnvOk: boolean;
 };
 
 // Public fetch — no auth token required. Returns configuration booleans only.
@@ -54,9 +58,27 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
       activeRateProviders: 0,
       labelPurchaseEnabled: false,
       labelVoidEnabled: false,
+      appUrlConfigured: false,
+      appUrlHost: null,
+      buildEnvOk: false,
     };
   }
   return json.data;
+}
+
+// ── Auth/me ──────────────────────────────────────────────────────────────────
+
+export type AuthMeResult = {
+  authenticated: boolean;
+  id?: string;
+  email?: string | null;
+  emailVerified?: boolean;
+};
+
+// Returns who is actually authenticated server-side for the current session.
+// Safe for debugging production session/user mismatches.
+export async function apiGetAuthMe(): Promise<AuthMeResult> {
+  return apiFetch<AuthMeResult>("/api/auth/me");
 }
 
 // ── Balance ─────────────────────────────────────────────────────────────────

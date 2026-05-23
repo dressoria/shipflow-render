@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, PackageCheck } from "lucide-react";
+import { ArrowRight, LogOut, PackageCheck, RefreshCw } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
 import { isEmail, required } from "@/lib/forms";
 import { useAuth } from "@/hooks/useAuth";
+import { logoutUser } from "@/lib/services/authService";
 
 type AuthCardProps = {
   mode: "login" | "registro";
@@ -18,16 +19,88 @@ export function AuthCard({ mode }: AuthCardProps) {
   const isLogin = mode === "login";
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [signOutLoading, setSignOutLoading] = useState(false);
 
+  // Login mode only: redirect to dashboard if already authenticated.
+  // Registro mode shows an explicit "already signed in" UI instead of redirecting.
   useEffect(() => {
-    if (!authLoading && user) {
-      if (!user.emailVerified) {
-        router.replace("/verifica-tu-correo");
-      } else {
-        router.replace("/dashboard");
-      }
+    if (!isLogin || authLoading || !user) return;
+    if (!user.emailVerified) {
+      router.replace("/verifica-tu-correo");
+    } else {
+      router.replace("/dashboard");
     }
-  }, [authLoading, router, user]);
+  }, [authLoading, isLogin, router, user]);
+
+  async function handleSignOutForRegistration() {
+    setSignOutLoading(true);
+    try {
+      await logoutUser();
+      // onAuthStateChange will clear AuthContext — stays on /registro
+    } catch {
+      setSignOutLoading(false);
+    }
+  }
+
+  // Registro mode: hide the form while auth state is resolving to prevent
+  // race-condition submissions while an old session is still being detected.
+  if (!isLogin && authLoading) {
+    return (
+      <main className="premium-grid grid min-h-screen place-items-center bg-[#12182B] px-4 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/15 bg-white/90 p-8 text-center shadow-2xl shadow-pink-500/10 backdrop-blur">
+          <span className="brand-glow mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
+            <PackageCheck className="h-5 w-5" />
+          </span>
+          <RefreshCw className="mx-auto mt-4 h-6 w-6 animate-spin text-pink-500" />
+          <p className="mt-3 text-sm text-slate-500">Checking session…</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Registro mode: user is already signed in — block registration and offer sign-out.
+  if (!isLogin && user) {
+    return (
+      <main className="premium-grid grid min-h-screen place-items-center bg-[#12182B] px-4 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/15 bg-white/90 p-8 shadow-2xl shadow-pink-500/10 backdrop-blur">
+          <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
+            <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
+              <PackageCheck className="h-5 w-5" />
+            </span>
+            <BrandName />
+          </Link>
+          <div className="mt-8">
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">Already signed in</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              You are signed in as{" "}
+              <span className="font-semibold text-slate-800">{user.email}</span>.
+              Sign out before creating another account.
+            </p>
+            <div className="mt-6 grid gap-3">
+              <button
+                onClick={handleSignOutForRegistration}
+                disabled={signOutLoading}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {signOutLoading ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                {signOutLoading ? "Signing out…" : "Sign out and create another account"}
+              </button>
+              <Link
+                href="/dashboard"
+                className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Go to my dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,6 +130,12 @@ export function AuthCard({ mode }: AuthCardProps) {
         const nextUrl = new URLSearchParams(window.location.search).get("next") ?? "/dashboard";
         router.push(nextUrl);
       } else {
+        // Safety net: if a session appeared between render and submit, abort.
+        if (user) {
+          setErrors({ form: "You are already signed in. Sign out before creating another account." });
+          setLoading(false);
+          return;
+        }
         await register({ email, password, businessName: name });
         router.push("/verifica-tu-correo");
       }

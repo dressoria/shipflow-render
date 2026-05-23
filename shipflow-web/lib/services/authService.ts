@@ -61,6 +61,13 @@ async function getProfile(userId: string, fallbackEmail: string): Promise<Usuari
 
 export async function createUser(input: AuthInput): Promise<Usuario> {
   if (isSupabaseConfigured && supabase) {
+    // Reject registration if a session is already active. The caller (AuthCard)
+    // should block this at the UI level, but this is a server-side safety net.
+    const { data: sessionCheck } = await supabase.auth.getSession();
+    if (sessionCheck.session) {
+      throw new Error("You are already signed in. Sign out before creating another account.");
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
@@ -74,14 +81,20 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
 
     if (error) throw error;
 
-    const userId = data.user?.id ?? crypto.randomUUID();
+    // data.user is null when Supabase cannot create the account (e.g., email
+    // already registered with a confirmed address — anti-enumeration behavior).
+    if (!data.user) {
+      throw new Error("We could not create your account. If you already have an account, try signing in instead.");
+    }
+
+    const userId = data.user.id;
     const user: Usuario = {
       id: userId,
       email: input.email,
       businessName: input.businessName,
       role: "user",
       createdAt: new Date().toISOString(),
-      emailVerified: !!data.user?.email_confirmed_at,
+      emailVerified: !!data.user.email_confirmed_at,
     };
 
     await supabase.from("profiles").upsert({

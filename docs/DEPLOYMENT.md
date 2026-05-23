@@ -1130,3 +1130,248 @@ Sin SMTP activo, confirmar usuario manualmente y luego:
 8. Abrir `/api/config/status` y confirmar `labelPurchaseEnabled: false`.
 9. Navegar a `/saldo` y confirmar balance del usuario correcto.
 10. Cerrar sesion, confirmar redirect a `/login` y limpieza de estado.
+
+## FASE 5.38C — Hotfix: sesion erronea en registro, bypass "I already verified", Google Maps y build env
+
+### Causa raiz identificada
+
+Al registrar un usuario nuevo desde un navegador con sesion activa de otro usuario (ej. `131studio.ec@gmail.com`):
+
+1. El formulario `/registro` era visible brevemente mientras `authLoading = true`.
+2. Si el usuario enviaba el formulario durante ese window, `signUp()` se llamaba con una sesion activa.
+3. Supabase creaba el nuevo usuario pero no iniciaba sesion (confirmacion de email pendiente). La sesion vieja permanecia.
+4. `onAuthStateChange` disparaba con la sesion vieja → `AuthContext` restauraba al usuario viejo.
+5. Las llamadas API usaban el Bearer token del usuario viejo → `/api/balance` mostraba saldo ajeno.
+
+El boton "I already verified" era vulnerable: si la sesion del usuario viejo (con email confirmado) seguia activa, `supabase.auth.getUser()` retornaba ese usuario verificado y redirigía al dashboard.
+
+### Correcciones aplicadas en FASE 5.38C
+
+**`components/AuthCard.tsx`**
+- En modo `registro`: mientras `authLoading = true`, muestra spinner en lugar del formulario. Elimina la ventana de race condition.
+- Si `user` existe y modo es `registro`: muestra pantalla "Already signed in as [email]" con boton "Sign out and create another account". El usuario debe cerrar sesion explicitamente antes de registrarse.
+- Boton de sign-out en esa pantalla llama `logoutUser()` directamente (sin navegar a `/login`). `onAuthStateChange` limpia el `AuthContext` y muestra el formulario de registro.
+- Guard de seguridad en `handleSubmit`: si `user` existe al momento del submit (race condition residual), aborta con mensaje de error en lugar de llamar a `signUp()`.
+- `useEffect` de redirect ahora solo aplica a modo `login` (`isLogin`), no a `registro`.
+
+**`lib/services/authService.ts`** — `createUser()`
+- Antes de `signUp()`, llama `supabase.auth.getSession()`. Si hay sesion activa, lanza error inmediato en lugar de continuar.
+- Despues de `signUp()`, si `data.user` es `null` (anti-enumeracion de Supabase), lanza error con mensaje amigable. Antes la funcion continuaba silenciosamente sin crear usuario.
+
+**`app/api/config/status/route.ts`**
+- Nuevos campos en respuesta: `appUrlConfigured`, `appUrlHost` (solo hostname), `buildEnvOk`.
+- `buildEnvOk = true` solo si `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `NEXT_PUBLIC_APP_URL` existen en el proceso servidor.
+- Usar este endpoint para verificar si el Docker fue construido con las variables publicas correctas.
+
+**`app/api/auth/me/route.ts`** (nuevo)
+- `GET /api/auth/me` — requiere Bearer token.
+- Retorna: `{ authenticated, id?, email?, emailVerified? }`.
+- Nunca retorna tokens, secrets ni metadata sensible.
+- Usar para diagnosticar que usuario real esta activo en produccion.
+
+**`lib/services/apiClient.ts`**
+- Tipo `ConfigStatus` actualizado con `appUrlConfigured`, `appUrlHost`, `buildEnvOk`.
+- Nueva funcion `apiGetAuthMe()` para llamar `/api/auth/me`.
+
+### Diagnostico de build en Docker
+
+Despues de un deploy Docker, verificar:
+
+```
+GET /api/config/status
+```
+
+Esperado para produccion correcta:
+
+```json
+{
+  "supabaseConfigured": true,
+  "serviceRoleConfigured": true,
+  "googleMapsConfigured": true,
+  "buildEnvOk": true,
+  "appUrlConfigured": true,
+  "appUrlHost": "sendiflash.com",
+  "labelPurchaseEnabled": false,
+  "labelVoidEnabled": false
+}
+```
+
+Si `buildEnvOk: false` o `supabaseConfigured: false`, el contenedor fue construido con variables incorrectas o ausentes. Reconstruir:
+
+```bash
+# En la VM, desde el directorio con docker-compose.yml:
+docker compose build shipflow-web
+docker compose up -d shipflow-web
+```
+
+Asegurarse de que `.env.production` tenga las variables correctas ANTES del build:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_APP_URL=https://sendiflash.com
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+**IMPORTANTE**: Cambiar `.env.production` y hacer solo `docker compose up -d` NO actualiza las variables `NEXT_PUBLIC_*` ya horneadas en el cliente. Se requiere `docker compose build` primero.
+
+### Diagnostico de sesion en produccion
+
+Para saber que usuario esta realmente activo en produccion:
+
+```
+GET /api/auth/me
+Authorization: Bearer <access_token>
+```
+
+Retorna:
+
+```json
+{
+  "success": true,
+  "data": {
+    "authenticated": true,
+    "id": "uuid-del-usuario",
+    "email": "usuario@ejemplo.com",
+    "emailVerified": true
+  }
+}
+```
+
+Si `email` no coincide con el usuario esperado, hay sesion equivocada. Cerrar sesion, reconstruir contenedor con variables correctas y verificar Supabase URL Config.
+
+### Google Maps en produccion
+
+Google Maps no aparece en produccion si `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` esta ausente en el build Docker o si el dominio no esta autorizado en Google Cloud Console.
+
+**APIs requeridas en Google Cloud Console:**
+- Maps JavaScript API
+- Places API
+- Geocoding API (para reverse geocoding del mapa)
+
+**Restricciones HTTP referrers** — agregar en la key de produccion:
+
+```text
+https://sendiflash.com/*
+https://www.sendiflash.com/*
+https://shipflow.appsolux.com/*
+http://localhost:3000/*
+```
+
+Sin estas restricciones, la key puede rechazar requests del dominio de produccion aunque este configurada.
+
+Para verificar si Google Maps esta configurado despues del deploy:
+
+```json
+GET /api/config/status
+→ "googleMapsConfigured": true
+```
+
+Si es `false`, la key no esta en el build. Reconstruir con `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` presente.
+
+### Variables publicas para Docker build (checklist completo)
+
+Deben estar presentes antes de `docker compose build`:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_APP_URL=https://sendiflash.com
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+Variables server runtime (no requieren rebuild, se pasan al contenedor en runtime):
+
+```text
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+SHIPSTATION_API_KEY=TEST_...
+SHIPSTATION_API_MODE=shipengine
+SHIPSTATION_BASE_URL=https://api.shipengine.com/v1
+SHIPSTATION_WEBHOOK_SECRET=...
+SHIPPO_API_KEY=shippo_test_...
+EASYSHIP_API_KEY=sand_...
+EASYSHIP_BASE_URL=https://public-api-sandbox.easyship.com
+ADMIN_EMAILS=tu@email.com
+ENABLE_REAL_LABEL_PURCHASE=false
+ENABLE_REAL_LABEL_VOID=false
+```
+
+### Supabase URL Configuration
+
+En Supabase Dashboard → Authentication → URL Configuration:
+
+**Site URL:**
+```
+https://sendiflash.com
+```
+
+**Redirect URLs (agregar todas):**
+```
+https://sendiflash.com
+https://sendiflash.com/login
+https://sendiflash.com/dashboard
+https://sendiflash.com/verifica-tu-correo
+https://www.sendiflash.com
+https://www.sendiflash.com/login
+https://www.sendiflash.com/verifica-tu-correo
+https://shipflow.appsolux.com
+https://shipflow.appsolux.com/login
+https://shipflow.appsolux.com/dashboard
+https://shipflow.appsolux.com/verifica-tu-correo
+http://localhost:3000
+http://localhost:3000/verifica-tu-correo
+```
+
+Sin estas URLs en la allowlist, los links de verificacion de Supabase pueden rechazar el redirect.
+
+### SMTP / Resend (mismo que FASE 5.38A, actualizado)
+
+- Dominio: `sendiflash.com` verificado en Resend.
+- En Supabase Dashboard → Authentication → SMTP Settings:
+  - Host: `smtp.resend.com`
+  - Port: `465`
+  - Username: `resend`
+  - Password: API key de Resend (no exponerla aqui)
+  - Sender: `no-reply@sendiflash.com`
+- Mientras SMTP no este activo, confirmar usuarios beta manualmente (ver seccion anterior).
+
+### Health check post-deploy 5.38C
+
+1. Abrir `https://sendiflash.com/api/config/status`.
+2. Confirmar:
+   - `buildEnvOk: true`
+   - `supabaseConfigured: true`
+   - `googleMapsConfigured: true` (si key configurada)
+   - `appUrlHost: "sendiflash.com"`
+   - `labelPurchaseEnabled: false`
+   - `labelVoidEnabled: false`
+3. Abrir incognito → `https://sendiflash.com/registro`.
+4. Confirmar que el formulario no aparece durante carga (spinner).
+5. Registrar usuario nuevo.
+6. Confirmar que aparece en Supabase `auth.users`.
+7. Confirmar redirect a `/verifica-tu-correo` con el email correcto.
+8. Sin confirmar email, presionar "I already verified my email".
+9. Confirmar que NO entra al dashboard (mensaje de no verificado).
+10. Confirmar usuario manualmente en Supabase.
+11. Presionar "I already verified my email".
+12. Confirmar redirect a `/dashboard` con el usuario correcto.
+13. Abrir `/api/auth/me` con el Bearer token del usuario.
+14. Confirmar que retorna el email correcto y `emailVerified: true`.
+15. Navegar a `/saldo` y confirmar que solo aparece el saldo del usuario nuevo (no de 131studio).
+16. Cerrar sesion. Volver a `/registro`. Confirmar que el formulario aparece sin mostrar el usuario anterior.
+
+### Prueba del "already signed in" block
+
+1. Iniciar sesion como usuario A.
+2. Navegar a `/registro` (sin incognito).
+3. Confirmar que NO aparece el formulario de registro.
+4. Confirmar que aparece "You are already signed in as [email]".
+5. Hacer clic en "Sign out and create another account".
+6. Confirmar que aparece el formulario de registro (sin redirect a /login).
+7. Registrar usuario B.
+8. Confirmar que usuario B aparece en Supabase.
+9. Confirmar que `/api/auth/me` retorna usuario B (no A).
