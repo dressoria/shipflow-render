@@ -9,6 +9,22 @@ type AuthInput = {
   businessName?: string;
 };
 
+export class AccountMayExistError extends Error {
+  readonly code = "ACCOUNT_MAY_EXIST_OR_NEEDS_VERIFICATION";
+
+  constructor() {
+    super("That email may already have an account or may still need verification.");
+    this.name = "AccountMayExistError";
+  }
+}
+
+export function isAccountMayExistError(error: unknown): error is AccountMayExistError {
+  return error instanceof AccountMayExistError ||
+    (typeof error === "object" &&
+      error !== null &&
+      (error as { code?: string }).code === "ACCOUNT_MAY_EXIST_OR_NEEDS_VERIFICATION");
+}
+
 function getEmailRedirectUrl(): string {
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
@@ -80,12 +96,29 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes("already") ||
+        msg.includes("registered") ||
+        msg.includes("exists") ||
+        msg.includes("duplicate")
+      ) {
+        throw new AccountMayExistError();
+      }
+      throw error;
+    }
 
     // data.user is null when Supabase cannot create the account (e.g., email
     // already registered with a confirmed address — anti-enumeration behavior).
     if (!data.user) {
-      throw new Error("We could not create your account. If you already have an account, try signing in instead.");
+      throw new AccountMayExistError();
+    }
+
+    // Supabase anti-enumeration can return a user-like object with no identities
+    // when the email already exists. Treat it as non-created and do not upsert a profile.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new AccountMayExistError();
     }
 
     const userId = data.user.id;

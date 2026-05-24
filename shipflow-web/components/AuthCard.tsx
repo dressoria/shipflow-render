@@ -7,7 +7,7 @@ import { ArrowRight, LogOut, PackageCheck, RefreshCw } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
 import { isEmail, required } from "@/lib/forms";
 import { useAuth } from "@/hooks/useAuth";
-import { logoutUser } from "@/lib/services/authService";
+import { isAccountMayExistError, logoutUser } from "@/lib/services/authService";
 
 function AuthFormError({ message }: { message: string }) {
   const isCredentialError =
@@ -46,6 +46,20 @@ type AuthCardProps = {
   mode: "login" | "registro";
 };
 
+function sanitizeNextUrl(value: string | null): string {
+  if (!value?.startsWith("/")) return "/dashboard";
+  if (
+    value.startsWith("/login") ||
+    value.startsWith("/registro") ||
+    value.startsWith("/verifica-tu-correo") ||
+    value.startsWith("/forgot-password") ||
+    value.startsWith("/reset-password")
+  ) {
+    return "/dashboard";
+  }
+  return value;
+}
+
 export function AuthCard({ mode }: AuthCardProps) {
   const router = useRouter();
   const { user, loading: authLoading, login, register } = useAuth();
@@ -53,6 +67,7 @@ export function AuthCard({ mode }: AuthCardProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [signOutLoading, setSignOutLoading] = useState(false);
+  const [existingAccountEmail, setExistingAccountEmail] = useState<string | null>(null);
 
   // Login mode only: redirect to dashboard if already authenticated.
   // Registro mode shows an explicit "already signed in" UI instead of redirecting.
@@ -75,9 +90,9 @@ export function AuthCard({ mode }: AuthCardProps) {
     }
   }
 
-  // Registro mode: hide the form while auth state is resolving to prevent
-  // race-condition submissions while an old session is still being detected.
-  if (!isLogin && authLoading) {
+  // Hide auth forms while session state is resolving to prevent redirects/submits
+  // racing against an existing Supabase session.
+  if (authLoading) {
     return (
       <main className="premium-grid grid min-h-screen place-items-center bg-[#12182B] px-4 py-10">
         <div className="w-full max-w-md rounded-3xl border border-white/15 bg-white/90 p-8 text-center shadow-2xl shadow-pink-500/10 backdrop-blur">
@@ -86,6 +101,60 @@ export function AuthCard({ mode }: AuthCardProps) {
           </span>
           <RefreshCw className="mx-auto mt-4 h-6 w-6 animate-spin text-pink-500" />
           <p className="mt-3 text-sm text-slate-500">Checking session…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isLogin && existingAccountEmail) {
+    return (
+      <main className="premium-grid grid min-h-screen place-items-center bg-[#12182B] px-4 py-10">
+        <div className="w-full max-w-md rounded-3xl border border-white/15 bg-white/90 p-8 shadow-2xl shadow-pink-500/10 backdrop-blur">
+          <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
+            <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
+              <PackageCheck className="h-5 w-5" />
+            </span>
+            <BrandName />
+          </Link>
+          <div className="mt-8">
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">Account may already exist</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              That email may already have an account or may still need verification.
+            </p>
+            <p className="mt-3 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+              {existingAccountEmail}
+            </p>
+            <div className="mt-6 grid gap-3">
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3]"
+              >
+                Go to login
+              </Link>
+              <Link
+                href={`/verifica-tu-correo?resend=true&email=${encodeURIComponent(existingAccountEmail)}`}
+                className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Resend verification email
+              </Link>
+              <Link
+                href="/forgot-password"
+                className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Forgot password
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setExistingAccountEmail(null);
+                  setErrors({});
+                }}
+                className="text-sm font-semibold text-slate-400 transition hover:text-slate-700"
+              >
+                Try a different email
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -120,7 +189,7 @@ export function AuthCard({ mode }: AuthCardProps) {
                 ) : (
                   <LogOut className="h-4 w-4" />
                 )}
-                {signOutLoading ? "Signing out…" : "Sign out and create another account"}
+                {signOutLoading ? "Signing out…" : "Sign out"}
               </button>
               <Link
                 href="/dashboard"
@@ -160,7 +229,7 @@ export function AuthCard({ mode }: AuthCardProps) {
           router.push("/verifica-tu-correo");
           return;
         }
-        const nextUrl = new URLSearchParams(window.location.search).get("next") ?? "/dashboard";
+        const nextUrl = sanitizeNextUrl(new URLSearchParams(window.location.search).get("next"));
         router.push(nextUrl);
       } else {
         // Safety net: if a session appeared between render and submit, abort.
@@ -173,6 +242,12 @@ export function AuthCard({ mode }: AuthCardProps) {
         router.push("/verifica-tu-correo");
       }
     } catch (error) {
+      if (!isLogin && isAccountMayExistError(error)) {
+        setExistingAccountEmail(email);
+        setErrors({});
+        setLoading(false);
+        return;
+      }
       setErrors({
         form: error instanceof Error ? error.message : "We could not complete this action.",
       });

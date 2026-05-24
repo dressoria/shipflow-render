@@ -20,6 +20,7 @@ function VerificationContent() {
   const errorDesc = searchParams.get("error_description");
   // ?resend=true → show email-input resend form even without an active session
   const resendMode = searchParams.get("resend") === "true";
+  const emailParam = searchParams.get("email");
   const urlError = errorParam
     ? errorDesc
       ? decodeURIComponent(errorDesc.replace(/\+/g, " "))
@@ -34,7 +35,7 @@ function VerificationContent() {
   // Start in "exchanging" state only when a ?code= is present and no error
   const [exchanging, setExchanging] = useState(!!code && !errorParam);
   // Resend-by-email form state (used when no session and ?resend=true)
-  const [resendEmailInput, setResendEmailInput] = useState("");
+  const [resendEmailInput, setResendEmailInput] = useState(emailParam ?? "");
   const [resendEmailError, setResendEmailError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,15 +55,12 @@ function VerificationContent() {
         }
         return;
       }
-      // No session — redirect to login unless a code is being exchanged or user explicitly
-      // requested the resend form (?resend=true).
-      if (!code && !resendMode) {
-        router.replace("/login");
-      }
+      // No session: keep this page stable. It can show sign-in/register links or
+      // the explicit resend form without bouncing back to /login.
     });
 
     return () => subscription.unsubscribe();
-  }, [code, errorParam, resendMode, router]);
+  }, [code, errorParam, router]);
 
   async function handleAlreadyVerified() {
     setCheckLoading(true);
@@ -229,7 +227,8 @@ function VerificationContent() {
                 )}
               </div>
             ) : (
-              <div className="mt-8 grid gap-3">
+              email ? (
+                <div className="mt-8 grid gap-3">
                 <button
                   onClick={handleAlreadyVerified}
                   disabled={checkLoading}
@@ -256,7 +255,26 @@ function VerificationContent() {
                       ? "Email sent"
                       : "Resend verification email"}
                 </button>
-              </div>
+                </div>
+              ) : (
+                <div className="mt-8 grid gap-3">
+                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-center text-sm font-semibold text-slate-600">
+                    Sign in to check verification status, or request a new verification email.
+                  </p>
+                  <Link
+                    href="/login"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3]"
+                  >
+                    Go to login
+                  </Link>
+                  <Link
+                    href="/verifica-tu-correo?resend=true"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Resend verification email
+                  </Link>
+                </div>
+              )
             )}
 
             {resendState === "sent" && email ? (

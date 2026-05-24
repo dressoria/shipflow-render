@@ -1,8 +1,8 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-24 (FASE 5.41B)
+Last updated: 2026-05-24 (FASE 5.42)
 
-Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41A.
+Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41C, with auth routing fixes deployed and all dangerous label flags still off.
 
 Do not deploy production-wide. Do not apply migrations automatically. Do not print secrets. Do not buy real labels or execute real refunds without explicit confirmation.
 
@@ -68,23 +68,32 @@ Update code:
 
 ```bash
 git status --short
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 git log -1 --oneline
 ```
+
+Use `git reset --hard origin/main` only in the VM staging checkout after confirming there are no local VM-only changes to preserve.
 
 Verify deployment files exist:
 
 ```bash
 test -f docker-compose.yml && echo "docker-compose.yml: ok"
 test -f shipflow-web/Dockerfile && echo "shipflow-web/Dockerfile: ok"
-test -f .env.production && echo ".env.production: present"
+test -f shipflow-web/.env.production && echo "shipflow-web/.env.production: present"
 ```
 
 Verify required env variable names only. This prints `set` or `missing`, never values:
 
 ```bash
+awk -F= '/^[A-Z0-9_]+=/{print $1}' shipflow-web/.env.production | sort
+```
+
+Optional presence check, still without printing values:
+
+```bash
 set -a
-source .env.production
+source shipflow-web/.env.production
 set +a
 
 for name in \
@@ -120,7 +129,7 @@ Build and restart only after code is committed/pushed and VM pre-checks pass:
 ```bash
 cd /home/ubuntu/appsolux-apps/shipflow/shipflow
 set -a
-source .env.production
+source shipflow-web/.env.production
 set +a
 
 docker compose build --no-cache shipflow-web
@@ -131,11 +140,14 @@ curl -s http://localhost:3003/api/config/status
 
 Initial expected config:
 
+- `buildEnvOk: true`
 - `supabaseConfigured: true`
 - `serviceRoleConfigured: true`
 - `stripeRechargeEnabled: true`
+- `googleMapsConfigured: true`
 - `directLabelPaymentEnabled: false`
 - `realLabelPurchaseEnabled: false`
+- `labelVoidEnabled: false`
 - `processLabelInWebhookEnabled: false`
 - `labelPaymentRefundsEnabled: false`
 
@@ -251,6 +263,8 @@ curl -s http://localhost:3003/api/config/status
 
 ## 6. QA Auth
 
+Run these tests at `https://sendiflash.com` after the VM build is healthy and before applying label migrations.
+
 - [ ] Register a new user.
 - [ ] Email verification arrives from the configured sender.
 - [ ] Verified user can login.
@@ -262,12 +276,119 @@ curl -s http://localhost:3003/api/config/status
 
 ```js
 localStorage.setItem("shipflow-user", JSON.stringify({ email: "fake@test.com", role: "user", emailVerified: true }))
-localStorage.setItem("shipflow-users", "[]")
+localStorage.setItem("shipflow-balance", "999")
+location.href = "/dashboard"
 ```
 
-Reload; expected: no dashboard access unless Supabase session is valid.
+Expected: no dashboard access unless Supabase session is valid, legacy keys are ignored/cleaned when Supabase is configured, and fake balance is never shown.
 
-## 7. QA Wallet Recharge
+### Auth Loop Regression Tests
+
+No active Supabase session:
+
+- [ ] `/dashboard` redirects to `/login`.
+- [ ] `/login` shows the login form.
+- [ ] `/registro` shows the registration form.
+- [ ] `/verifica-tu-correo?resend=true` shows an email input and does not redirect to `/login`.
+
+Verified Supabase session:
+
+- [ ] `/login` redirects to `/dashboard`.
+- [ ] `/registro` shows "Already signed in" with `Go to my dashboard` and `Sign out`.
+- [ ] `/verifica-tu-correo` redirects to `/dashboard`.
+- [ ] `/dashboard` renders normally.
+
+Unverified Supabase session:
+
+- [ ] `/dashboard` redirects to `/verifica-tu-correo`.
+- [ ] `/login` does not loop; it sends the user to verification or shows clear verification guidance.
+- [ ] `/registro` does not create another account over the active session.
+- [ ] `/verifica-tu-correo` shows resend and "I already verified" actions.
+- [ ] "I already verified" stays on the page if Supabase still reports unverified.
+
+Existing account registration:
+
+- [ ] Attempt to register with an email that already exists.
+- [ ] No profile is created or modified.
+- [ ] User is not signed in.
+- [ ] User is not sent to dashboard.
+- [ ] UI shows "Account may already exist".
+- [ ] `Go to login` works.
+- [ ] `Resend verification email` opens `/verifica-tu-correo?resend=true`.
+- [ ] `Forgot password` opens `/forgot-password`.
+
+Detailed browser cases for FASE 5.42:
+
+- [ ] No session: incognito `/dashboard` redirects to `/login`; dashboard, balance, and `$128.70` are not shown.
+- [ ] Verified existing session: after logging in, close the tab and visit `/login`; it redirects to `/dashboard` without asking for login again.
+- [ ] Verified session on `/registro`: shows `Already signed in`, `Go to my dashboard`, and `Sign out`; it does not show the registration form.
+- [ ] Existing email registration: does not create a user, does not modify password/profile, does not enter dashboard, and shows `Go to login`, `Resend verification email`, `Forgot password`.
+- [ ] Unverified user: `/dashboard` redirects to `/verifica-tu-correo`; `I already verified` stays on the page if Supabase still reports unverified; resend sends a verification email.
+- [ ] `/verifica-tu-correo?resend=true`: without session, shows an email input and returns a neutral message after submit.
+- [ ] Forgot/reset password: `/forgot-password` sends an email; reset link opens `/reset-password`; new password works.
+- [ ] LocalStorage fake: `shipflow-user` and `shipflow-balance` do not grant access or show fake balance.
+
+## 7. QA API With Flags Off
+
+Run from the VM after the service is up. These commands must not include bearer tokens.
+
+```bash
+curl -i http://localhost:3003/api/auth/me
+curl -i http://localhost:3003/api/balance
+curl -i "http://localhost:3003/api/shipments?limit=10"
+curl -i -X POST http://localhost:3003/api/billing/label-checkout
+curl -i http://localhost:3003/api/config/status
+curl -i http://localhost:3003/api/config/features
+```
+
+Expected:
+
+- `/api/auth/me` returns `authenticated: false`.
+- `/api/balance` returns 401.
+- `/api/shipments` returns 401.
+- `POST /api/billing/label-checkout` without token returns 401/403/503 depending on auth/config order, but it never creates Stripe Checkout or pending orders.
+- `/api/config/status` shows all dangerous label flags false and does not expose allowlists.
+- `/api/config/features` without token returns 401/403 or a safe response, and never exposes emails, user ids, or secrets.
+
+## 8. QA Labels Disabled With Flags Off
+
+Preconditions:
+
+- `ENABLE_DIRECT_LABEL_PAYMENT=false`
+- `ENABLE_REAL_LABEL_PURCHASE=false`
+- `ENABLE_REAL_LABEL_VOID=false`
+- `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false`
+- `ENABLE_LABEL_PAYMENT_REFUNDS=false`
+- `pending_label_orders` migration has not been applied yet.
+- `label_checkout_rate_limits` migration has not been applied yet.
+
+With a verified user:
+
+- [ ] Visit `/crear-guia`.
+- [ ] Quote rates.
+- [ ] Simulate insufficient balance.
+- [ ] Pay by card is disabled or marked `Soon`.
+- [ ] No Stripe Checkout is created.
+- [ ] No carrier label is purchased.
+- [ ] Wallet balance does not change.
+- [ ] No `pending_label_order` is created because migrations are not applied and direct payment is off.
+- [ ] `/api/config/status` reports `directLabelPaymentEnabled=false`, `realLabelPurchaseEnabled=false`, and `labelVoidEnabled=false`.
+
+## 9. No Migrations / No Flags Confirmation
+
+Before ending FASE 5.42, confirm and record in `docs/STAGING_QA_RESULTS.md`:
+
+- [ ] `pending_label_orders` migration was not applied.
+- [ ] `label_checkout_rate_limits` migration was not applied.
+- [ ] `ENABLE_DIRECT_LABEL_PAYMENT=false`.
+- [ ] `ENABLE_REAL_LABEL_PURCHASE=false`.
+- [ ] `ENABLE_REAL_LABEL_VOID=false`.
+- [ ] `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false`.
+- [ ] `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+
+If any sensitive flag is already true in VM `.env.production`, stop and report it as a staging risk. Do not change VM env automatically from the agent.
+
+## 10. QA Wallet Recharge
 
 - [ ] Start wallet recharge in Stripe test mode.
 - [ ] Complete Stripe Checkout using a Stripe test card.
@@ -294,9 +415,16 @@ LIMIT 5;
 SELECT COUNT(*) FROM pending_label_orders;
 ```
 
-## 8. QA Direct Label Payment Test
+## 11. QA Direct Label Payment Test
 
-Enable only:
+Step A: apply migrations manually in Supabase staging only:
+
+1. `pending_label_orders`
+2. `label_checkout_rate_limits`
+
+Step B: verify columns, enum, RLS, policies, indexes, triggers, and counts using section 4 queries.
+
+Step C: enable only direct payment for the internal account:
 
 ```env
 ENABLE_DIRECT_LABEL_PAYMENT=true
@@ -336,9 +464,9 @@ ORDER BY created_at DESC
 LIMIT 10;
 ```
 
-## 9. QA Process Label Sandbox Controlled
+## 12. QA Process Label Sandbox Controlled
 
-Enable only for the internal test user:
+Step D: only after auth + direct payment QA are OK, enable real purchase for the internal test user:
 
 ```env
 ENABLE_REAL_LABEL_PURCHASE=true
@@ -358,6 +486,10 @@ Preconditions:
 - Carrier credentials must be sandbox/test credentials.
 - `SHIPSTATION_API_MODE=shipengine`.
 - Do not run if credentials could purchase live labels.
+- Do not use customer emails.
+- Do not enable global allowlists.
+- Do not enable void.
+- Do not enable refunds unless running section 10.
 
 Test:
 
@@ -392,7 +524,7 @@ ORDER BY created_at DESC
 LIMIT 10;
 ```
 
-## 10. QA Refund Test
+## 13. QA Refund Test
 
 Enable:
 
@@ -443,7 +575,7 @@ ORDER BY created_at DESC
 LIMIT 10;
 ```
 
-## 11. Rollback
+## 14. Rollback
 
 Turn off every sensitive flag:
 
@@ -459,7 +591,7 @@ Then rebuild/restart if env changes require it:
 
 ```bash
 set -a
-source .env.production
+source shipflow-web/.env.production
 set +a
 docker compose build --no-cache shipflow-web
 docker compose up -d shipflow-web
@@ -475,7 +607,7 @@ Rules:
 - For `paid_test_mode` or `refund_needed`, support reviews in `/admin/label-orders`.
 - For captured payments without labels, use Stripe Dashboard if app refunds are disabled.
 
-## 12. Go / No-Go
+## 15. Go / No-Go
 
 Go only if all are true:
 
