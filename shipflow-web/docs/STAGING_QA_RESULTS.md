@@ -27,12 +27,25 @@ Rules for this QA pass:
 | Stripe direct label payment test | Not run by Codex | Requires browser, Stripe test Checkout, webhook delivery | TBD | Run manually after migrations and flag gate |
 | Rollback | Not applicable yet | No staging flags changed by Codex | None | After QA, turn direct payment off unless continuing controlled test |
 
+## FASE 5.42B Commit / Public API Check
+
+Run timestamp: 2026-05-24 17:54 America/Guayaquil.
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Commit created | Passed | `312f514 Fix auth routing loops and staging QA docs` | None | Use this commit for clean VM redeploy |
+| Push to GitHub | Passed | `main` pushed from `ba59d7a` to `312f514` | None | VM operator can fetch/reset to `origin/main` |
+| VM redeploy | Not run by Codex | Requires VM shell access; commands are documented in `STAGING_EXECUTION_CHECKLIST.md` | TBD | Run redeploy manually before browser QA |
+| Public `/api/config/status` | Passed | HTTP 200; `buildEnvOk=true`, Supabase/service role/Google Maps/Stripe recharge configured; all dangerous label flags false | None | Re-run after VM redeploy to verify new commit is live |
+| Public no-token API checks | Passed | `/api/auth/me` returned `authenticated:false`; `/api/balance`, `/api/shipments`, `/api/config/features`, and `POST /api/billing/label-checkout` returned 401 | None | Re-run from VM localhost after redeploy |
+| Public page reachability | Partial | `/dashboard`, `/login`, and `/verifica-tu-correo?resend=true` return HTML 200; client-side auth behavior still needs browser session QA | None from curl | Run manual browser QA |
+
 ## Summary
 
 | Area | Result | Evidence / note | Bug found | Required action |
 | --- | --- | --- | --- | --- |
 | Auth | Not run yet | Browser QA pending on `https://sendiflash.com` | TBD | Run FASE 5.42 auth checklist |
-| API | Not run yet | VM curl checks pending | TBD | Run no-token API checks |
+| API | Partial | Public no-token API checks passed against `https://sendiflash.com`; VM localhost checks still pending | None | Re-run after clean VM redeploy |
 | Labels disabled | Not run yet | Requires verified user in staging | TBD | Confirm Pay by card disabled and no pending order |
 | Config | Not run yet | `/api/config/status` expected to show all dangerous flags false | TBD | Capture safe boolean output only |
 | UI | Not run yet | Dashboard/login/register/verify flows pending | TBD | Record route behavior and screenshots if needed |
@@ -87,6 +100,17 @@ Rules for this QA pass:
 | `POST /api/billing/label-checkout` without token | Not run yet | Must not create checkout/session/order | TBD | Run from VM |
 | `GET /api/config/status` | Not run yet | Expected dangerous flags false | TBD | Run from VM |
 | `GET /api/config/features` without token | Not run yet | Must not expose allowlists | TBD | Run from VM |
+
+Public API observations before VM redeploy confirmation:
+
+| Test | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| `GET https://sendiflash.com/api/auth/me` without token | Passed | HTTP 200, `authenticated:false` | None | Repeat from VM localhost |
+| `GET https://sendiflash.com/api/balance` without token | Passed | HTTP 401, missing authorization token | None | Repeat from VM localhost |
+| `GET https://sendiflash.com/api/shipments?limit=10` without token | Passed | HTTP 401, missing authorization token | None | Repeat from VM localhost |
+| `POST https://sendiflash.com/api/billing/label-checkout` without token | Passed | HTTP 401, no Stripe checkout created from unauthenticated request | None | Repeat from VM localhost |
+| `GET https://sendiflash.com/api/config/status` | Passed | HTTP 200; direct label payment, real purchase, void, webhook processing, and refunds false | None | Repeat after redeploy |
+| `GET https://sendiflash.com/api/config/features` without token | Passed | HTTP 401, no allowlists exposed | None | Repeat from VM localhost |
 
 ## Labels Disabled
 
