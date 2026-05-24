@@ -40,6 +40,23 @@ Run timestamp: 2026-05-24 17:54 America/Guayaquil.
 | Public no-token API checks | Passed | `/api/auth/me` returned `authenticated:false`; `/api/balance`, `/api/shipments`, `/api/config/features`, and `POST /api/billing/label-checkout` returned 401 | None | Re-run from VM localhost after redeploy |
 | Public page reachability | Partial | `/dashboard`, `/login`, and `/verifica-tu-correo?resend=true` return HTML 200; client-side auth behavior still needs browser session QA | None from curl | Run manual browser QA |
 
+## FASE 5.42C Redeploy / Auth QA Attempt
+
+Run timestamp: 2026-05-24 18:00 America/Guayaquil.
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Local pre-check | Passed | Working tree clean; HEAD `1e85344`; `git diff --check` passed; env files not tracked | None | Continue using `1e85344` as QA target |
+| Local validations | Passed with warnings | `npm run lint` passed with existing unused-variable warnings; `npx tsc --noEmit` passed; `npm run build` passed | None | Warnings can be cleaned later |
+| SSH to VM | Blocked | `ssh ubuntu@157.137.228.175` returned `Permission denied (publickey)` | Access/key unavailable in this environment | Run VM redeploy manually or provide authorized SSH key/access |
+| VM redeploy | Not run | Blocked by SSH auth | TBD | Run documented VM commands manually |
+| Public `/api/config/status` | Passed | HTTP 200; `buildEnvOk=true`; Supabase/service role/Google Maps/Stripe recharge configured; `appUrlHost=sendiflash.com`; all dangerous label flags false | None | Repeat from `localhost:3003` after VM redeploy |
+| Public no-token API checks | Passed | `/api/auth/me` returned `authenticated:false`; `/api/balance`, `/api/shipments`, `/api/config/features`, and label checkout POST returned 401 | None | Repeat from VM after redeploy |
+| Browser automation | Blocked | `agent-browser` CLI not available in this environment | Tool unavailable | Execute browser QA manually in Chrome/Incognito |
+| Browser auth QA | Not run | Requires real browser session and test credentials | TBD | Complete blocks 4-9 of `STAGING_EXECUTION_CHECKLIST.md` |
+| Labels disabled QA | Partial | Config confirms dangerous flags false; UI quote flow not tested with verified session | TBD | Complete with verified user after redeploy |
+| Final decision | PARTIAL | Local/API public checks passed, but VM redeploy and browser auth QA were not executable from this environment | Access/tooling blockers, not app bug | Do not advance to migrations until manual VM/browser QA passes |
+
 ## Summary
 
 | Area | Result | Evidence / note | Bug found | Required action |
