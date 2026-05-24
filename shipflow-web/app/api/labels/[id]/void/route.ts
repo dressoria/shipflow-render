@@ -13,6 +13,7 @@ import {
   isServiceRoleConfigured,
   requireVerifiedUser,
 } from "@/lib/server/supabaseServer";
+import { canVoidRealLabel } from "@/lib/server/featureGates";
 
 function isShipEngineMode() {
   return process.env.SHIPSTATION_API_MODE?.trim().toLowerCase() === "shipengine";
@@ -105,9 +106,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const provider = shipment.provider ?? "internal";
 
-    if (process.env.ENABLE_REAL_LABEL_VOID !== "true") {
-      await auditVoidEvent("label_void_failed", user.id, shipment, "Void attempt blocked because void is disabled.", "warning");
-      return apiError("Void is not enabled yet.", 403);
+    const voidGate = canVoidRealLabel({ id: user.id, email: user.email ?? null });
+    if (!voidGate.allowed) {
+      await auditVoidEvent(
+        "label_feature_gate_denied",
+        user.id,
+        shipment,
+        "Void attempt blocked by feature gate.",
+        "warning",
+        { feature: "real_label_void", reason: voidGate.reason },
+      );
+      return apiError(
+        voidGate.reason === "feature_disabled"
+          ? "Void is not enabled yet."
+          : "Void is not available for this account yet.",
+        voidGate.httpStatus,
+      );
     }
 
     // ── ShipStation void ────────────────────────────────────────────────────

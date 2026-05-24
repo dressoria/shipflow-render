@@ -25,8 +25,11 @@ import type { AddressInputErrors } from "@/components/AddressInput";
 import { isPhone } from "@/lib/forms";
 import {
   apiCreateLabel,
+  apiCreateLabelCheckoutSession,
+  apiGetConfigFeatures,
   apiGetConfigStatus,
   apiGetRates,
+  type ConfigFeatures,
   type ConfigStatus,
   type CreateLabelResult,
 } from "@/lib/services/apiClient";
@@ -90,6 +93,7 @@ export function CreateGuideForm() {
 
   // Server config status — fetched once on mount
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
+  const [configFeatures, setConfigFeatures] = useState<ConfigFeatures | null>(null);
 
   const [apiRates, setApiRates] = useState<RateResult[]>([]);
   const [selectedApiRate, setSelectedApiRate] = useState<RateResult | null>(null);
@@ -103,12 +107,28 @@ export function CreateGuideForm() {
   const [labelData, setLabelData] = useState<string | null>(null);
   const [insufficientBalance, setInsufficientBalance] = useState(false);
 
+  // Pay-by-card state
+  const [payByCardLoading, setPayByCardLoading] = useState(false);
+  // Lazy initializer reads query param once at mount without triggering an extra render.
+  const [labelPaymentStatus] = useState<"success" | "cancelled" | null>(() => {
+    if (typeof window === "undefined") return null;
+    const status = new URLSearchParams(window.location.search).get("labelPayment");
+    return status === "success" || status === "cancelled" ? status : null;
+  });
+
   // Stable idempotency key per purchase intent
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
     apiGetConfigStatus().then(setConfigStatus);
   }, []);
+
+  useEffect(() => {
+    if (authLoading || !emailVerified) return;
+    apiGetConfigFeatures()
+      .then(setConfigFeatures)
+      .catch(() => setConfigFeatures(null));
+  }, [authLoading, emailVerified]);
 
   function updateOrigin(addr: StructuredAddress) {
     setForm((current) => ({ ...current, origin: addr }));
@@ -465,6 +485,67 @@ export function CreateGuideForm() {
     URL.revokeObjectURL(url);
   }
 
+  // ── Pay by card ─────────────────────────────────────────────────────────────
+
+  async function handlePayByCard() {
+    if (!selectedApiRate || authLoading || !emailVerified || payByCardLoading) return;
+
+    setPayByCardLoading(true);
+    setErrors({});
+
+    try {
+      const result = await apiCreateLabelCheckoutSession({
+        provider: selectedApiRate.provider,
+        serviceCode: selectedApiRate.serviceCode,
+        serviceName: selectedApiRate.serviceName,
+        rateSnapshot: {
+          provider: selectedApiRate.provider,
+          serviceCode: selectedApiRate.serviceCode,
+          carrierCode: selectedApiRate.courierId,
+          providerRateId: selectedApiRate.providerRateId,
+          providerCost: selectedApiRate.pricing.providerCost,
+          customerPrice: selectedApiRate.customerPrice,
+          currency: selectedApiRate.currency ?? "usd",
+          pricingBreakdown: {
+            providerCost: selectedApiRate.pricing.providerCost,
+            platformMarkup: selectedApiRate.pricing.platformMarkup,
+            subtotal: selectedApiRate.pricing.subtotal,
+            paymentFee: selectedApiRate.pricing.paymentFee,
+            customerPrice: selectedApiRate.pricing.customerPrice,
+          },
+        },
+        origin: form.origin,
+        destination: form.destination,
+        parcel: {
+          weight: Number(form.weight),
+          weightUnit: form.weightUnit,
+          length: Number(form.length),
+          width: Number(form.width),
+          height: Number(form.height),
+          dimensionUnit: form.dimensionUnit,
+        },
+      });
+
+      window.location.href = result.checkoutUrl;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const lowerMsg = msg.toLowerCase();
+      if (lowerMsg.includes("not enabled") || lowerMsg.includes("503")) {
+        setErrors({ form: "Direct card payment for labels is not enabled yet." });
+      } else if (lowerMsg.includes("not available for this account") || lowerMsg.includes("403")) {
+        setErrors({ form: "Card payment for labels is not available for your account yet." });
+      } else if (lowerMsg.includes("too many")) {
+        setErrors({ form: "Too many label checkout attempts. Please try again later." });
+      } else if (lowerMsg.includes("email") || lowerMsg.includes("verified")) {
+        router.push("/verifica-tu-correo");
+        return;
+      } else {
+        setErrors({ form: "Could not start card payment. Please try again or add funds to your wallet." });
+      }
+      setPayByCardLoading(false);
+    }
+  }
+
   // ── Config alerts ───────────────────────────────────────────────────────────
 
   const showConfigWarning = configStatus !== null && !configStatus.supabaseConfigured;
@@ -495,6 +576,26 @@ export function CreateGuideForm() {
 
   return (
     <div className="grid gap-6">
+      {labelPaymentStatus === "success" && (
+        <div className="flex items-start gap-3 rounded-3xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+          <div>
+            <p className="font-bold">Payment received.</p>
+            <p className="mt-1">
+              Your label is pending processing.
+              {configStatus?.labelPurchaseEnabled !== true
+                ? " Label purchase is in test mode — no carrier label will be issued yet."
+                : " Your carrier label will be issued shortly."}
+            </p>
+          </div>
+        </div>
+      )}
+      {labelPaymentStatus === "cancelled" && (
+        <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <p>Payment was cancelled. No label was purchased and no charge was made.</p>
+        </div>
+      )}
       {showConfigWarning && (
         <ConfigAlert type="error">
           <strong>The server is not ready to get rates.</strong> Check the environment configuration.
@@ -601,19 +702,41 @@ export function CreateGuideForm() {
                       >
                         Add funds to wallet
                       </Link>
-                      <button
-                        type="button"
-                        disabled
-                        title="Coming soon — label direct payment is not yet enabled."
-                        className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-400 opacity-60"
-                      >
-                        Pay this label by card
-                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                          Soon
-                        </span>
-                      </button>
+                      {configStatus?.directLabelPaymentEnabled && configFeatures?.directLabelPaymentAvailable ? (
+                        <button
+                          type="button"
+                          disabled={payByCardLoading || !selectedApiRate || authLoading}
+                          onClick={handlePayByCard}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {payByCardLoading ? "Redirecting..." : "Pay this label by card"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title={
+                            configStatus?.directLabelPaymentEnabled
+                              ? "Card payment for labels is not available for your account yet."
+                              : "Coming soon — label direct payment is not yet enabled."
+                          }
+                          className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-400 opacity-60"
+                        >
+                          Pay this label by card
+                          {!configStatus?.directLabelPaymentEnabled ? (
+                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                              Soon
+                            </span>
+                          ) : null}
+                        </button>
+                      )}
                     </div>
                   )}
+                  {insufficientBalance && configStatus?.directLabelPaymentEnabled && configFeatures?.directLabelPaymentAvailable === false ? (
+                    <p className="text-xs font-semibold text-slate-500">
+                      Card payment for labels is not available for your account yet.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </form>

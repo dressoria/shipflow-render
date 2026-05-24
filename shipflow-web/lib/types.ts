@@ -157,14 +157,17 @@ export type StructuredAddress = {
   validationStatus?: AddressValidationStatus;
 };
 
-// ── FASE 5.39 — Label direct payment (scaffold, not yet active) ─────────────
+// ── FASE 5.39B — Label direct payment (backend ready, not yet active) ────────
 
 export type PendingLabelOrderStatus =
   | "pending_payment"
-  | "payment_confirmed"
+  | "paid_test_mode"
+  | "paid_waiting_label_purchase"
+  | "label_purchase_pending"
   | "label_purchased"
-  | "label_failed"
+  | "action_required"
   | "refund_needed"
+  | "refund_pending"
   | "refunded"
   | "expired"
   | "canceled";
@@ -193,15 +196,51 @@ export type PendingLabelOrder = {
   id: string;
   userId: string;
   status: PendingLabelOrderStatus;
+  provider: string;
+  serviceCode?: string;
+  serviceName?: string;
+  amountCents: number;
+  currency: string;
   rateSnapshot: PendingLabelOrderRateSnapshot;
   origin: StructuredAddress;
   destination: StructuredAddress;
   parcel: PendingLabelOrderParcel;
   stripeCheckoutSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeEventId?: string;
+  stripeRefundId?: string;
+  idempotencyKey?: string;
   shipmentId?: string;
   labelId?: string;
+  trackingNumber?: string;
+  errorMessage?: string;
   expiresAt: string;
+  paidAt?: string;
+  refundedAt?: string;
+  refundAttemptedAt?: string;
+  refundErrorMessage?: string;
+  processedAt?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CreatePendingLabelOrderInput = {
+  userId: string;
+  provider: string;
+  serviceCode?: string;
+  serviceName?: string;
+  amountCents: number;
+  currency?: string;
+  rateSnapshot: PendingLabelOrderRateSnapshot;
+  origin: StructuredAddress;
+  destination: StructuredAddress;
+  parcel: PendingLabelOrderParcel;
+  idempotencyKey?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type PendingLabelOrderCheckoutMetadata = {
+  purpose: "label_direct_payment";
+  pending_label_order_id: string;
+  user_id: string;
 };

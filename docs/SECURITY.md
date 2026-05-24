@@ -183,6 +183,63 @@ Endpoints futuros sensibles deben tener rate limiting:
 - `/api/labels/[id]/void`
 - `/api/webhooks/*`
 
+Estado FASE 5.40C:
+
+- `/api/billing/label-checkout` tiene rate limit server-side.
+- Si existe la tabla propuesta `label_checkout_attempts`, aplica 5 intentos por usuario / 10 minutos y 20 intentos por IP hash / 10 minutos.
+- La IP nunca se guarda en claro; se usa SHA-256 con `INTERNAL_API_SECRET` si esta configurado.
+- La migracion propuesta es `shipflow-web/supabase/migrations/20260524_add_label_checkout_rate_limits.sql` y no debe aplicarse sin runbook.
+
+## Feature gates para labels y pagos
+
+Estado FASE 5.40C:
+
+- `ENABLE_DIRECT_LABEL_PAYMENT`, `ENABLE_REAL_LABEL_PURCHASE`, `ENABLE_REAL_LABEL_VOID` y `ENABLE_PROCESS_LABEL_IN_WEBHOOK` siguen `false` por defecto.
+- Cada flag sensible tiene allowlists server-side por email y user id.
+- En produccion, flag global `true` con allowlist vacia bloquea por seguridad.
+- Admin no salta automaticamente el gate de compra real.
+- `/api/config/status` y `/api/config/features` no exponen allowlists ni secrets.
+
+Variables:
+
+```text
+DIRECT_LABEL_PAYMENT_ALLOWED_EMAILS
+DIRECT_LABEL_PAYMENT_ALLOWED_USER_IDS
+REAL_LABEL_PURCHASE_ALLOWED_EMAILS
+REAL_LABEL_PURCHASE_ALLOWED_USER_IDS
+REAL_LABEL_VOID_ALLOWED_EMAILS
+REAL_LABEL_VOID_ALLOWED_USER_IDS
+PROCESS_LABEL_IN_WEBHOOK_ALLOWED_EMAILS
+PROCESS_LABEL_IN_WEBHOOK_ALLOWED_USER_IDS
+ENABLE_LABEL_PAYMENT_REFUNDS
+LABEL_PAYMENT_REFUND_ALLOWED_EMAILS
+LABEL_PAYMENT_REFUND_ALLOWED_USER_IDS
+```
+
+## Processing locks para compra de labels
+
+Estado FASE 5.40C:
+
+- Antes de llamar al carrier, el backend reclama atomicamente la orden:
+  `paid_waiting_label_purchase -> label_purchase_pending`.
+- El claim exige `label_id IS NULL` y `tracking_number IS NULL`.
+- Webhooks duplicados o doble click admin no deben comprar dos labels.
+- Ordenes ya `label_purchased` retornan idempotentemente; ordenes `label_purchase_pending` se consideran en proceso.
+
+## Refunds de pagos directos de labels
+
+Estado FASE 5.40D:
+
+- Refunds reales estan bloqueados por defecto con `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+- Admins pueden marcar `refund_needed` o registrar un refund manual hecho desde Stripe Dashboard sin que la app mueva dinero.
+- La llamada real a Stripe Refund API solo esta disponible para admins allowlisted.
+- La app usa idempotency key `label-refund-{order.id}` para evitar doble refund.
+- Antes de llamar Stripe, la orden pasa a `refund_pending`.
+- Si Stripe responde OK, la orden pasa a `refunded` y se guarda `stripe_refund_id`/`refunded_at` cuando la migracion propuesta este aplicada.
+- Si Stripe falla, la orden vuelve a `refund_needed` con mensaje seguro.
+- No se toca wallet balance y no se mezcla con `payment_recharges`.
+- No hay auto-refund desde webhook en esta fase.
+
 ## Webhooks seguros
 
 Webhooks de ShipStation/proveedores deben:

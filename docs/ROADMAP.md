@@ -218,6 +218,55 @@ Nota: La tabla `webhook_events` ya existia desde FASE 1C. No se requirio migraci
 
 ## FASE 5.5 - Web UI operativa (completada)
 
+## FASE 5.40C - Safety gates para label payments (completada en codigo, no activada)
+
+Objetivo:
+
+- Agregar controles antes de habilitar pagos directos o compra real de labels.
+
+Tareas completadas:
+
+- Feature gates por email/user id para direct label payment, real label purchase, real void y webhook inline processing.
+- En produccion, flags globales con allowlist vacia quedan bloqueados por seguridad.
+- `/api/billing/label-checkout` protegido por gate de cuenta y rate limit.
+- Migracion propuesta `20260524_add_label_checkout_rate_limits.sql` para rate limit DB-backed; no aplicada.
+- Endpoint autenticado `/api/config/features` para que la UI sepa si la cuenta puede usar pago directo, sin exponer allowlists.
+- Admin `process-label`, Stripe webhook y void aplican gates antes de carrier calls.
+- Processor de compra real reclama atomicamente la orden antes de llamar al provider para evitar doble compra.
+- Audit events seguros para gates denegados, checkout creado, rate limit, pago capturado y compra de label.
+- Documentacion de operacion controlada actualizada.
+
+Estado:
+
+- No se activaron flags.
+- No se aplicaron migraciones.
+- No se compraron labels reales.
+- Pendiente: QA en staging con Supabase + Stripe sandbox antes de activar cualquier beta.
+
+## FASE 5.40D - Refund/failure handling para label payments (completada en codigo, no activada)
+
+Objetivo:
+
+- Manejar fallos operativos y refunds de pagos directos de labels sin ejecutar refunds reales por defecto.
+
+Tareas completadas:
+
+- Nuevo flag `ENABLE_LABEL_PAYMENT_REFUNDS=false` y allowlists por admin email/user id.
+- Helper server-side `labelPaymentRefunds.ts` para elegibilidad, `refund_pending`, Stripe refund y `refunded`.
+- Endpoint admin `POST /api/admin/label-orders/[id]/refund` con confirmacion textual `REFUND`.
+- Endpoint admin `POST /api/admin/label-orders/[id]/mark-refunded-manual` para registrar refunds hechos en Stripe Dashboard.
+- UI admin muestra refund id, timestamps, errores, boton real controlado y accion manual.
+- Migracion propuesta de `pending_label_orders` extendida con `stripe_refund_id`, `refund_attempted_at`, `refunded_at`, `refund_error_message`.
+- Audit events seguros para refund requested/pending/succeeded/failed/manual/gate denied.
+- Documentacion y QA manual actualizados.
+
+Estado:
+
+- Refunds reales siguen desactivados.
+- No se aplicaron migraciones.
+- No se ejecutaron refunds reales.
+- Pendiente: QA en Stripe test con admin allowlisted antes de activar en staging.
+
 Objetivo:
 
 - Cerrar la experiencia web operativa antes de pasar a mobile.

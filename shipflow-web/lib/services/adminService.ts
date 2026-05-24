@@ -8,6 +8,15 @@ import {
   apiGetAdminAuditEvents,
   apiGetAdminOverview,
   apiGetAdminShipments,
+  apiGetAdminLabelOrders,
+  apiGetAdminLabelOrderById,
+  apiAdminMarkLabelOrderActionRequired,
+  apiAdminMarkLabelOrderRefundNeeded,
+  apiAdminMarkLabelOrderExpired,
+  apiAdminExpireStaleLabelOrders,
+  apiAdminProcessLabelOrder,
+  apiAdminRefundLabelOrder,
+  apiAdminMarkLabelOrderRefundedManual,
   type AdminBalanceAdjustmentBody,
 } from "@/lib/services/apiClient";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -98,4 +107,75 @@ export async function createAdminBalanceAdjustment(body: AdminBalanceAdjustmentB
   }
 
   return apiCreateAdminBalanceAdjustment(body);
+}
+
+// ── Label orders ──────────────────────────────────────────────────────────────
+
+export async function getAdminLabelOrders(params?: Parameters<typeof apiGetAdminLabelOrders>[0]) {
+  if (!isSupabaseConfigured) {
+    return { orders: [], total: 0, limit: 50, offset: 0 };
+  }
+  return apiGetAdminLabelOrders(params);
+}
+
+export async function getAdminLabelOrderById(id: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label orders require the secure admin API.");
+  }
+  return apiGetAdminLabelOrderById(id);
+}
+
+export async function markAdminLabelOrderActionRequired(id: string, reason: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label order mutations require the secure admin API.");
+  }
+  return apiAdminMarkLabelOrderActionRequired(id, reason);
+}
+
+export async function markAdminLabelOrderRefundNeeded(id: string, reason: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label order mutations require the secure admin API.");
+  }
+  return apiAdminMarkLabelOrderRefundNeeded(id, reason);
+}
+
+export async function markAdminLabelOrderExpired(id: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label order mutations require the secure admin API.");
+  }
+  return apiAdminMarkLabelOrderExpired(id);
+}
+
+export async function expireStaleAdminLabelOrders() {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label order expiry requires the secure admin API.");
+  }
+  return apiAdminExpireStaleLabelOrders();
+}
+
+export async function processAdminLabelOrder(
+  id: string,
+  opts?: { allowTestMode?: boolean },
+) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label purchase requires the secure admin API.");
+  }
+  return apiAdminProcessLabelOrder(id, opts);
+}
+
+export async function refundAdminLabelOrder(
+  id: string,
+  body: { reason: string; confirmation: "REFUND" },
+) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Label payment refunds require the secure admin API.");
+  }
+  return apiAdminRefundLabelOrder(id, body);
+}
+
+export async function markAdminLabelOrderRefundedManual(id: string, reason: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error("Manual refund recording requires the secure admin API.");
+  }
+  return apiAdminMarkLabelOrderRefundedManual(id, reason);
 }

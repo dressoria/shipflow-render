@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   PackageCheck,
+  Receipt,
   ShieldCheck,
   Truck,
   Users,
@@ -23,6 +24,7 @@ const menu = [
   { label: "Shipments", href: "/admin/envios", icon: Truck },
   { label: "Couriers", href: "/admin/couriers", icon: Warehouse },
   { label: "Balance", href: "/admin/saldo", icon: CreditCard },
+  { label: "Label Orders", href: "/admin/label-orders", icon: Receipt },
   { label: "Audit", href: "/admin/audit", icon: FileSearch },
 ];
 

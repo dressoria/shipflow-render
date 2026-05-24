@@ -1,5 +1,13 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import type { Envio, MovimientoSaldo, TrackingEvent, Usuario } from "@/lib/types";
+import type {
+  Envio,
+  MovimientoSaldo,
+  TrackingEvent,
+  Usuario,
+  PendingLabelOrderRateSnapshot,
+  PendingLabelOrderParcel,
+  StructuredAddress,
+} from "@/lib/types";
 import type { LogisticsProvider, RateResult } from "@/lib/logistics/types";
 
 async function getToken(): Promise<string | null> {
@@ -36,7 +44,11 @@ export type ConfigStatus = {
   stripeRechargeEnabled: boolean;
   activeRateProviders: number;
   labelPurchaseEnabled: boolean;
+  realLabelPurchaseEnabled?: boolean;
   labelVoidEnabled: boolean;
+  directLabelPaymentEnabled: boolean;
+  processLabelInWebhookEnabled?: boolean;
+  labelPaymentRefundsEnabled?: boolean;
   // Build-env diagnostics (FASE 5.38C)
   appUrlConfigured: boolean;
   appUrlHost: string | null;
@@ -58,12 +70,26 @@ export async function apiGetConfigStatus(): Promise<ConfigStatus> {
       activeRateProviders: 0,
       labelPurchaseEnabled: false,
       labelVoidEnabled: false,
+      directLabelPaymentEnabled: false,
+      processLabelInWebhookEnabled: false,
+      labelPaymentRefundsEnabled: false,
       appUrlConfigured: false,
       appUrlHost: null,
       buildEnvOk: false,
     };
   }
   return json.data;
+}
+
+export type ConfigFeatures = {
+  directLabelPaymentAvailable: boolean;
+  realLabelPurchaseAvailable: boolean;
+  realVoidAvailable: boolean;
+  labelPaymentRefundAvailable?: boolean;
+};
+
+export async function apiGetConfigFeatures(): Promise<ConfigFeatures> {
+  return apiFetch<ConfigFeatures>("/api/config/features");
 }
 
 // ── Auth/me ──────────────────────────────────────────────────────────────────
@@ -121,6 +147,145 @@ export async function apiCreateCheckoutSession(amount: number): Promise<{ checko
     method: "POST",
     body: JSON.stringify({ amount }),
   });
+}
+
+// ── Label direct payment ──────────────────────────────────────────────────────
+
+export type LabelCheckoutBody = {
+  provider: string;
+  serviceCode?: string;
+  serviceName?: string;
+  rateSnapshot: PendingLabelOrderRateSnapshot;
+  origin: StructuredAddress;
+  destination: StructuredAddress;
+  parcel: PendingLabelOrderParcel;
+  idempotencyKey?: string;
+};
+
+export type LabelCheckoutResult = {
+  checkoutUrl: string;
+  pendingLabelOrderId: string;
+};
+
+export async function apiCreateLabelCheckoutSession(
+  body: LabelCheckoutBody,
+): Promise<LabelCheckoutResult> {
+  return apiFetch<LabelCheckoutResult>("/api/billing/label-checkout", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// ── Admin label orders ────────────────────────────────────────────────────────
+
+export type AdminLabelOrdersResult = {
+  orders: import("@/lib/types").PendingLabelOrder[];
+  total: number;
+  limit: number;
+  offset: number;
+  warning?: string;
+};
+
+export async function apiGetAdminLabelOrders(params?: {
+  status?: string;
+  provider?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AdminLabelOrdersResult> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.provider) qs.set("provider", params.provider);
+  if (params?.search) qs.set("search", params.search);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return apiFetch<AdminLabelOrdersResult>(`/api/admin/label-orders${query ? `?${query}` : ""}`);
+}
+
+export async function apiGetAdminLabelOrderById(
+  id: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function apiAdminMarkLabelOrderActionRequired(
+  id: string,
+  reason: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/mark-action-required`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+}
+
+export async function apiAdminMarkLabelOrderRefundNeeded(
+  id: string,
+  reason: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/mark-refund-needed`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+}
+
+export async function apiAdminMarkLabelOrderExpired(
+  id: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/mark-expired`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function apiAdminExpireStaleLabelOrders(): Promise<{ expiredCount: number }> {
+  return apiFetch<{ expiredCount: number }>("/api/admin/label-orders/expire-stale", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export type AdminProcessLabelResult = {
+  orderId: string;
+  shipmentId: string;
+  trackingNumber: string;
+  labelUrl: string | null;
+  providerLabelId: string | null;
+  providerShipmentId: string | null;
+  triggeredBy: string;
+};
+
+export async function apiAdminProcessLabelOrder(
+  id: string,
+  opts?: { allowTestMode?: boolean },
+): Promise<AdminProcessLabelResult> {
+  const qs = opts?.allowTestMode ? "?allow_test_mode=1" : "";
+  return apiFetch<AdminProcessLabelResult>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/process-label${qs}`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function apiAdminRefundLabelOrder(
+  id: string,
+  body: { reason: string; confirmation: "REFUND" },
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/refund`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function apiAdminMarkLabelOrderRefundedManual(
+  id: string,
+  reason: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}/mark-refunded-manual`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
 }
 
 // ── Admin support ───────────────────────────────────────────────────────────
