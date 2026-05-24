@@ -1,33 +1,47 @@
 # Staging QA Results
 
-Last updated: 2026-05-24 (FASE 5.43)
+Last updated: 2026-05-24 (FASE 5.42)
 
-Purpose: record VM/staging QA for auth/navigation, migrations, and controlled direct label payment with Stripe test mode.
+Purpose: close VM/staging QA for auth/navigation with all label-payment flags off, before any migrations or direct label payment test.
 
 Rules for this QA pass:
 
 - Do not print secrets.
 - Do not modify `.env.production` from the agent.
-- Apply migrations only manually in the correct Supabase staging project after SQL review.
-- Enable direct label payment only for the internal allowlisted email during the controlled QA window.
+- Do not apply migrations during FASE 5.42.
+- Do not enable direct label payment during FASE 5.42.
 - Do not enable real label purchase, real void, webhook processing, or label refunds.
 - Do not buy labels, void labels, or execute refunds.
 
-## FASE 5.43 Execution Status
+## FASE 5.42 Closure Status
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Local branch / commit | Passed | Branch `main`, HEAD `013d8ed Record staging redeploy QA blocker`; working tree clean at pre-check | None | Use `013d8ed` or newer for VM redeploy |
+| Local env tracking check | Passed | `.env`, `.env.local`, `.env.production`, `shipflow-web/.env.local`, and `shipflow-web/.env.production` are not tracked | None | Keep env files untracked |
+| Local validations | Passed with warnings | `npm run lint` passed with existing unused-variable warnings; `npx tsc --noEmit` passed; `npm run build` passed | None | Warnings can be cleaned later |
+| VM redeploy | Not completed by Codex | SSH to `ubuntu@157.137.228.175` returned `Permission denied (publickey)` | Operational access blocker | User/operator must run VM commands manually |
+| VM API QA | Not completed by Codex | Requires VM shell or manual output | TBD | Run localhost API checks after redeploy |
+| Public API QA | Passed | Public `https://sendiflash.com` no-token checks passed; all dangerous label flags false | None | Re-run after manual VM redeploy |
+| Browser auth QA | Not completed by Codex | Browser automation not available; real session credentials required | Tool/access blocker | User/operator must complete browser QA manually |
+| Labels disabled QA | Partial | Public config confirms all dangerous flags false; verified-user UI flow pending | TBD | Confirm `/crear-guia` with verified user |
+| Final decision | PARTIAL | App public API/config checks passed, but VM redeploy and browser auth QA still need manual execution | Operational blocker, not app bug | Do not advance to migrations until manual QA is PASS |
+
+## Historical Pre-Closure Notes
 
 | Item | Result | Evidence / note | Bug found | Required action |
 | --- | --- | --- | --- | --- |
 | Local branch / commit | Blocked before VM execution | Branch `main`, commit `ba59d7a Prepare secure direct label payment operations` | Local working tree is not clean | Commit or intentionally carry the pending auth/docs changes before VM reset/deploy QA |
 | Local env tracking check | Passed | `.env`, `.env.local`, `.env.production`, `shipflow-web/.env.local`, and `shipflow-web/.env.production` are not tracked | None | Keep env files untracked |
-| Migration SQL review | Reviewed locally | `pending_label_orders` and `label_checkout_attempts` SQL reviewed; not applied by Codex | None found in local review | Apply manually only in staging SQL Editor after confirming project |
+| Migration SQL review | Reviewed locally in previous preparation | `pending_label_orders` and `label_checkout_attempts` SQL reviewed; not applied by Codex | None found in local review | Keep migrations unapplied until FASE 5.42 is PASS |
 | VM pre-check | Not run by Codex | Requires VM access/operator execution | TBD | Run commands from `STAGING_EXECUTION_CHECKLIST.md` |
 | Auth QA before migrations | Not run by Codex | Browser QA required on `https://sendiflash.com` | TBD | Run manually before touching migrations/flags |
-| Migrations applied | Not applied by Codex | Must be applied manually in Supabase staging | TBD | Apply only after auth QA passes |
-| Direct payment flag enabled | Not enabled by Codex | `.env.production` was not touched | TBD | Enable only `ENABLE_DIRECT_LABEL_PAYMENT=true` and internal allowlist during QA |
-| Stripe direct label payment test | Not run by Codex | Requires browser, Stripe test Checkout, webhook delivery | TBD | Run manually after migrations and flag gate |
-| Rollback | Not applicable yet | No staging flags changed by Codex | None | After QA, turn direct payment off unless continuing controlled test |
+| Migrations applied | Not applied | FASE 5.42 explicitly does not apply migrations | None | Apply only in FASE 5.43 after auth QA PASS |
+| Direct payment flag enabled | Not enabled | `.env.production` was not touched by Codex | None | Enable only in FASE 5.43 if FASE 5.42 passes |
+| Stripe direct label payment test | Not run | Out of scope for FASE 5.42 | None | Run in FASE 5.43 |
+| Rollback | Not applicable | No staging flags changed by Codex | None | No rollback needed |
 
-## FASE 5.42B Commit / Public API Check
+## Commit / Public API Check
 
 Run timestamp: 2026-05-24 17:54 America/Guayaquil.
 
@@ -40,7 +54,7 @@ Run timestamp: 2026-05-24 17:54 America/Guayaquil.
 | Public no-token API checks | Passed | `/api/auth/me` returned `authenticated:false`; `/api/balance`, `/api/shipments`, `/api/config/features`, and `POST /api/billing/label-checkout` returned 401 | None | Re-run from VM localhost after redeploy |
 | Public page reachability | Partial | `/dashboard`, `/login`, and `/verifica-tu-correo?resend=true` return HTML 200; client-side auth behavior still needs browser session QA | None from curl | Run manual browser QA |
 
-## FASE 5.42C Redeploy / Auth QA Attempt
+## Redeploy / Auth QA Attempt
 
 Run timestamp: 2026-05-24 18:00 America/Guayaquil.
 
@@ -53,7 +67,7 @@ Run timestamp: 2026-05-24 18:00 America/Guayaquil.
 | Public `/api/config/status` | Passed | HTTP 200; `buildEnvOk=true`; Supabase/service role/Google Maps/Stripe recharge configured; `appUrlHost=sendiflash.com`; all dangerous label flags false | None | Repeat from `localhost:3003` after VM redeploy |
 | Public no-token API checks | Passed | `/api/auth/me` returned `authenticated:false`; `/api/balance`, `/api/shipments`, `/api/config/features`, and label checkout POST returned 401 | None | Repeat from VM after redeploy |
 | Browser automation | Blocked | `agent-browser` CLI not available in this environment | Tool unavailable | Execute browser QA manually in Chrome/Incognito |
-| Browser auth QA | Not run | Requires real browser session and test credentials | TBD | Complete blocks 4-9 of `STAGING_EXECUTION_CHECKLIST.md` |
+| Browser auth QA | Not run by Codex | Requires real browser session and test credentials | TBD | Complete blocks 4-9 of `STAGING_EXECUTION_CHECKLIST.md` manually |
 | Labels disabled QA | Partial | Config confirms dangerous flags false; UI quote flow not tested with verified session | TBD | Complete with verified user after redeploy |
 | Final decision | PARTIAL | Local/API public checks passed, but VM redeploy and browser auth QA were not executable from this environment | Access/tooling blockers, not app bug | Do not advance to migrations until manual VM/browser QA passes |
 
@@ -61,14 +75,14 @@ Run timestamp: 2026-05-24 18:00 America/Guayaquil.
 
 | Area | Result | Evidence / note | Bug found | Required action |
 | --- | --- | --- | --- | --- |
-| Auth | Not run yet | Browser QA pending on `https://sendiflash.com` | TBD | Run FASE 5.42 auth checklist |
+| Auth | Not run by Codex | Browser QA pending on `https://sendiflash.com` | TBD | Run FASE 5.42 auth checklist manually |
 | API | Partial | Public no-token API checks passed against `https://sendiflash.com`; VM localhost checks still pending | None | Re-run after clean VM redeploy |
 | Labels disabled | Not run yet | Requires verified user in staging | TBD | Confirm Pay by card disabled and no pending order |
 | Config | Not run yet | `/api/config/status` expected to show all dangerous flags false | TBD | Capture safe boolean output only |
 | UI | Not run yet | Dashboard/login/register/verify flows pending | TBD | Record route behavior and screenshots if needed |
 | Security | Local checks passed | Legacy auth/eval searches completed locally; false positives documented below | No active issue found | Run browser/VM security checks during staging QA |
 
-## Direct Label Payment Stripe Test
+## Future Direct Label Payment Stripe Test (Do Not Run In FASE 5.42)
 
 | Test | Result | Evidence / note | Bug found | Required action |
 | --- | --- | --- | --- | --- |
