@@ -2,9 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogOut, MailCheck, PackageCheck, RefreshCw } from "lucide-react";
+import { ArrowRight, LogOut, MailCheck, PackageCheck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { BrandName } from "@/components/BrandName";
+import { isEmail, required } from "@/lib/forms";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { getEmailVerificationStatus, resendVerificationEmail } from "@/lib/services/authStatus";
 import { logoutUser } from "@/lib/services/authService";
@@ -17,6 +18,8 @@ function VerificationContent() {
   const code = searchParams.get("code");
   const errorParam = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
+  // ?resend=true → show email-input resend form even without an active session
+  const resendMode = searchParams.get("resend") === "true";
   const urlError = errorParam
     ? errorDesc
       ? decodeURIComponent(errorDesc.replace(/\+/g, " "))
@@ -30,6 +33,9 @@ function VerificationContent() {
   const [signOutLoading, setSignOutLoading] = useState(false);
   // Start in "exchanging" state only when a ?code= is present and no error
   const [exchanging, setExchanging] = useState(!!code && !errorParam);
+  // Resend-by-email form state (used when no session and ?resend=true)
+  const [resendEmailInput, setResendEmailInput] = useState("");
+  const [resendEmailError, setResendEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     // Nothing to do if there is an error in the URL or Supabase is not configured
@@ -48,14 +54,15 @@ function VerificationContent() {
         }
         return;
       }
-      // No session — only redirect to login if there is no pending code exchange
-      if (!code) {
+      // No session — redirect to login unless a code is being exchanged or user explicitly
+      // requested the resend form (?resend=true).
+      if (!code && !resendMode) {
         router.replace("/login");
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [code, errorParam, router]);
+  }, [code, errorParam, resendMode, router]);
 
   async function handleAlreadyVerified() {
     setCheckLoading(true);
@@ -93,6 +100,31 @@ function VerificationContent() {
         isRateLimit
           ? "Wait a few minutes before requesting another email."
           : "If your email exists, we will send a new link.",
+      );
+      setResendState("error");
+    }
+  }
+
+  async function handleResendByEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResendEmailError(null);
+    const trimmed = required(resendEmailInput);
+    if (!trimmed) { setResendEmailError("Enter your email address."); return; }
+    if (!isEmail(trimmed)) { setResendEmailError("Enter a valid email address."); return; }
+    setResendState("loading");
+    try {
+      await resendVerificationEmail(trimmed);
+      setResendState("sent");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const isRateLimit =
+        msg.toLowerCase().includes("rate") ||
+        msg.toLowerCase().includes("limit") ||
+        msg.toLowerCase().includes("429");
+      setResendEmailError(
+        isRateLimit
+          ? "Wait a few minutes before requesting another email."
+          : "If your email is registered and unverified, we will send a new link.",
       );
       setResendState("error");
     }
@@ -153,45 +185,91 @@ function VerificationContent() {
         </div>
 
         {!urlError && (
-          <div className="mt-8 grid gap-3">
-            <button
-              onClick={handleAlreadyVerified}
-              disabled={checkLoading}
-              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {checkLoading ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Checking…
-                </>
-              ) : (
-                "I already verified my email"
-              )}
-            </button>
+          <>
+            {/* No session + ?resend=true: show email input to request resend without logging in */}
+            {!email && resendMode ? (
+              <div className="mt-8">
+                {resendState === "sent" ? (
+                  <p className="rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-semibold text-green-600">
+                    If your email is registered and unverified, we sent a new verification link.
+                  </p>
+                ) : (
+                  <form onSubmit={handleResendByEmail} className="grid gap-4" noValidate>
+                    <label className="grid gap-2 text-sm font-bold text-slate-700">
+                      Your email address
+                      <input
+                        type="email"
+                        value={resendEmailInput}
+                        onChange={(e) => setResendEmailInput(e.target.value)}
+                        placeholder="hello@store.com"
+                        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-pink-400 focus:bg-white focus:ring-4 focus:ring-pink-500/10"
+                      />
+                      {resendEmailError ? (
+                        <span className="text-xs font-semibold text-red-600">{resendEmailError}</span>
+                      ) : null}
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={resendState === "loading"}
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {resendState === "loading" ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Sending…
+                        </>
+                      ) : (
+                        <>
+                          Send verification link
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <div className="mt-8 grid gap-3">
+                <button
+                  onClick={handleAlreadyVerified}
+                  disabled={checkLoading}
+                  className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#FF1493] px-5 text-sm font-bold text-white shadow-xl shadow-pink-500/20 transition hover:-translate-y-0.5 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {checkLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Checking…
+                    </>
+                  ) : (
+                    "I already verified my email"
+                  )}
+                </button>
 
-            <button
-              onClick={handleResend}
-              disabled={!email || resendState === "loading" || resendState === "sent"}
-              className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {resendState === "loading"
-                ? "Sending…"
-                : resendState === "sent"
-                  ? "Email sent"
-                  : "Resend verification email"}
-            </button>
-          </div>
+                <button
+                  onClick={handleResend}
+                  disabled={!email || resendState === "loading" || resendState === "sent"}
+                  className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resendState === "loading"
+                    ? "Sending…"
+                    : resendState === "sent"
+                      ? "Email sent"
+                      : "Resend verification email"}
+                </button>
+              </div>
+            )}
+
+            {resendState === "sent" && email ? (
+              <p className="mt-4 text-center text-sm font-semibold text-green-600">
+                If your email exists, you will receive a new link shortly.
+              </p>
+            ) : null}
+
+            {resendError ? (
+              <p className="mt-4 text-center text-sm font-semibold text-red-600">{resendError}</p>
+            ) : null}
+          </>
         )}
-
-        {resendState === "sent" ? (
-          <p className="mt-4 text-center text-sm font-semibold text-green-600">
-            If your email exists, you will receive a new link shortly.
-          </p>
-        ) : null}
-
-        {resendError ? (
-          <p className="mt-4 text-center text-sm font-semibold text-red-600">{resendError}</p>
-        ) : null}
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <p className="text-center text-sm text-slate-500">

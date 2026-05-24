@@ -26,3 +26,15 @@ export async function resendVerificationEmail(email: string): Promise<void> {
   });
   if (error) throw error;
 }
+
+export async function sendPasswordResetEmail(email: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error("The service is not available right now.");
+  }
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+  const redirectTo = `${base}/reset-password`;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}

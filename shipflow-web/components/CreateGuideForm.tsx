@@ -101,6 +101,7 @@ export function CreateGuideForm() {
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<Envio | null>(null);
   const [labelData, setLabelData] = useState<string | null>(null);
+  const [insufficientBalance, setInsufficientBalance] = useState(false);
 
   // Stable idempotency key per purchase intent
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
@@ -346,6 +347,7 @@ export function CreateGuideForm() {
 
     setSaving(true);
     setErrors({});
+    setInsufficientBalance(false);
 
     try {
       const result: CreateLabelResult = await apiCreateLabel({
@@ -413,8 +415,9 @@ export function CreateGuideForm() {
       const lowerMsg = msg.toLowerCase();
       setShowConfirm(false);
       if (lowerMsg.includes("insufficient") || lowerMsg.includes("balance")) {
+        setInsufficientBalance(true);
         setErrors({
-          form: "Insufficient balance to purchase this label. Please contact support to add funds.",
+          form: "Your balance is not enough for this label.",
         });
       } else if (lowerMsg.includes("no longer available") || lowerMsg.includes("refresh rates") || lowerMsg.includes("expired")) {
         setErrors({
@@ -587,7 +590,32 @@ export function CreateGuideForm() {
                 <Save className="mr-2 h-4 w-4" />
                 Continue
               </button>
-              {errors.form ? <p className="text-sm font-semibold text-red-600">{errors.form}</p> : null}
+              {errors.form ? (
+                <div className="grid gap-2">
+                  <p className="text-sm font-semibold text-red-600">{errors.form}</p>
+                  {insufficientBalance && (
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href="/saldo"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white transition hover:bg-slate-700"
+                      >
+                        Add funds to wallet
+                      </Link>
+                      <button
+                        type="button"
+                        disabled
+                        title="Coming soon — label direct payment is not yet enabled."
+                        className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-400 opacity-60"
+                      >
+                        Pay this label by card
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Soon
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </form>
           )}
         </div>

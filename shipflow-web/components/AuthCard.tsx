@@ -9,6 +9,39 @@ import { isEmail, required } from "@/lib/forms";
 import { useAuth } from "@/hooks/useAuth";
 import { logoutUser } from "@/lib/services/authService";
 
+function AuthFormError({ message }: { message: string }) {
+  const isCredentialError =
+    message.toLowerCase().includes("invalid") ||
+    message.toLowerCase().includes("credentials") ||
+    message.toLowerCase().includes("password");
+  const isAccountError =
+    message.toLowerCase().includes("sign in") ||
+    message.toLowerCase().includes("already have") ||
+    message.toLowerCase().includes("could not create");
+  const showReset = isCredentialError || isAccountError;
+
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-sm font-semibold text-red-600">{message}</span>
+      {showReset && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          <Link href="/login" className="font-bold text-[#FF1493] hover:underline">
+            Sign in
+          </Link>
+          <span className="text-slate-400">·</span>
+          <Link href="/forgot-password" className="font-bold text-[#FF1493] hover:underline">
+            Forgot password?
+          </Link>
+          <span className="text-slate-400">·</span>
+          <Link href="/verifica-tu-correo?resend=true" className="font-bold text-[#FF1493] hover:underline">
+            Resend verification
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type AuthCardProps = {
   mode: "login" | "registro";
 };
@@ -180,13 +213,25 @@ export function AuthCard({ mode }: AuthCardProps) {
             placeholder="hello@store.com"
             error={errors.email}
           />
-          <Field
-            name="password"
-            label="Password"
-            type="password"
-            placeholder="********"
-            error={errors.password}
-          />
+          <div className="grid gap-2">
+            <Field
+              name="password"
+              label="Password"
+              type="password"
+              placeholder="********"
+              error={errors.password}
+            />
+            {isLogin && (
+              <div className="text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-semibold text-slate-500 hover:text-[#FF1493]"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -195,7 +240,7 @@ export function AuthCard({ mode }: AuthCardProps) {
             {loading ? "Checking..." : isLogin ? "Enter dashboard" : "Create free account"}
             {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
           </button>
-          {errors.form ? <span className="text-sm font-semibold text-red-600">{errors.form}</span> : null}
+          {errors.form ? <AuthFormError message={errors.form} /> : null}
         </form>
         <p className="mt-6 text-center text-sm text-slate-600">
           {isLogin ? "No account yet?" : "Already have an account?"}{" "}

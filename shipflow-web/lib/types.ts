@@ -156,3 +156,52 @@ export type StructuredAddress = {
   source?: AddressSource;
   validationStatus?: AddressValidationStatus;
 };
+
+// ── FASE 5.39 — Label direct payment (scaffold, not yet active) ─────────────
+
+export type PendingLabelOrderStatus =
+  | "pending_payment"
+  | "payment_confirmed"
+  | "label_purchased"
+  | "label_failed"
+  | "refund_needed"
+  | "refunded"
+  | "expired"
+  | "canceled";
+
+export type PendingLabelOrderParcel = {
+  weight: number;
+  weightUnit: "lb" | "oz" | "kg" | "g";
+  length: number;
+  width: number;
+  height: number;
+  dimensionUnit: "in" | "cm";
+};
+
+export type PendingLabelOrderRateSnapshot = {
+  provider: string;
+  serviceCode: string;
+  carrierCode: string;
+  providerRateId?: string;
+  providerCost: number;
+  customerPrice: number;
+  currency: string;
+  pricingBreakdown?: Record<string, unknown>;
+};
+
+export type PendingLabelOrder = {
+  id: string;
+  userId: string;
+  status: PendingLabelOrderStatus;
+  rateSnapshot: PendingLabelOrderRateSnapshot;
+  origin: StructuredAddress;
+  destination: StructuredAddress;
+  parcel: PendingLabelOrderParcel;
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
+  shipmentId?: string;
+  labelId?: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
