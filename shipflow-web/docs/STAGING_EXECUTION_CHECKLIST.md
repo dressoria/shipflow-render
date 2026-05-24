@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-24 (FASE 5.42)
+Last updated: 2026-05-24 (FASE 5.44)
 
 Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41C, with auth routing fixes deployed and all dangerous label flags still off.
 
@@ -607,7 +607,23 @@ Rules:
 - For `paid_test_mode` or `refund_needed`, support reviews in `/admin/label-orders`.
 - For captured payments without labels, use Stripe Dashboard if app refunds are disabled.
 
-## 15. Go / No-Go
+## 15. FASE 5.44 — UX Polish QA Items
+
+Changes in FASE 5.44 (no migration required, all flags remain off):
+
+- After Stripe Checkout returns `?labelPayment=success&order_id=<id>`, the success page fetches `GET /api/billing/label-orders/[id]` and shows a status-specific message (`paid_test_mode`, `paid_waiting_label_purchase`, `label_purchased` with tracking number, `action_required`, `refund_needed`, etc.).
+- After admin **Process label** succeeds, the order row auto-updates to `label_purchased` without a page reload.
+- `apiAdminGetLabelOrder` helper added to `apiClient.ts`.
+- "Pay by card" disabled tooltip distinguishes flag-off vs. user-not-allowlisted.
+
+QA items for this section:
+
+- [ ] Success page shows status-specific message after sandbox checkout.
+- [ ] Missing `order_id` in URL shows generic success message without error.
+- [ ] Admin process-label refreshes order row on success.
+- [ ] "Pay by card" tooltip shows correct reason when disabled.
+
+## 16. Go / No-Go
 
 Go only if all are true:
 

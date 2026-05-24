@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-24 (FASE 5.40C)
+Última revisión: 2026-05-24 (FASE 5.44)
 
 ---
 
@@ -391,3 +391,17 @@ El flujo operativo de refund está implementado detrás de `ENABLE_LABEL_PAYMENT
 - Monto del refund igual a `amount_cents` original — sin ajustes manuales.
 - No se toca wallet balance ni `payment_recharges`.
 - No se permite refund directo de `label_purchased` hasta definir política de void/return.
+
+---
+
+## 11. UX Polish — FASE 5.44
+
+Completado en FASE 5.44 (sin migración requerida):
+
+- [x] `GET /api/billing/label-orders/[id]` — endpoint seguro para usuario; retorna estado del orden sin secrets
+- [x] `apiGetUserLabelOrder` en `apiClient.ts`
+- [x] `CreateGuideForm` carga estado del orden en éxito (`?labelPayment=success&order_id=<id>`) y muestra mensaje específico por estado
+- [x] `LabelPaymentSuccessBanner` componente con mensajes por estado (`paid_test_mode`, `label_purchased`, `action_required`, etc.)
+- [x] `apiAdminGetLabelOrder` en `apiClient.ts`
+- [x] Admin: después de "Process label" exitoso, orden se refresca automáticamente (sin recargar la página)
+- [x] "Pay by card" disabled tooltip distingue flag-off vs. usuario-no-allowlisted

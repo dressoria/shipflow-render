@@ -176,6 +176,30 @@ export async function apiCreateLabelCheckoutSession(
   });
 }
 
+export type UserLabelOrderStatus = {
+  id: string;
+  status: import("@/lib/types").PendingLabelOrderStatus;
+  provider: string;
+  serviceCode: string | null;
+  serviceName: string | null;
+  amountCents: number;
+  currency: string;
+  trackingNumber: string | null;
+  labelId: string | null;
+  shipmentId: string | null;
+  errorMessage: string | null;
+  paidAt: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export async function apiGetUserLabelOrder(id: string): Promise<UserLabelOrderStatus> {
+  return apiFetch<UserLabelOrderStatus>(
+    `/api/billing/label-orders/${encodeURIComponent(id)}`,
+  );
+}
+
 // ── Admin label orders ────────────────────────────────────────────────────────
 
 export type AdminLabelOrdersResult = {
@@ -245,6 +269,14 @@ export async function apiAdminExpireStaleLabelOrders(): Promise<{ expiredCount: 
     method: "POST",
     body: JSON.stringify({}),
   });
+}
+
+export async function apiAdminGetLabelOrder(
+  id: string,
+): Promise<{ order: import("@/lib/types").PendingLabelOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PendingLabelOrder }>(
+    `/api/admin/label-orders/${encodeURIComponent(id)}`,
+  );
 }
 
 export type AdminProcessLabelResult = {

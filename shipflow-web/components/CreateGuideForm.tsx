@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import React, { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -29,9 +29,11 @@ import {
   apiGetConfigFeatures,
   apiGetConfigStatus,
   apiGetRates,
+  apiGetUserLabelOrder,
   type ConfigFeatures,
   type ConfigStatus,
   type CreateLabelResult,
+  type UserLabelOrderStatus,
 } from "@/lib/services/apiClient";
 import type { Envio, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
@@ -84,6 +86,84 @@ const productTypes = [
 
 const LABELS_NOT_IMPLEMENTED_PROVIDERS = new Set(["shippo", "easypost", "easyship"]);
 
+function LabelPaymentSuccessBanner({
+  order,
+  labelPurchaseEnabled,
+}: {
+  order: UserLabelOrderStatus | null;
+  labelPurchaseEnabled: boolean;
+}) {
+  const status = order?.status;
+
+  let title = "Payment received.";
+  let body: React.ReactNode;
+
+  if (!status) {
+    body = labelPurchaseEnabled
+      ? "Your carrier label will be issued shortly."
+      : "Label purchase is in test mode — no carrier label will be issued yet.";
+  } else if (status === "paid_test_mode") {
+    title = "Payment confirmed (test mode).";
+    body = "Label purchase is disabled in test mode. No carrier label was purchased.";
+  } else if (status === "paid_waiting_label_purchase") {
+    body = "Your order is queued. Our team will process your carrier label shortly.";
+  } else if (status === "label_purchase_pending") {
+    body = "Your carrier label is being processed. Check your shipments shortly.";
+  } else if (status === "label_purchased") {
+    title = "Label purchased!";
+    body = (
+      <>
+        Your carrier label is ready.{" "}
+        {order?.trackingNumber && (
+          <span>
+            Tracking: <strong>{order.trackingNumber}</strong>.{" "}
+          </span>
+        )}
+        <Link href="/envios" className="underline font-medium">
+          View in My Shipments
+        </Link>
+        .
+      </>
+    );
+  } else if (status === "action_required") {
+    title = "Support review required.";
+    body = "Our team will review your order and contact you. No action needed on your end.";
+  } else if (status === "refund_needed") {
+    title = "Payment received — label could not be purchased.";
+    body = "Support will review and issue a refund. You will be notified by email.";
+  } else if (status === "refund_pending") {
+    title = "Refund in progress.";
+    body = "A refund has been initiated. It may take a few business days to appear.";
+  } else if (status === "refunded") {
+    title = "Refunded.";
+    body = "Your payment was refunded. No carrier label was purchased.";
+  } else {
+    body = labelPurchaseEnabled
+      ? "Your carrier label will be issued shortly."
+      : "Label purchase is in test mode — no carrier label will be issued yet.";
+  }
+
+  const isError = status === "action_required" || status === "refund_needed" || status === "refunded" || status === "refund_pending";
+
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-3xl border p-4 text-sm ${
+        isError
+          ? "border-amber-200 bg-amber-50 text-amber-800"
+          : "border-green-200 bg-green-50 text-green-800"
+      }`}
+    >
+      <CheckCircle2
+        className={`mt-0.5 h-5 w-5 shrink-0 ${isError ? "text-amber-500" : "text-green-600"}`}
+      />
+      <div>
+        <p className="font-bold">{title}</p>
+        <p className="mt-1">{body}</p>
+      </div>
+    </div>
+  );
+}
+
 export function CreateGuideForm() {
   const router = useRouter();
   const { emailVerified, loading: authLoading } = useAuth();
@@ -109,12 +189,17 @@ export function CreateGuideForm() {
 
   // Pay-by-card state
   const [payByCardLoading, setPayByCardLoading] = useState(false);
-  // Lazy initializer reads query param once at mount without triggering an extra render.
+  // Lazy initializers read query params once at mount without triggering an extra render.
   const [labelPaymentStatus] = useState<"success" | "cancelled" | null>(() => {
     if (typeof window === "undefined") return null;
     const status = new URLSearchParams(window.location.search).get("labelPayment");
     return status === "success" || status === "cancelled" ? status : null;
   });
+  const [labelOrderId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("order_id");
+  });
+  const [labelOrderStatus, setLabelOrderStatus] = useState<UserLabelOrderStatus | null>(null);
 
   // Stable idempotency key per purchase intent
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
@@ -129,6 +214,13 @@ export function CreateGuideForm() {
       .then(setConfigFeatures)
       .catch(() => setConfigFeatures(null));
   }, [authLoading, emailVerified]);
+
+  useEffect(() => {
+    if (labelPaymentStatus !== "success" || !labelOrderId || authLoading || !emailVerified) return;
+    apiGetUserLabelOrder(labelOrderId)
+      .then(setLabelOrderStatus)
+      .catch(() => setLabelOrderStatus(null));
+  }, [labelPaymentStatus, labelOrderId, authLoading, emailVerified]);
 
   function updateOrigin(addr: StructuredAddress) {
     setForm((current) => ({ ...current, origin: addr }));
@@ -577,18 +669,10 @@ export function CreateGuideForm() {
   return (
     <div className="grid gap-6">
       {labelPaymentStatus === "success" && (
-        <div className="flex items-start gap-3 rounded-3xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-          <div>
-            <p className="font-bold">Payment received.</p>
-            <p className="mt-1">
-              Your label is pending processing.
-              {configStatus?.labelPurchaseEnabled !== true
-                ? " Label purchase is in test mode — no carrier label will be issued yet."
-                : " Your carrier label will be issued shortly."}
-            </p>
-          </div>
-        </div>
+        <LabelPaymentSuccessBanner
+          order={labelOrderStatus}
+          labelPurchaseEnabled={configStatus?.labelPurchaseEnabled === true}
+        />
       )}
       {labelPaymentStatus === "cancelled" && (
         <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">

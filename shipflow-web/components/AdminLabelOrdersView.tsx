@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Copy, RefreshCw, XCircle } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import {
+  apiAdminGetLabelOrder,
   apiGetConfigFeatures,
   apiGetConfigStatus,
   type ConfigFeatures,
@@ -337,8 +338,10 @@ function OrderDetail({
     try {
       const result = await processAdminLabelOrder(order.id);
       setProcessResult(
-        `Label purchased. Tracking: ${result.trackingNumber} · Shipment: ${result.shipmentId}`,
+        `Label purchased. Tracking: ${result.trackingNumber} · Shipment: ${result.shipmentId}${result.labelUrl ? " · Label ready" : ""}`,
       );
+      const refreshed = await apiAdminGetLabelOrder(order.id);
+      onMutated(refreshed.order);
     } catch (err) {
       setMutateError(err instanceof Error ? err.message : "Label purchase failed.");
     } finally {
@@ -447,9 +450,14 @@ function OrderDetail({
           )}
 
           {processResult && (
-            <p className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700 font-semibold">
-              {processResult}
-            </p>
+            <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700">
+              <p className="font-semibold">{processResult}</p>
+              {order.shipmentId && (
+                <p className="mt-1 text-xs text-green-600">
+                  Shipment ID: <span className="font-mono">{order.shipmentId}</span>
+                </p>
+              )}
+            </div>
           )}
 
           <div className="mt-6 flex flex-wrap gap-3">
