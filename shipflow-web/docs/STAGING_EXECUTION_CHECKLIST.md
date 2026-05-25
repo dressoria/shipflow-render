@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-24 (FASE 5.44)
+Last updated: 2026-05-24 (FASE 5.45)
 
 Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41C, with auth routing fixes deployed and all dangerous label flags still off.
 
@@ -623,7 +623,59 @@ QA items for this section:
 - [ ] Admin process-label refreshes order row on success.
 - [ ] "Pay by card" tooltip shows correct reason when disabled.
 
-## 16. Go / No-Go
+## 16. FASE 5.45 — Failure/Refund/Support Operations Readiness
+
+Changes in FASE 5.45 (no migration required, all flags remain off):
+
+### State machine single source of truth
+
+New file `lib/label-order-status.ts` exports:
+
+| Export | Purpose |
+|---|---|
+| `CAN_PROCESS_LABEL_STATUSES` | paid_waiting_label_purchase, label_purchase_pending |
+| `CAN_MARK_ACTION_REQUIRED_STATUSES` | pending_payment, paid_test_mode, paid_waiting_*, label_purchase_pending |
+| `CAN_MARK_REFUND_NEEDED_STATUSES` | paid_test_mode, paid_waiting_*, label_purchase_pending, action_required |
+| `CAN_REFUND_LABEL_ORDER_STATUSES` | refund_needed, action_required, paid_test_mode, paid_waiting_* |
+| `CAN_MARK_REFUNDED_MANUAL_STATUSES` | refund_needed, refund_pending, paid_test_mode, action_required, paid_waiting_* |
+| `FINAL_LABEL_ORDER_STATUSES` | label_purchased, refunded, expired, canceled |
+| `getUserFacingLabelOrderMessage(status)` | User-facing string per status |
+| `getLabelOrderStatusLabel(status)` | Human-readable label |
+| `getLabelOrderStatusDescription(status)` | Admin-facing description |
+| `isErrorLabelOrderStatus(status)` | True for action_required, refund_*, expired, canceled |
+
+### Admin panel improvements
+
+- Status badge shows tooltip with status description on hover
+- Detail panel shows `Order ID` (copyable) and `Updated` timestamp
+- `Label ID` field added
+- Tracking and Shipment ID show inline copy buttons
+- `error_message` labeled by context: "Action required reason" / "Refund needed reason" / "Error / reason"
+- "Mark refunded manually" button now requires both `stripePaymentIntentId` AND `paidAt` (prevents accidental click on unpaid orders)
+- "Mark refunded manually" now available for `paid_waiting_label_purchase` (was missing)
+- Filter dropdown shows human-readable status labels
+- Refund-disabled tooltip: "Stripe refunds are disabled in this environment. Use Stripe Dashboard manually."
+
+### User-facing banner improvements
+
+- `expired` / `canceled` statuses show `XCircle` icon with slate coloring (not red)
+- `paid_test_mode` shows purple coloring (distinct from green)
+- `label_purchased` shows provider + service name in addition to tracking
+- All messages sourced from `getUserFacingLabelOrderMessage()` (single source of truth)
+
+### QA items for this section:
+
+- [ ] Status badge tooltip shows description text in admin panel.
+- [ ] Admin detail shows Order ID copy button.
+- [ ] Admin detail `action_required` shows "Action required reason" label.
+- [ ] `Mark refunded manually` NOT shown for `pending_payment` (no paidAt).
+- [ ] `Mark refunded manually` shown for `paid_waiting_label_purchase` with paidAt set.
+- [ ] User banner for `expired` shows slate/gray (not green/red).
+- [ ] User banner for `paid_test_mode` shows purple.
+- [ ] User banner for `label_purchased` shows tracking + provider + service.
+- [ ] `lib/label-order-status.ts` imported by both `AdminLabelOrdersView` and `CreateGuideForm` (no duplication).
+
+## 17. Go / No-Go
 
 Go only if all are true:
 

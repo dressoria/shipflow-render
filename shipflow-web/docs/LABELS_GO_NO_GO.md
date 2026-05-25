@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-24 (FASE 5.44)
+Última revisión: 2026-05-24 (FASE 5.45)
 
 ---
 
@@ -405,3 +405,87 @@ Completado en FASE 5.44 (sin migración requerida):
 - [x] `apiAdminGetLabelOrder` en `apiClient.ts`
 - [x] Admin: después de "Process label" exitoso, orden se refresca automáticamente (sin recargar la página)
 - [x] "Pay by card" disabled tooltip distingue flag-off vs. usuario-no-allowlisted
+
+---
+
+## 12. Failure/Refund/Support Operations — FASE 5.45
+
+Completado en FASE 5.45 (sin migración requerida):
+
+- [x] `lib/label-order-status.ts` creado — fuente única de verdad para status sets y helpers de display
+- [x] `AdminLabelOrdersView.tsx` refactorizado para importar desde `label-order-status.ts`
+- [x] `LabelPaymentSuccessBanner` mejorado con `isErrorLabelOrderStatus()` y `getUserFacingLabelOrderMessage()`
+- [x] Panel de detalle admin: Order ID, Label ID, Shipment ID con botones de copia, timestamps completos
+- [x] `error_message` admin labeling contextual: "Action required reason" / "Refund needed reason"
+- [x] `Mark refunded manually` corregido: requiere `paidAt` + `stripePaymentIntentId`; disponible para `paid_waiting_label_purchase`
+- [x] Status badge tooltip con descripción del estado
+- [x] Filter dropdown con labels legibles por humanos
+
+### Tabla de estados — Label Orders
+
+| Estado | Significado | Usuario ve | Admin puede |  Final |
+|---|---|---|---|---|
+| `pending_payment` | Checkout creado, no pagado | "Tu pago no se ha completado aún." | Mark action_required, Mark expired | No |
+| `paid_test_mode` | Pagado en test mode | "Pago confirmado en test mode. No se generó label." | Mark refund_needed, Refund (si habilitado), Mark refunded manually | No |
+| `paid_waiting_label_purchase` | Pagado, label en cola | "Tu label está en cola de procesamiento." | Process label, Mark action_required, Mark refund_needed, Refund, Mark refunded manually | No |
+| `label_purchase_pending` | Label siendo procesada | "Tu label se está procesando." | Process label, Mark action_required, Mark refund_needed | No |
+| `label_purchased` | Label comprada exitosamente | "Tu label está lista." + tracking | — | **Sí** |
+| `action_required` | Revisión de soporte necesaria | "Tu pago fue recibido, pero el envío requiere revisión de soporte." | Mark refund_needed, Refund, Mark refunded manually | No |
+| `refund_needed` | Label falló, se requiere refund | "La label no pudo generarse. Soporte revisará tu orden." | Refund (si habilitado), Mark refunded manually | No |
+| `refund_pending` | Refund iniciado en Stripe | "El reembolso se está procesando." | Mark refunded manually | No |
+| `refunded` | Refund completado | "Reembolso completado." | — | **Sí** |
+| `expired` | Checkout expiró sin pago | "Este intento de pago expiró." | — | **Sí** |
+| `canceled` | Orden cancelada | "Esta orden fue cancelada." | — | **Sí** |
+
+### Runbook Operacional — Situaciones Comunes
+
+**1. Pago quedó en `pending_payment` (sin completar)**
+
+Causa: usuario abandonó el checkout de Stripe sin pagar.
+Acción: esperar a que `expires_at` pase → admin corre "Expire stale" desde `/admin/label-orders`.
+No tocar: no hacer refund (no hay pago).
+
+**2. Pago quedó en `paid_test_mode`**
+
+Causa: `ENABLE_DIRECT_LABEL_PAYMENT=true` pero `ENABLE_REAL_LABEL_PURCHASE=false`.
+Acción: informar al usuario que no se generará label. Si se activa real label purchase: no retroactivo (estas órdenes no se reprocesan).
+Si se necesita reembolso: admin → "Mark refund_needed" → "Mark refunded manually" (refund manual en Stripe Dashboard).
+
+**3. Label purchase falló después del pago**
+
+Causa: error del carrier, datos inválidos, timeout.
+Acción: admin revisa `error_message` en detalle de orden. Opciones:
+- Si es recuperable: admin puede intentar "Process label" de nuevo (si status permite).
+- Si no es recuperable: admin marca "Mark refund_needed" → ejecuta refund.
+
+**4. Orden necesita revisión antes de proceder**
+
+Causa: dirección sospechosa, monto anómalo, carrier rechazó la rate.
+Acción: admin → "Mark action required" con razón → notificar usuario por email → resolver → reintentar process label o marcar refund.
+
+**5. Ejecutar refund con flags apagados**
+
+Con `ENABLE_LABEL_PAYMENT_REFUNDS=false`:
+1. Admin va al Stripe Dashboard → encuentra payment intent → ejecuta refund manual.
+2. Vuelve al panel → "Mark refunded manually" con nota del refund.
+3. Orden pasa a `refunded`.
+
+Con `ENABLE_LABEL_PAYMENT_REFUNDS=true` y admin allowlisted:
+1. Admin → "Refund via Stripe" → ingresa razón → confirma con "REFUND".
+2. Sistema llama `refunds.create()` con idempotency key `label-refund-{orderId}`.
+3. Si Stripe OK → orden pasa a `refunded`.
+4. Si Stripe falla → orden vuelve a `refund_needed` con `refund_error_message`.
+
+**6. Expirar órdenes viejas en masa**
+
+Admin → `/admin/label-orders` → botón "Expire stale".
+Llama `POST /api/admin/label-orders/expire-stale`.
+Solo expira `pending_payment` con `expires_at < now()` y `paid_at IS NULL`.
+No toca órdenes pagadas ni terminales.
+Devuelve count de expiradas.
+
+**7. Verificar que no hay doble proceso/refund**
+
+Process label: `claimPendingLabelOrderForPurchase` hace UPDATE atómico con condición en status + `label_id IS NULL` + `tracking_number IS NULL`. Solo uno puede ganar.
+Refund: idempotency key `label-refund-{orderId}` en Stripe. Si ya existe, Stripe devuelve el refund original.
+Mark refunded manual: requiere que status sea MANUAL_REFUNDED_STATUSES; si ya es `refunded` retorna sin cambios.

@@ -16,6 +16,7 @@ import {
   Save,
   Sparkles,
   X,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,6 +36,7 @@ import {
   type CreateLabelResult,
   type UserLabelOrderStatus,
 } from "@/lib/services/apiClient";
+import { getUserFacingLabelOrderMessage, isErrorLabelOrderStatus } from "@/lib/label-order-status";
 import type { Envio, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
 import { formatCurrency } from "@/lib/utils";
@@ -93,31 +95,52 @@ function LabelPaymentSuccessBanner({
   order: UserLabelOrderStatus | null;
   labelPurchaseEnabled: boolean;
 }) {
-  const status = order?.status;
+  const status = order?.status ?? null;
+  const isError = status !== null && isErrorLabelOrderStatus(status);
+  const isTerminalGood = status === "label_purchased";
+  const isExpiredOrCanceled = status === "expired" || status === "canceled";
 
-  let title = "Payment received.";
+  let title: string;
   let body: React.ReactNode;
+  let Icon: typeof CheckCircle2;
+  let colorClass: string;
 
-  if (!status) {
-    body = labelPurchaseEnabled
-      ? "Your carrier label will be issued shortly."
-      : "Label purchase is in test mode — no carrier label will be issued yet.";
-  } else if (status === "paid_test_mode") {
-    title = "Payment confirmed (test mode).";
-    body = "Label purchase is disabled in test mode. No carrier label was purchased.";
-  } else if (status === "paid_waiting_label_purchase") {
-    body = "Your order is queued. Our team will process your carrier label shortly.";
-  } else if (status === "label_purchase_pending") {
-    body = "Your carrier label is being processed. Check your shipments shortly.";
-  } else if (status === "label_purchased") {
-    title = "Label purchased!";
+  if (isExpiredOrCanceled) {
+    title = status === "expired" ? "Payment attempt expired." : "Order canceled.";
+    body = getUserFacingLabelOrderMessage(status);
+    Icon = XCircle;
+    colorClass = "border-slate-200 bg-slate-50 text-slate-700";
+  } else if (isError) {
+    Icon = AlertTriangle;
+    colorClass = "border-amber-200 bg-amber-50 text-amber-800";
+    if (status === "action_required") {
+      title = "Support review required.";
+      body = getUserFacingLabelOrderMessage(status);
+    } else if (status === "refund_needed") {
+      title = "Label could not be generated.";
+      body = getUserFacingLabelOrderMessage(status);
+    } else if (status === "refund_pending") {
+      title = "Refund in progress.";
+      body = getUserFacingLabelOrderMessage(status);
+    } else {
+      title = "Refund completed.";
+      body = getUserFacingLabelOrderMessage(status);
+    }
+  } else if (isTerminalGood) {
+    title = "Your label is ready.";
+    Icon = CheckCircle2;
+    colorClass = "border-green-200 bg-green-50 text-green-800";
     body = (
       <>
-        Your carrier label is ready.{" "}
         {order?.trackingNumber && (
-          <span>
+          <>
             Tracking: <strong>{order.trackingNumber}</strong>.{" "}
-          </span>
+          </>
+        )}
+        {order?.provider && order?.serviceName && (
+          <>
+            {order.serviceName} via {order.provider}.{" "}
+          </>
         )}
         <Link href="/envios" className="underline font-medium">
           View in My Shipments
@@ -125,37 +148,28 @@ function LabelPaymentSuccessBanner({
         .
       </>
     );
-  } else if (status === "action_required") {
-    title = "Support review required.";
-    body = "Our team will review your order and contact you. No action needed on your end.";
-  } else if (status === "refund_needed") {
-    title = "Payment received — label could not be purchased.";
-    body = "Support will review and issue a refund. You will be notified by email.";
-  } else if (status === "refund_pending") {
-    title = "Refund in progress.";
-    body = "A refund has been initiated. It may take a few business days to appear.";
-  } else if (status === "refunded") {
-    title = "Refunded.";
-    body = "Your payment was refunded. No carrier label was purchased.";
+  } else if (status === "paid_test_mode") {
+    title = "Payment confirmed (test mode).";
+    body = getUserFacingLabelOrderMessage(status);
+    Icon = CheckCircle2;
+    colorClass = "border-purple-200 bg-purple-50 text-purple-800";
+  } else if (status !== null) {
+    title = "Payment received.";
+    body = getUserFacingLabelOrderMessage(status);
+    Icon = CheckCircle2;
+    colorClass = "border-green-200 bg-green-50 text-green-800";
   } else {
+    title = "Payment received.";
     body = labelPurchaseEnabled
       ? "Your carrier label will be issued shortly."
       : "Label purchase is in test mode — no carrier label will be issued yet.";
+    Icon = CheckCircle2;
+    colorClass = "border-green-200 bg-green-50 text-green-800";
   }
 
-  const isError = status === "action_required" || status === "refund_needed" || status === "refunded" || status === "refund_pending";
-
   return (
-    <div
-      className={`flex items-start gap-3 rounded-3xl border p-4 text-sm ${
-        isError
-          ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-green-200 bg-green-50 text-green-800"
-      }`}
-    >
-      <CheckCircle2
-        className={`mt-0.5 h-5 w-5 shrink-0 ${isError ? "text-amber-500" : "text-green-600"}`}
-      />
+    <div className={`flex items-start gap-3 rounded-3xl border p-4 text-sm ${colorClass}`}>
+      <Icon className="mt-0.5 h-5 w-5 shrink-0" />
       <div>
         <p className="font-bold">{title}</p>
         <p className="mt-1">{body}</p>

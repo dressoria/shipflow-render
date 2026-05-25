@@ -21,6 +21,15 @@ import {
   refundAdminLabelOrder,
 } from "@/lib/services/adminService";
 import type { PendingLabelOrder, PendingLabelOrderStatus } from "@/lib/types";
+import {
+  canMarkActionRequired,
+  canMarkRefundedManual,
+  canMarkRefundNeeded,
+  canProcessLabelOrder,
+  canRefundLabelOrder,
+  getLabelOrderStatusDescription,
+  getLabelOrderStatusLabel,
+} from "@/lib/label-order-status";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,39 +79,14 @@ const STATUS_STYLES: Record<PendingLabelOrderStatus, string> = {
 function StatusBadge({ status }: { status: PendingLabelOrderStatus }) {
   const style = STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${style}`}>
-      {status.replace(/_/g, " ")}
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${style}`}
+      title={getLabelOrderStatusDescription(status)}
+    >
+      {getLabelOrderStatusLabel(status)}
     </span>
   );
 }
-
-// ── Action-required statuses ──────────────────────────────────────────────────
-
-const CAN_MARK_ACTION_REQUIRED: PendingLabelOrderStatus[] = [
-  "pending_payment",
-  "paid_test_mode",
-  "paid_waiting_label_purchase",
-  "label_purchase_pending",
-];
-
-const CAN_MARK_REFUND_NEEDED: PendingLabelOrderStatus[] = [
-  "paid_test_mode",
-  "paid_waiting_label_purchase",
-  "label_purchase_pending",
-  "action_required",
-];
-
-const CAN_PROCESS_LABEL: PendingLabelOrderStatus[] = [
-  "paid_waiting_label_purchase",
-  "label_purchase_pending",
-];
-
-const CAN_REFUND_LABEL_PAYMENT: PendingLabelOrderStatus[] = [
-  "refund_needed",
-  "action_required",
-  "paid_test_mode",
-  "paid_waiting_label_purchase",
-];
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
 
@@ -399,7 +383,12 @@ function OrderDetail({
             </button>
           </div>
 
+          <p className="mt-2 text-xs text-slate-400">
+            {getLabelOrderStatusDescription(order.status)}
+          </p>
+
           <div className="mt-4 grid gap-2 text-sm">
+            <Row label="Order ID" value={order.id} mono />
             <Row label="User ID" value={order.userId} mono />
             <Row label="Provider" value={order.provider} />
             <Row label="Service" value={order.serviceName ?? order.serviceCode ?? "—"} />
@@ -407,12 +396,21 @@ function OrderDetail({
               label="Amount"
               value={`${formatCents(order.amountCents, order.currency)} (${order.amountCents} cents)`}
             />
+            <Row label="Currency" value={order.currency.toUpperCase()} />
             <Row label="Created" value={formatDate(order.createdAt)} />
+            <Row label="Updated" value={formatDate(order.updatedAt)} />
             <Row label="Expires at" value={formatDate(order.expiresAt)} />
             <Row label="Paid at" value={formatDate(order.paidAt)} />
             <Row label="Processed at" value={formatDate(order.processedAt)} />
             <Row label="Tracking" value={order.trackingNumber ?? "—"} />
+            {order.trackingNumber && (
+              <CopyRow label="Copy tracking" value={order.trackingNumber} />
+            )}
+            <Row label="Label ID" value={order.labelId ?? "—"} mono />
             <Row label="Shipment ID" value={order.shipmentId ?? "—"} mono />
+            {order.shipmentId && (
+              <CopyRow label="Copy shipment ID" value={order.shipmentId} />
+            )}
             {order.stripeCheckoutSessionId && (
               <CopyRow label="Stripe session" value={order.stripeCheckoutSessionId} />
             )}
@@ -420,7 +418,7 @@ function OrderDetail({
               <CopyRow label="Stripe PI" value={order.stripePaymentIntentId} />
             )}
             {order.stripeRefundId && (
-              <CopyRow label="Stripe refund" value={order.stripeRefundId} />
+              <CopyRow label="Stripe refund ID" value={order.stripeRefundId} />
             )}
             <Row label="Refund attempted" value={formatDate(order.refundAttemptedAt)} />
             <Row label="Refunded at" value={formatDate(order.refundedAt)} />
@@ -431,9 +429,13 @@ function OrderDetail({
               </div>
             )}
             {order.errorMessage && (
-              <div className="rounded-2xl bg-red-50 px-4 py-3">
-                <p className="text-xs font-bold text-red-700">Error message</p>
-                <p className="mt-1 text-sm text-red-600">{order.errorMessage}</p>
+              <div className="rounded-2xl bg-amber-50 px-4 py-3">
+                <p className="text-xs font-bold text-amber-700">
+                  {order.status === "action_required" ? "Action required reason" :
+                   order.status === "refund_needed" ? "Refund needed reason" :
+                   "Error / reason"}
+                </p>
+                <p className="mt-1 text-sm text-amber-800 break-words">{order.errorMessage}</p>
               </div>
             )}
           </div>
@@ -461,7 +463,7 @@ function OrderDetail({
           )}
 
           <div className="mt-6 flex flex-wrap gap-3">
-            {CAN_PROCESS_LABEL.includes(order.status) && !order.labelId && !order.trackingNumber && (
+            {canProcessLabelOrder(order.status) && !order.labelId && !order.trackingNumber && (
               <button
                 type="button"
                 disabled={mutating}
@@ -472,27 +474,27 @@ function OrderDetail({
                 {mutating ? "Processing…" : "Process label"}
               </button>
             )}
-            {CAN_MARK_ACTION_REQUIRED.includes(order.status) && (
+            {canMarkActionRequired(order.status) && (
               <button
                 type="button"
                 disabled={mutating}
                 onClick={() => setDialog({ type: "action_required", orderId: order.id })}
                 className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-bold text-orange-700 disabled:opacity-40"
               >
-                Mark action_required
+                Mark action required
               </button>
             )}
-            {CAN_MARK_REFUND_NEEDED.includes(order.status) && (
+            {canMarkRefundNeeded(order.status) && (
               <button
                 type="button"
                 disabled={mutating}
                 onClick={() => setDialog({ type: "refund_needed", orderId: order.id })}
                 className="rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-700 disabled:opacity-40"
               >
-                Mark refund_needed
+                Mark refund needed
               </button>
             )}
-            {CAN_REFUND_LABEL_PAYMENT.includes(order.status) && !order.labelId && !order.trackingNumber && (
+            {canRefundLabelOrder(order.status) && !order.labelId && !order.trackingNumber && (
               configStatus?.labelPaymentRefundsEnabled && configFeatures?.labelPaymentRefundAvailable ? (
                 <button
                   type="button"
@@ -500,7 +502,7 @@ function OrderDetail({
                   onClick={() => setDialog({ type: "refund", orderId: order.id })}
                   className="rounded-2xl border border-red-300 bg-red-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
                 >
-                  Refund in Stripe
+                  Refund via Stripe
                 </button>
               ) : (
                 <button
@@ -509,20 +511,20 @@ function OrderDetail({
                   title={
                     configStatus?.labelPaymentRefundsEnabled
                       ? "Refunds are not available for this admin account."
-                      : "Refunds are disabled. Use Stripe Dashboard manually."
+                      : "Stripe refunds are disabled in this environment. Use Stripe Dashboard manually."
                   }
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-400"
                 >
-                  Refund in Stripe
+                  Refund via Stripe
                 </button>
               )
             )}
-            {["refund_needed", "refund_pending", "paid_test_mode", "action_required"].includes(order.status) && order.stripePaymentIntentId && (
+            {canMarkRefundedManual(order.status) && !!order.stripePaymentIntentId && !!order.paidAt && (
               <button
                 type="button"
                 disabled={mutating}
                 onClick={() => setDialog({ type: "manual_refunded", orderId: order.id })}
-                title="Records a refund already completed in Stripe Dashboard. Does not move money."
+                title="Records a refund already completed in Stripe Dashboard. Does not call Stripe or move money."
                 className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-bold text-teal-700 disabled:opacity-40"
               >
                 Mark refunded manually
@@ -715,7 +717,7 @@ export function AdminLabelOrdersView() {
               <option value="">All statuses</option>
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
+                  {getLabelOrderStatusLabel(s)}
                 </option>
               ))}
             </select>
