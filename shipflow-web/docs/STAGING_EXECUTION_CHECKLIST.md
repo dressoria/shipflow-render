@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-24 (FASE 5.45)
+Last updated: 2026-05-24 (FASE 5.46)
 
 Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41C, with auth routing fixes deployed and all dangerous label flags still off.
 
@@ -675,7 +675,98 @@ New file `lib/label-order-status.ts` exports:
 - [ ] User banner for `label_purchased` shows tracking + provider + service.
 - [ ] `lib/label-order-status.ts` imported by both `AdminLabelOrdersView` and `CreateGuideForm` (no duplication).
 
-## 17. Go / No-Go
+## 17. FASE 5.46 — End-to-End Label Payment + Label Purchase QA (In Progress)
+
+Commit: `0286ff5`
+
+### Pre-check local (BLOQUE 1) — PASSED
+
+- [x] Working tree clean.
+- [x] Last commit `0286ff5 FASE 5.45`.
+- [x] `git diff --check` clean.
+- [x] `npm run lint` — 6 pre-existing warnings, 0 errors.
+- [x] `npx tsc --noEmit` — passed.
+- [x] `npm run build` — `✓ Compiled successfully`.
+- [x] Migration SQL `pending_label_orders` reviewed and ready.
+- [x] Migration SQL `label_checkout_rate_limits` reviewed and ready.
+
+### VM redeploy (BLOQUE 2) — User executes manually
+
+```bash
+cd /home/ubuntu/appsolux-apps/shipflow/shipflow
+git fetch origin main
+git reset --hard origin/main
+git log --oneline -5
+docker compose build --no-cache shipflow-web
+docker compose up -d shipflow-web
+docker network connect appsolux-network shipflow-web || true
+curl -i http://localhost:3003/api/config/status
+```
+
+- [ ] VM on commit `0286ff5`.
+- [ ] All dangerous flags false before activating.
+
+### Apply migrations (BLOQUE 3) — User executes in Supabase SQL Editor
+
+Order:
+1. `supabase/migrations/20260524_add_pending_label_orders.sql`
+2. `supabase/migrations/20260524_add_label_checkout_rate_limits.sql`
+
+Verify after each:
+```sql
+select count(*) from pending_label_orders;
+select count(*) from label_checkout_attempts;
+select unnest(enum_range(null::pending_label_order_status))::text order by 1;
+```
+
+- [ ] Migration 1 applied.
+- [ ] Migration 2 applied.
+- [ ] 11-state enum verified.
+- [ ] RLS enabled on both tables.
+
+### Activate test flags (BLOQUE 4) — User edits `.env.production` on VM via nano
+
+```bash
+nano shipflow-web/.env.production
+# Set:
+#   ENABLE_DIRECT_LABEL_PAYMENT=true
+#   ENABLE_REAL_LABEL_PURCHASE=true (only if provider sandbox confirmed)
+# Keep false:
+#   ENABLE_PROCESS_LABEL_IN_WEBHOOK=false
+#   ENABLE_REAL_LABEL_VOID=false
+#   ENABLE_LABEL_PAYMENT_REFUNDS=false
+docker compose build --no-cache shipflow-web
+docker compose up -d shipflow-web
+curl -i http://localhost:3003/api/config/status
+```
+
+- [ ] `directLabelPaymentEnabled=true` in config status.
+- [ ] `realLabelPurchaseEnabled=true` in config status (if sandbox confirmed).
+- [ ] All other dangerous flags false.
+
+### Auth + Payment + Admin (BLOQUEs 5–10) — User runs manually in browser
+
+Record detailed results in `docs/STAGING_QA_RESULTS.md`.
+
+- [ ] Auth QA passed (no fake balance, protected routes, verified session).
+- [ ] Stripe test checkout completed with card `4242 4242 4242 4242`.
+- [ ] `pending_label_order` created with correct status.
+- [ ] No wallet debit.
+- [ ] Admin `Process label` button works.
+- [ ] `label_purchased` status after processing.
+- [ ] Tracking / label in user banner.
+- [ ] Negative tests safe (401, 403, no double purchase, refund disabled).
+- [ ] Docker logs clean (no secrets).
+
+### Final decision and commit (BLOQUEs 11–13)
+
+- [ ] Flag state documented.
+- [ ] `STAGING_QA_RESULTS.md` updated with decision.
+- [ ] Lint + TSC + build pass.
+- [ ] Docs committed and pushed.
+- [ ] Decision: PASS / PARTIAL / FAIL.
+
+## 18. Go / No-Go
 
 Go only if all are true:
 

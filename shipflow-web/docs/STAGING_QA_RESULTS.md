@@ -1,6 +1,212 @@
 # Staging QA Results
 
-Last updated: 2026-05-24 (FASE 5.42)
+Last updated: 2026-05-24 (FASE 5.46)
+
+---
+
+## FASE 5.46 — End-to-End Label Payment + Label Purchase QA
+
+Run date: 2026-05-24
+
+Commit tested: 0286ff5 (FASE 5.45 — Shared status helpers, admin detail polish, user banner improvements)
+
+### BLOQUE 1 — Pre-check local
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Git status | Passed | Working tree clean; no env files tracked | None | Continue |
+| Last commit | Passed | HEAD `0286ff5 FASE 5.45 — Shared status helpers, admin detail polish, user banner improvements` | None | Use `0286ff5` for VM redeploy |
+| `git diff --check` | Passed | No whitespace errors | None | Continue |
+| `npm run lint` | Passed with warnings | 6 pre-existing unused-variable warnings in `MockAdapter.ts` and `trackingService.ts`; 0 errors | None | Warnings can be cleaned later |
+| `npx tsc --noEmit` | Passed | No TypeScript errors | None | Continue |
+| `npm run build` | Passed | `✓ Compiled successfully`; all routes built | None | Continue |
+| Migration SQL `pending_label_orders` | Ready | `supabase/migrations/20260524_add_pending_label_orders.sql` reviewed; 11-state enum, RLS, indexes, trigger | None | Apply manually in Supabase SQL Editor |
+| Migration SQL `label_checkout_rate_limits` | Ready | `supabase/migrations/20260524_add_label_checkout_rate_limits.sql` reviewed; RLS, indexes, prune function | None | Apply manually in Supabase SQL Editor |
+| Env files not tracked | Passed | `.env.local`, `.env.production`, `shipflow-web/.env.local`, `shipflow-web/.env.production` not in git status | None | Keep env files untracked |
+
+### BLOQUE 2 — VM redeploy to latest main
+
+Run manually on VM (`ubuntu@157.137.228.175`). Agent cannot SSH.
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| `git fetch origin main` | TBD | | | |
+| `git reset --hard origin/main` | TBD | | | |
+| Commit on VM after reset | TBD | Expected `0286ff5` | | |
+| Backup files removed | TBD | | | |
+| `.env.production` exists | TBD | | | |
+| Variable names (no values) | TBD | Confirm ENABLE_ flags exist | | |
+| `docker compose build --no-cache shipflow-web` | TBD | | | |
+| `docker compose up -d shipflow-web` | TBD | | | |
+| `docker ps --filter name=shipflow-web` | TBD | Container running | | |
+| `docker logs --tail=120 shipflow-web` | TBD | No startup errors | | |
+| `curl -i http://localhost:3003/api/config/status` | TBD | All dangerous flags false before activating | | |
+
+### BLOQUE 3 — Apply migrations in Supabase
+
+Apply manually in Supabase SQL Editor in order: (1) `pending_label_orders`, (2) `label_checkout_rate_limits`.
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Migration 1 `pending_label_orders` applied | TBD | `select count(*) from pending_label_orders` → 0 | | |
+| Migration 2 `label_checkout_rate_limits` applied | TBD | `select count(*) from label_checkout_attempts` → 0 | | |
+| Enum 11 states verified | TBD | `select unnest(enum_range(null::pending_label_order_status))` | | |
+| Columns match schema | TBD | `information_schema.columns` check | | |
+| RLS enabled on both tables | TBD | `pg_class.relrowsecurity = true` | | |
+| Policies: user read own (pending_label_orders) | TBD | No INSERT/UPDATE for regular users | | |
+| No user policies on label_checkout_attempts | TBD | Service_role only | | |
+| Indexes created | TBD | user_id, status, stripe_session, stripe_pi, expires_at | | |
+| updated_at trigger exists | TBD | `information_schema.triggers` check | | |
+| `prune_label_checkout_attempts()` function exists | TBD | | | |
+
+### BLOQUE 4 — Activate test flags on VM
+
+Edit `.env.production` manually via `nano`. No values printed here.
+
+| Flag | Expected value | Result | Note |
+| --- | --- | --- | --- |
+| `ENABLE_DIRECT_LABEL_PAYMENT` | `true` | TBD | Activate for test |
+| `DIRECT_LABEL_PAYMENT_ALLOWED_EMAILS` | (set) | TBD | Empty = all verified users; or specific emails |
+| `ENABLE_REAL_LABEL_PURCHASE` | `true` | TBD | Only if provider confirmed sandbox |
+| `REAL_LABEL_PURCHASE_ALLOWED_EMAILS` | (set) | TBD | |
+| `ENABLE_PROCESS_LABEL_IN_WEBHOOK` | `false` | TBD | Keep off — manual process only |
+| `ENABLE_REAL_LABEL_VOID` | `false` | TBD | Keep off |
+| `ENABLE_LABEL_PAYMENT_REFUNDS` | `false` | TBD | Keep off |
+| `/api/config/status` after rebuild | TBD | `directLabelPaymentEnabled=true`, `realLabelPurchaseEnabled=true`, others false | |
+
+### BLOQUE 5 — Auth QA (quick, before payment)
+
+| Test | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| No session: `/dashboard` → `/login` | TBD | | | |
+| No session: no fake balance or $128.70 | TBD | | | |
+| Verified session: `/login` → `/dashboard` | TBD | | | |
+| Verified session: `/registro` → `Already signed in` | TBD | | | |
+| Verified session: `/crear-guia` allows quoting | TBD | | | |
+| Fake localStorage `shipflow-user` does not grant access | TBD | | | |
+
+### BLOQUE 6 — Create guide and pay with Stripe test
+
+Stripe test card: `4242 4242 4242 4242`, any future date, any CVC, any ZIP.
+
+| Step | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Open `https://sendiflash.com/crear-guia` | TBD | | | |
+| Enter test origin / destination | TBD | | | |
+| Enter test parcel | TBD | | | |
+| Rates load (no "disabled" message) | TBD | `directLabelPaymentEnabled=true` must show Pay button | | |
+| Select a rate (e.g., UPS) | TBD | | | |
+| "Pay with card" CTA visible | TBD | | | |
+| Click Pay — Stripe Checkout opens | TBD | | | |
+| Stripe Checkout session created in Stripe Dashboard | TBD | | | |
+| `pending_label_order` created with `pending_payment` | TBD | Check Supabase before paying | | |
+| Pay with test card | TBD | | | |
+| Redirect back to app with `labelPayment=success&order_id=...` | TBD | | | |
+| Banner polls `/api/billing/label-orders/[id]` | TBD | | | |
+| Status in DB after webhook | TBD | Expected `paid_waiting_label_purchase` if `ENABLE_REAL_LABEL_PURCHASE=true` | | |
+| `stripe_payment_intent_id` not null | TBD | | | |
+| `paid_at` not null | TBD | | | |
+| `label_id` null (before Process Label) | TBD | | | |
+| `tracking_number` null (before Process Label) | TBD | | | |
+| No wallet debit in `balance_movements` | TBD | Direct payment must not debit wallet | | |
+
+### BLOQUE 7 — Admin label orders
+
+URL: `https://sendiflash.com/admin/label-orders`
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Order appears in admin list | TBD | | | |
+| Status correct | TBD | Expected `paid_waiting_label_purchase` | | |
+| Amount / currency correct | TBD | | | |
+| Provider / service visible | TBD | | | |
+| Detail panel shows rate snapshot safely | TBD | No secrets exposed | | |
+| Copy buttons work (Order ID, Tracking, Shipment ID) | TBD | | | |
+| Status description tooltip present | TBD | | | |
+| `Process label` button enabled | TBD | Requires `ENABLE_REAL_LABEL_PURCHASE=true` | | |
+| Confirm provider is in sandbox/test mode | TBD | If not confirmed → do not click Process label | | |
+| Click `Process label` | TBD | | | |
+| Status changes to `label_purchased` | TBD | | | |
+| `tracking_number` populated | TBD | | | |
+| `label_id` populated | TBD | | | |
+| Label URL / PDF available | TBD | Depends on provider sandbox response | | |
+| Table updates without manual refresh | TBD | | | |
+| `processed_at` populated in DB | TBD | | | |
+
+### BLOQUE 8 — User status after Process Label
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Banner shows "Your label is ready." | TBD | If `label_purchased` | | |
+| Tracking number visible | TBD | | | |
+| Provider / service visible | TBD | | | |
+| Download / view label link visible (if label_url exists) | TBD | | | |
+| No label_url → no broken link shown | TBD | | | |
+| Error state shows safe support message | TBD | If `action_required` or `refund_needed` | | |
+
+### BLOQUE 9 — Negative tests (controlled)
+
+| Test | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| No token: `POST /api/billing/label-checkout` → 401 | TBD | | | |
+| No token: `GET /api/billing/label-orders/[id]` → 401 | TBD | | | |
+| Another user's order ID → 403/404 | TBD | | | |
+| Unverified user checkout → blocked | TBD | | | |
+| Double-click `Process label` → safe (no double purchase) | TBD | Idempotency key should prevent | | |
+| Refund button disabled (refunds off) | TBD | `ENABLE_LABEL_PAYMENT_REFUNDS=false` | | |
+| Void not available in UI | TBD | `ENABLE_REAL_LABEL_VOID=false` | | |
+| Rate limit (if migration applied) | TBD | Multiple checkouts → 429 after limit | | |
+
+### BLOQUE 10 — Logs and Stripe Dashboard
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Stripe Dashboard: Checkout Session visible | TBD | | | |
+| Stripe Dashboard: Payment Intent test mode | TBD | | | |
+| Stripe Dashboard: Webhook delivered 200 | TBD | | | |
+| Stripe metadata: `purpose=label_direct_payment` | TBD | | | |
+| Stripe metadata: `pending_label_order_id` present | TBD | | | |
+| Stripe metadata: `user_id` present | TBD | | | |
+| Docker logs: no tokens / API keys printed | TBD | | | |
+| Docker logs: no service role key printed | TBD | | | |
+| Docker logs: no provider API secrets | TBD | | | |
+
+### BLOQUE 11 — Final flag decision
+
+| Flag | Final state | Note |
+| --- | --- | --- |
+| `ENABLE_DIRECT_LABEL_PAYMENT` | TBD | |
+| `ENABLE_REAL_LABEL_PURCHASE` | TBD | |
+| `ENABLE_PROCESS_LABEL_IN_WEBHOOK` | Keep `false` | Not changing in FASE 5.46 |
+| `ENABLE_REAL_LABEL_VOID` | Keep `false` | Not changing in FASE 5.46 |
+| `ENABLE_LABEL_PAYMENT_REFUNDS` | Keep `false` | Not changing in FASE 5.46 |
+
+### Bugs found in FASE 5.46
+
+| Bug | Route / command | Repro steps | Impact | Required action |
+| --- | --- | --- | --- | --- |
+| None recorded yet | N/A | N/A | N/A | Execute QA blocks above |
+
+### Decision
+
+| Criteria | Met? | Evidence |
+| --- | --- | --- |
+| Migrations applied without errors | TBD | |
+| Direct payment test checkout works | TBD | |
+| Stripe webhook updates pending_label_order | TBD | |
+| Admin can Process Label in sandbox | TBD | |
+| User sees tracking/PDF or clear status | TBD | |
+| Negative tests safe | TBD | |
+| No secrets in logs | TBD | |
+| No double purchase possible | TBD | |
+
+**Final decision: TBD — PASS / PARTIAL / FAIL**
+
+Reason: QA pending manual execution by operator.
+
+Next recommended step: After PASS — wire up `ENABLE_PROCESS_LABEL_IN_WEBHOOK` in a controlled beta with 1-2 real users.
+
+---
 
 Purpose: close VM/staging QA for auth/navigation with all label-payment flags off, before any migrations or direct label payment test.
 
