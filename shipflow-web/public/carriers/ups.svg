@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 96" role="img" aria-labelledby="title desc">
+  <title id="title">UPS</title>
+  <desc id="desc">UPS carrier logo asset placeholder for local replacement.</desc>
+  <rect width="220" height="96" rx="18" fill="#ffffff"/>
+  <path d="M110 18c27 0 45 9 45 9v26c0 26-19 42-45 51-26-9-45-25-45-51V27s18-9 45-9z" fill="#351C15"/>
+  <path d="M77 32s13-6 33-6 33 6 33 6v21c0 20-14 33-33 41-19-8-33-21-33-41z" fill="none" stroke="#FFB500" stroke-width="4"/>
+  <text x="82" y="62" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" fill="#FFB500">UPS</text>
+</svg>

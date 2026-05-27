@@ -1,19 +1,26 @@
 import {
   ArrowRight,
+  BarChart3,
+  Boxes,
   Building2,
   CheckCircle2,
+  ClipboardCheck,
   CreditCard,
   Download,
   History,
+  MapPinned,
   Package,
   Printer,
+  ScanLine,
   ShieldCheck,
   ShoppingBag,
+  Store,
   Tag,
   Truck,
   Users,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import { faqs } from "@/data/site";
 import { Badge } from "@/components/Badge";
@@ -30,6 +37,13 @@ const trustBadges = [
   "Label history",
   "Clear pricing",
   "Support-ready workflow",
+];
+
+const carrierLogos = [
+  { name: "USPS", src: "/carriers/usps.svg" },
+  { name: "UPS", src: "/carriers/ups.svg" },
+  { name: "FedEx", src: "/carriers/fedex.svg" },
+  { name: "DHL", src: "/carriers/dhl.svg" },
 ];
 
 const features: Array<{ icon: LucideIcon; title: string; text: string }> = [
@@ -127,47 +141,219 @@ const useCases: Array<{ icon: LucideIcon; title: string; text: string }> = [
   },
 ];
 
+function CarrierLogoStrip() {
+  return (
+    <div className="mt-8">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {carrierLogos.map((carrier) => (
+          <div
+            key={carrier.name}
+            className="group grid h-24 place-items-center rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/4 transition hover:-translate-y-1 hover:border-[#F97316]/40 hover:shadow-lg hover:shadow-orange-950/8"
+          >
+            <Image
+              src={carrier.src}
+              alt={`${carrier.name} logo`}
+              width={160}
+              height={56}
+              className="max-h-12 w-full object-contain transition duration-300 group-hover:scale-[1.04]"
+            />
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        Carrier names and logos are trademarks of their respective owners. Availability may vary by account, route, and provider integration.
+      </p>
+    </div>
+  );
+}
+
+function LogisticsHeroVisual() {
+  return (
+    <div className="relative mx-auto max-w-xl">
+      <div className="absolute -inset-4 rounded-[2rem] bg-white/55 blur-2xl" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/12">
+        <div className="rounded-[1.5rem] bg-[#F8FAFC] p-5">
+          <div className="grid gap-4 sm:grid-cols-[0.86fr_1.14fr]">
+            <div className="rounded-3xl border border-orange-100 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-orange-100 text-[#F97316]">
+                  <Store className="h-5 w-5" />
+                </span>
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#2563EB]">
+                  Ready
+                </span>
+              </div>
+              <div className="mt-6 space-y-2">
+                <div className="h-3 w-28 rounded-full bg-slate-200" />
+                <div className="h-3 w-20 rounded-full bg-slate-100" />
+              </div>
+              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#2563EB] text-white">
+                  <Users className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs font-black text-[#0F172A]">Packing station</p>
+                  <p className="text-xs text-slate-500">Order ready to ship</p>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <div className="aspect-square rounded-2xl bg-[#F97316]/16 p-3">
+                  <Package className="h-6 w-6 text-[#F97316]" />
+                </div>
+                <div className="aspect-square rounded-2xl bg-[#2563EB]/12 p-3">
+                  <ScanLine className="h-6 w-6 text-[#2563EB]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Label preview
+                  </p>
+                  <p className="mt-1 text-lg font-black text-[#0F172A]">NYC to Austin</p>
+                </div>
+                <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-[#F97316]">
+                  Paid
+                </span>
+              </div>
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <Boxes className="h-7 w-7 text-[#2563EB]" />
+                  <span className="text-xs font-black text-slate-400">4 lb</span>
+                </div>
+                <div className="mt-4 grid gap-1.5">
+                  <div className="h-2.5 w-full rounded-full bg-slate-300" />
+                  <div className="h-2.5 w-5/6 rounded-full bg-slate-200" />
+                  <div className="h-2.5 w-2/3 rounded-full bg-slate-200" />
+                </div>
+                <div className="mt-5 flex h-12 items-end gap-1">
+                  {Array.from({ length: 16 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className="w-full rounded-t-sm bg-[#0F172A]"
+                      style={{ height: `${index % 3 === 0 ? 42 : index % 2 === 0 ? 30 : 22}px` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-[#2563EB]">
+                  <Truck className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="font-black text-[#0F172A]">Courier pickup</p>
+                  <p className="text-sm text-slate-500">Window confirmed</p>
+                </div>
+              </div>
+              <div className="mt-5 h-20 rounded-2xl bg-[#0F172A] p-3">
+                <div className="flex h-full items-end">
+                  <div className="h-10 w-28 rounded-lg bg-white" />
+                  <div className="h-8 w-14 rounded-r-lg bg-[#F97316]" />
+                  <span className="ml-4 h-5 w-5 rounded-full bg-slate-500" />
+                  <span className="ml-16 h-5 w-5 rounded-full bg-slate-500" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-orange-100 bg-[#FFF7ED] p-4 shadow-sm">
+              <MapPinned className="h-6 w-6 text-[#F97316]" />
+              <p className="mt-4 text-sm font-black text-[#0F172A]">Tracking live</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                Label, status, and shipment history stay together.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowVisual() {
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-950/7">
+      <div className="rounded-[1.5rem] bg-[#F8FAFC] p-5">
+        <div className="grid gap-3">
+          {[
+            { icon: ClipboardCheck, title: "Shipment details", detail: "Addresses, parcel, dimensions", color: "blue" },
+            { icon: BarChart3, title: "Rate comparison", detail: "Cost, service, delivery estimate", color: "orange" },
+            { icon: Download, title: "Label and tracking", detail: "Download PDF and monitor status", color: "blue" },
+          ].map(({ icon: Icon, title, detail, color }, index) => (
+            <div
+              key={title}
+              className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200"
+            >
+              <span
+                className={
+                  color === "orange"
+                    ? "grid h-12 w-12 place-items-center rounded-2xl bg-orange-100 text-[#F97316]"
+                    : "grid h-12 w-12 place-items-center rounded-2xl bg-blue-100 text-[#2563EB]"
+                }
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-black text-[#0F172A]">{title}</p>
+                <p className="text-sm text-slate-500">{detail}</p>
+              </div>
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
+                {index + 1}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <>
       <Header />
       <main>
         {/* ── Hero ── */}
-        <section className="relative isolate overflow-hidden bg-[#0F172A] text-white">
-          <div className="pointer-events-none absolute -left-40 -top-40 h-[640px] w-[640px] rounded-full bg-[#2563EB]/18 blur-[140px]" />
-          <div className="pointer-events-none absolute -bottom-32 -right-40 h-[560px] w-[560px] rounded-full bg-[#F97316]/14 blur-[120px]" />
+        <section className="relative isolate overflow-hidden bg-[#F8FAFC] text-[#0F172A]">
+          <div className="absolute inset-x-0 top-0 h-72 bg-white" />
 
-          <div className="relative z-10 mx-auto max-w-7xl px-4 pb-24 pt-32 sm:px-6 md:pt-36 lg:px-8">
+          <div className="relative z-10 mx-auto max-w-7xl px-4 pb-22 pt-32 sm:px-6 md:pt-36 lg:px-8">
             <div className="grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
               <MotionReveal>
                 <Badge
                   tone="blue"
-                  className="border border-[#2563EB]/30 bg-[#2563EB]/14 text-blue-200 ring-blue-500/25 backdrop-blur-xl"
+                  className="border border-blue-100 bg-blue-50 text-[#2563EB] ring-blue-100"
                 >
                   <ShieldCheck className="mr-2 h-3.5 w-3.5" />
                   Secure · Multi-carrier · Pay per label
                 </Badge>
 
-                <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-white sm:text-6xl lg:text-[3.75rem]">
-                  Ship smarter with{" "}
-                  <span className="bg-gradient-to-r from-[#60A5FA] to-[#FB923C] bg-clip-text text-transparent">
-                    SendiFlash
-                  </span>
+                <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
+                  Ship smarter with <span className="text-[#2563EB]">Sendi</span><span className="text-[#F97316]">Flash</span>
                 </h1>
 
-                <p className="mt-6 max-w-lg text-lg leading-8 text-slate-300">
-                  A clean shipping workspace for small businesses, online sellers, and teams that need simple label creation. Compare rates, pay securely, and ship.
+                <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
+                  A clean shipping workspace for small businesses, online sellers, and teams that need simple label creation.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Button href="/registro" className="rounded-2xl sm:min-w-52">
-                    Create your first label
+                  <Button
+                    href="/registro"
+                    variant="action"
+                    className="rounded-2xl sm:min-w-44"
+                  >
+                    Start shipping
                   </Button>
                   <Button
                     href="/login"
                     variant="secondary"
                     icon={<ArrowRight className="h-4 w-4" />}
-                    className="rounded-2xl border-white/20 bg-white/10 text-white hover:bg-white/18 hover:text-white sm:min-w-32"
+                    className="rounded-2xl border-blue-100 bg-white text-[#0F172A] hover:border-[#2563EB]/30 hover:bg-blue-50 hover:text-[#2563EB] sm:min-w-32"
                   >
                     Sign in
                   </Button>
@@ -177,9 +363,9 @@ export default function Home() {
                   {trustBadges.map((item) => (
                     <span
                       key={item}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/7 px-3.5 py-1.5 text-xs font-semibold text-slate-300 backdrop-blur-sm"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-[#FB923C]" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#F97316]" />
                       {item}
                     </span>
                   ))}
@@ -187,12 +373,12 @@ export default function Home() {
               </MotionReveal>
 
               <MotionReveal delay={0.2} className="hidden lg:block">
-                <QuotePreview />
+                <LogisticsHeroVisual />
               </MotionReveal>
             </div>
 
             <MotionReveal delay={0.24} className="mt-14 lg:hidden">
-              <QuotePreview />
+              <LogisticsHeroVisual />
             </MotionReveal>
           </div>
         </section>
@@ -254,33 +440,42 @@ export default function Home() {
             <SectionHeading
               eyebrow="How it works"
               title="From details to delivery in three steps"
-              description="No carrier accounts, no complexity. Enter your shipment info and ship."
+              description="No messy carrier portals. Enter your shipment info, compare rates, and create a label."
             />
-            <div className="mt-14 grid gap-6 md:grid-cols-3">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                return (
-                  <MotionCard
-                    key={step.title}
-                    delay={index * 0.08}
-                    className="relative rounded-3xl border border-slate-100 bg-[#F8FAFC] p-8 shadow-sm"
-                  >
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-lg font-black text-white shadow-lg shadow-blue-500/20">
-                      {index + 1}
-                    </span>
-                    <Icon className="mt-6 h-6 w-6 text-[#2563EB]" />
-                    <h3 className="mt-4 text-lg font-black text-slate-950">{step.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-[#334155]">{step.text}</p>
-                  </MotionCard>
-                );
-              })}
+            <div className="mt-14 grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+              <MotionReveal>
+                <WorkflowVisual />
+              </MotionReveal>
+              <div className="grid gap-4">
+                {steps.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <MotionCard
+                      key={step.title}
+                      delay={index * 0.08}
+                      className="relative rounded-3xl border border-slate-200 bg-[#F8FAFC] p-6 shadow-sm transition hover:border-orange-200 hover:shadow-lg hover:shadow-orange-950/6"
+                    >
+                      <div className="flex items-start gap-4">
+                        <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#F97316] text-lg font-black text-white shadow-lg shadow-orange-500/20">
+                          {index + 1}
+                        </span>
+                        <div>
+                          <Icon className="h-6 w-6 text-[#2563EB]" />
+                          <h3 className="mt-3 text-lg font-black text-slate-950">{step.title}</h3>
+                          <p className="mt-2 text-sm leading-6 text-[#334155]">{step.text}</p>
+                        </div>
+                      </div>
+                    </MotionCard>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>
 
         {/* ── Pricing transparency ── */}
         <section id="pricing" className="bg-[#0F172A] py-20 text-white sm:py-28">
-          <div className="pointer-events-none absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#2563EB]/30 to-transparent" />
+          <div className="pointer-events-none absolute left-0 right-0 h-px bg-[#2563EB]/25" />
           <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 md:grid-cols-2 lg:px-8">
             <MotionReveal>
               <Badge
@@ -292,7 +487,7 @@ export default function Home() {
               </Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
                 No hidden fees.{" "}
-                <span className="bg-gradient-to-r from-[#60A5FA] to-[#FB923C] bg-clip-text text-transparent">
+                <span className="text-[#FB923C]">
                   See everything before you pay.
                 </span>
               </h2>
@@ -338,14 +533,16 @@ export default function Home() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Total at checkout</p>
                     <p className="font-black text-white">Shipping + fees, clearly itemized</p>
                   </div>
-                  <CheckCircle2 className="h-6 w-6 text-[#FB923C]" />
+                  <span className="rounded-full bg-orange-500 px-4 py-2 text-sm font-black text-white">
+                    Total
+                  </span>
                 </div>
               </div>
             </MotionReveal>
           </div>
         </section>
 
-        {/* ── Rate comparison visual ── */}
+        {/* ── Carrier comparison ── */}
         <section className="bg-white py-20 sm:py-28">
           <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 md:grid-cols-2 lg:px-8">
             <MotionReveal delay={0.1}>
@@ -354,11 +551,15 @@ export default function Home() {
             <MotionReveal>
               <Badge tone="blue">
                 <Zap className="mr-2 h-3.5 w-3.5" />
-                Rate comparison
+                Carrier comparison
               </Badge>
               <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-                Compare price, speed, and carrier before creating a label
+                Choose the best carrier for each shipment
               </h2>
+              <p className="mt-5 text-base leading-7 text-[#334155]">
+                Compare USPS, UPS, FedEx, and DHL by cost, service, and estimated delivery time.
+              </p>
+              <CarrierLogoStrip />
               <div className="mt-7 grid gap-3 text-sm text-[#334155]">
                 {[
                   "Live rates by zone and weight",
@@ -396,7 +597,7 @@ export default function Home() {
                     className="flex gap-5 rounded-3xl border border-blue-100/80 bg-white p-7 shadow-sm shadow-slate-950/4 transition hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/6"
                   >
                     <div className="flex-shrink-0">
-                      <div className="grid h-13 w-13 h-[52px] w-[52px] place-items-center rounded-2xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-white shadow-lg shadow-blue-500/18">
+                      <div className="grid h-[52px] w-[52px] place-items-center rounded-2xl bg-[#2563EB] text-white shadow-lg shadow-blue-500/18">
                         <Icon className="h-6 w-6" />
                       </div>
                     </div>
@@ -436,8 +637,7 @@ export default function Home() {
 
         {/* ── Final CTA ── */}
         <section className="relative overflow-hidden bg-[#0F172A] py-20 text-white sm:py-28">
-          <div className="pointer-events-none absolute -left-32 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full bg-[#2563EB]/18 blur-[120px]" />
-          <div className="pointer-events-none absolute -right-32 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full bg-[#F97316]/14 blur-[120px]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[#F97316]" />
           <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
             <MotionReveal>
               <Badge
@@ -454,7 +654,7 @@ export default function Home() {
                 Create an account, compare rates, and ship your first package in minutes. No carrier contracts required.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <Button href="/registro" className="min-w-48 rounded-2xl">
+                <Button href="/registro" variant="action" className="min-w-48 rounded-2xl">
                   Create your account
                 </Button>
                 <Button

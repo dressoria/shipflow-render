@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 type ButtonProps = {
   href: string;
   children: React.ReactNode;
-  variant?: "primary" | "secondary" | "ghost" | "dark";
+  variant?: "primary" | "secondary" | "ghost" | "dark" | "action";
   className?: string;
   icon?: React.ReactNode;
 };
@@ -24,6 +24,8 @@ export function Button({
     ghost: "text-[#64748B] hover:bg-blue-50 hover:text-[#2563EB]",
     dark:
       "bg-[#0F172A] text-white shadow-lg shadow-[#0F172A]/30 hover:-translate-y-0.5 hover:bg-[#1E293B] hover:shadow-xl hover:shadow-[#2563EB]/20",
+    action:
+      "bg-[#F97316] text-white shadow-lg shadow-orange-500/25 hover:-translate-y-0.5 hover:bg-[#EA580C] hover:shadow-xl hover:shadow-orange-500/35",
   };
 
   const isExternal = href.startsWith("http");

@@ -8,7 +8,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr] lg:px-8">
         <div>
           <div className="flex items-center gap-2.5">
-            <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-white">
+            <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[#2563EB] text-[#FB923C]">
               <Zap className="h-[18px] w-[18px]" />
             </span>
             <BrandName className="text-white" />
@@ -31,7 +31,7 @@ export function Footer() {
             <a href="mailto:support@sendiflash.app" className="hover:text-white transition">
               support@sendiflash.app
             </a>
-            <Link href="/registro" className="hover:text-white transition">Create free account</Link>
+            <Link href="/registro" className="hover:text-white transition">Create account</Link>
           </div>
         </div>
       </div>

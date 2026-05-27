@@ -18,7 +18,7 @@ const quoteOptions: Array<{
 export function QuotePreview() {
   return (
     <div className="relative">
-      <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-tr from-[#2563EB]/20 via-[#F97316]/12 to-[#0F172A]/12 blur-2xl" />
+      <div className="absolute -inset-4 rounded-[2rem] bg-[#2563EB]/8 blur-2xl" />
       <div className="relative overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-slate-950/12">
         <div className="flex items-center justify-between border-b border-slate-100 bg-[#0F172A] px-5 py-4 text-white">
           <div>
@@ -71,7 +71,7 @@ export function QuotePreview() {
                 <p className="font-black text-slate-950">{price}</p>
                 <div className="mt-2 h-1.5 w-20 rounded-full bg-slate-100">
                   <div
-                    className="h-1.5 rounded-full bg-gradient-to-r from-[#2563EB] to-[#F97316] transition-all"
+                    className="h-1.5 rounded-full bg-[#F97316] transition-all"
                     style={{ width: barWidth }}
                   />
                 </div>
@@ -81,7 +81,7 @@ export function QuotePreview() {
 
           <button
             type="button"
-            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#2563EB,#3B82F6)] text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-500/35"
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#F97316] text-sm font-bold text-white shadow-lg shadow-orange-500/25 transition hover:-translate-y-0.5 hover:bg-[#EA580C] hover:shadow-xl hover:shadow-orange-500/35"
           >
             Compare rates
             <ArrowRight className="h-4 w-4" />

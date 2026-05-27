@@ -20,8 +20,8 @@ export function Header() {
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border border-white/80 bg-white/88 px-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl sm:px-5 lg:px-6">
         <Link href="/" className="flex items-center gap-2.5 rounded-2xl px-1 py-1">
-          <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-white">
-            <Zap className="h-4.5 w-4.5 h-[18px] w-[18px]" />
+          <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[#2563EB] text-[#FB923C]">
+            <Zap className="h-[18px] w-[18px]" />
           </span>
           <BrandName className="text-base" />
         </Link>
@@ -42,7 +42,7 @@ export function Header() {
           <Button href="/login" variant="ghost">
             Sign in
           </Button>
-          <Button href="/registro" className="rounded-2xl">
+          <Button href="/registro" variant="action" className="rounded-2xl">
             Start shipping
           </Button>
         </div>
@@ -72,7 +72,7 @@ export function Header() {
             ))}
           </nav>
           <div className="mt-4 grid gap-3">
-            <Button href="/registro" className="w-full">
+            <Button href="/registro" variant="action" className="w-full">
               Start shipping
             </Button>
             <Button href="/login" variant="secondary" className="w-full">

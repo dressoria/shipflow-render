@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 96" role="img" aria-labelledby="title desc">
+  <title id="title">USPS</title>
+  <desc id="desc">USPS carrier logo asset placeholder for local replacement.</desc>
+  <rect width="220" height="96" rx="18" fill="#ffffff"/>
+  <rect x="18" y="22" width="184" height="52" rx="8" fill="#004B87"/>
+  <path d="M45 35h78l-15 11h49l-73 15 20-14H45z" fill="#ffffff"/>
+  <text x="126" y="60" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800" fill="#ffffff">USPS</text>
+</svg>
