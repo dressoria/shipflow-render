@@ -141,6 +141,13 @@ const useCases: Array<{ icon: LucideIcon; title: string; text: string }> = [
   },
 ];
 
+const nationwideMilestones = [
+  { label: "Label created", city: "Los Angeles", tone: "blue" },
+  { label: "Picked up", city: "Phoenix", tone: "orange" },
+  { label: "In transit", city: "Dallas", tone: "blue" },
+  { label: "Delivered", city: "Atlanta", tone: "orange" },
+];
+
 function CarrierLogoStrip() {
   return (
     <div className="mt-8">
@@ -163,6 +170,151 @@ function CarrierLogoStrip() {
       <p className="mt-4 text-xs leading-5 text-slate-500">
         Carrier names and logos are trademarks of their respective owners. Availability may vary by account, route, and provider integration.
       </p>
+    </div>
+  );
+}
+
+function MiniPackingScene() {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+      <div className="flex items-center justify-between">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-100 text-[#F97316]">
+          <Store className="h-5 w-5" />
+        </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+          Seller station
+        </span>
+      </div>
+      <div className="mt-6 rounded-2xl bg-[#F8FAFC] p-4">
+        <div className="flex items-end gap-3">
+          <div className="grid gap-2">
+            <span className="block h-11 w-16 rounded-lg bg-[#F97316]/20 ring-1 ring-[#F97316]/20" />
+            <span className="block h-9 w-20 rounded-lg bg-[#2563EB]/15 ring-1 ring-[#2563EB]/20" />
+          </div>
+          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="h-2.5 w-24 rounded-full bg-slate-300" />
+            <div className="mt-2 h-2.5 w-16 rounded-full bg-slate-200" />
+            <div className="mt-4 flex items-center gap-2">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#2563EB] text-white">
+                <Users className="h-4 w-4" />
+              </span>
+              <div className="h-2.5 flex-1 rounded-full bg-orange-200" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-black text-[#0F172A]">Pack orders faster</p>
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        Keep addresses, parcels, rates, and labels in one calm workspace.
+      </p>
+    </div>
+  );
+}
+
+function MiniPickupScene() {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+      <div className="flex items-center justify-between">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-100 text-[#2563EB]">
+          <Truck className="h-5 w-5" />
+        </span>
+        <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-[#F97316]">
+          Pickup
+        </span>
+      </div>
+      <div className="mt-6 overflow-hidden rounded-2xl bg-[#0F172A] p-4">
+        <div className="relative h-28">
+          <div className="absolute bottom-0 left-0 right-0 h-7 rounded-xl bg-slate-800" />
+          <div className="absolute bottom-7 left-4 h-12 w-24 rounded-t-xl bg-white" />
+          <div className="absolute bottom-7 left-28 h-10 w-14 rounded-r-lg bg-[#F97316]" />
+          <span className="absolute bottom-4 left-10 h-6 w-6 rounded-full border-4 border-slate-700 bg-slate-400" />
+          <span className="absolute bottom-4 left-32 h-6 w-6 rounded-full border-4 border-slate-700 bg-slate-400" />
+          <div className="absolute right-4 top-4 grid gap-2">
+            <span className="h-3 w-16 rounded-full bg-white/30" />
+            <span className="h-3 w-10 rounded-full bg-white/20" />
+          </div>
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-black text-[#0F172A]">Move from desk to door</p>
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        Designed around the real shipping day: label, handoff, status, history.
+      </p>
+    </div>
+  );
+}
+
+function NationwideShippingVisual() {
+  return (
+    <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/10">
+      <div className="relative min-h-[360px] overflow-hidden rounded-[1.5rem] bg-[#F8FAFC] p-5 sm:min-h-[430px] sm:p-7">
+        <div className="absolute inset-0 opacity-80">
+          <svg viewBox="0 0 720 420" className="h-full w-full" role="img" aria-label="Animated nationwide shipping route across the United States">
+            <path
+              d="M92 168 145 112l116-33 131 12 89 48 92 7 64 50-36 74-98 38-115 38-144-11-102-36-56-78z"
+              fill="#FFFFFF"
+              stroke="#DBEAFE"
+              strokeWidth="4"
+            />
+            <path
+              d="M108 287C172 218 235 205 292 222c61 19 87 72 152 74 70 2 105-54 173-83"
+              fill="none"
+              stroke="#2563EB"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray="10 12"
+            />
+            {[
+              [108, 287],
+              [292, 222],
+              [444, 296],
+              [617, 213],
+            ].map(([cx, cy], index) => (
+              <g key={`${cx}-${cy}`}>
+                <circle cx={cx} cy={cy} r="14" fill={index % 2 === 0 ? "#2563EB" : "#F97316"} opacity=".18" />
+                <circle cx={cx} cy={cy} r="6" fill={index % 2 === 0 ? "#2563EB" : "#F97316"} />
+              </g>
+            ))}
+          </svg>
+        </div>
+
+        <div className="nationwide-van pointer-events-none absolute left-0 top-0 z-20">
+          <div className="relative h-14 w-24 rounded-2xl bg-white shadow-xl shadow-slate-950/18 ring-1 ring-slate-200">
+            <div className="absolute bottom-3 left-4 h-7 w-12 rounded-lg bg-[#2563EB]" />
+            <div className="absolute bottom-3 left-[60px] h-6 w-7 rounded-r-lg bg-[#F97316]" />
+            <span className="absolute bottom-1 left-6 h-4 w-4 rounded-full bg-[#0F172A]" />
+            <span className="absolute bottom-1 right-5 h-4 w-4 rounded-full bg-[#0F172A]" />
+          </div>
+        </div>
+
+        <div className="relative z-10 flex flex-wrap gap-3">
+          {nationwideMilestones.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur"
+            >
+              <p className={item.tone === "orange" ? "text-xs font-black text-[#F97316]" : "text-xs font-black text-[#2563EB]"}>
+                {item.label}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">{item.city}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="absolute bottom-5 left-5 right-5 z-10 rounded-3xl border border-slate-200 bg-white/92 p-4 shadow-lg backdrop-blur">
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div>
+              <p className="text-sm font-black text-[#0F172A]">Nationwide workflow</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Follow every package from label creation to delivery without jumping between tools.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-black text-[#F97316]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#F97316]" />
+              Live status view
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -430,6 +582,34 @@ export default function Home() {
                   </MotionCard>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Nationwide shipping ── */}
+        <section className="bg-white py-20 sm:py-28">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid items-center gap-12 lg:grid-cols-[0.88fr_1.12fr]">
+              <MotionReveal>
+                <Badge tone="blue">
+                  <MapPinned className="mr-2 h-3.5 w-3.5" />
+                  Nationwide shipping
+                </Badge>
+                <h2 className="mt-5 text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
+                  Ship anywhere in the U.S. with a workflow that feels human.
+                </h2>
+                <p className="mt-5 text-base leading-7 text-[#334155]">
+                  From a seller packing orders to a courier pickup and final delivery, SendiFlash keeps the work visible, organized, and easy to trust.
+                </p>
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <MiniPackingScene />
+                  <MiniPickupScene />
+                </div>
+              </MotionReveal>
+
+              <MotionReveal delay={0.12}>
+                <NationwideShippingVisual />
+              </MotionReveal>
             </div>
           </div>
         </section>

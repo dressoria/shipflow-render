@@ -24,6 +24,51 @@
   text-align: center;
 }
 
+.nationwide-van {
+  animation: sendiflash-drive-route 9s ease-in-out infinite;
+  left: 8%;
+  top: 66%;
+  transform: rotate(-8deg);
+}
+
+@keyframes sendiflash-drive-route {
+  0% {
+    left: 8%;
+    top: 66%;
+    transform: rotate(-8deg);
+  }
+
+  27% {
+    left: 34%;
+    top: 49%;
+    transform: rotate(8deg);
+  }
+
+  54% {
+    left: 55%;
+    top: 69%;
+    transform: rotate(3deg);
+  }
+
+  78% {
+    left: 80%;
+    top: 47%;
+    transform: rotate(-10deg);
+  }
+
+  100% {
+    left: 8%;
+    top: 66%;
+    transform: rotate(-8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nationwide-van {
+    animation: none;
+  }
+}
+
 @media print {
   @page {
     size: A4;
