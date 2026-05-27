@@ -1,20 +1,14 @@
 import {
   ArrowRight,
-  BarChart3,
-  Boxes,
   Building2,
   CheckCircle2,
-  ClipboardCheck,
   CreditCard,
-  Download,
   History,
   MapPinned,
-  Package,
   Printer,
   ScanLine,
   ShieldCheck,
   ShoppingBag,
-  Store,
   Tag,
   Truck,
   Users,
@@ -30,6 +24,8 @@ import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
 import { QuotePreview } from "@/components/QuotePreview";
 import { SectionHeading } from "@/components/SectionHeading";
+import { NationwideRoute } from "@/components/landing/NationwideRoute";
+import { ScrollStory } from "@/components/landing/ScrollStory";
 
 const trustBadges = [
   "Secure payments",
@@ -79,24 +75,6 @@ const features: Array<{ icon: LucideIcon; title: string; text: string }> = [
   },
 ];
 
-const steps: Array<{ icon: LucideIcon; title: string; text: string }> = [
-  {
-    icon: Package,
-    title: "Enter shipment details",
-    text: "Add your From and To addresses, package weight, and dimensions.",
-  },
-  {
-    icon: CreditCard,
-    title: "Compare rates and pay",
-    text: "See available rates across carriers and confirm your label purchase securely.",
-  },
-  {
-    icon: Download,
-    title: "Download your label",
-    text: "Get a print-ready label instantly and track shipment status from your dashboard.",
-  },
-];
-
 const pricingItems: Array<{ label: string; description: string; icon: LucideIcon; colorClass: string }> = [
   {
     label: "Shipping rate",
@@ -141,13 +119,6 @@ const useCases: Array<{ icon: LucideIcon; title: string; text: string }> = [
   },
 ];
 
-const nationwideMilestones = [
-  { label: "Label created", city: "Los Angeles", tone: "blue" },
-  { label: "Picked up", city: "Phoenix", tone: "orange" },
-  { label: "In transit", city: "Dallas", tone: "blue" },
-  { label: "Delivered", city: "Atlanta", tone: "orange" },
-];
-
 function CarrierLogoStrip() {
   return (
     <div className="mt-8">
@@ -174,291 +145,112 @@ function CarrierLogoStrip() {
   );
 }
 
-function MiniPackingScene() {
+function ImageSceneCard({
+  src,
+  title,
+  text,
+  badge,
+  priority = false,
+}: {
+  src: string;
+  title: string;
+  text: string;
+  badge: string;
+  priority?: boolean;
+}) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <div className="flex items-center justify-between">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-100 text-[#F97316]">
-          <Store className="h-5 w-5" />
-        </span>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-          Seller station
-        </span>
-      </div>
-      <div className="mt-6 rounded-2xl bg-[#F8FAFC] p-4">
-        <div className="flex items-end gap-3">
-          <div className="grid gap-2">
-            <span className="block h-11 w-16 rounded-lg bg-[#F97316]/20 ring-1 ring-[#F97316]/20" />
-            <span className="block h-9 w-20 rounded-lg bg-[#2563EB]/15 ring-1 ring-[#2563EB]/20" />
-          </div>
-          <div className="flex-1 rounded-2xl border border-slate-200 bg-white p-3">
-            <div className="h-2.5 w-24 rounded-full bg-slate-300" />
-            <div className="mt-2 h-2.5 w-16 rounded-full bg-slate-200" />
-            <div className="mt-4 flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#2563EB] text-white">
-                <Users className="h-4 w-4" />
-              </span>
-              <div className="h-2.5 flex-1 rounded-full bg-orange-200" />
-            </div>
-          </div>
+    <div className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-950/10">
+      <div className="relative aspect-[1.48] overflow-hidden bg-[#F8FAFC]">
+        <Image
+          src={src}
+          alt={title}
+          fill
+          priority={priority}
+          className="object-cover transition duration-700 group-hover:scale-[1.03]"
+        />
+        <div className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-2 text-xs font-black text-[#F97316] shadow-sm backdrop-blur">
+          {badge}
         </div>
       </div>
-      <p className="mt-4 text-sm font-black text-[#0F172A]">Pack orders faster</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">
-        Keep addresses, parcels, rates, and labels in one calm workspace.
-      </p>
+      <div className="p-6">
+        <h3 className="text-xl font-black text-[#0F172A]">{title}</h3>
+        <p className="mt-3 text-sm leading-6 text-[#334155]">{text}</p>
+      </div>
     </div>
   );
 }
 
-function MiniPickupScene() {
+function TrustMetricsSection() {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <div className="flex items-center justify-between">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-100 text-[#2563EB]">
-          <Truck className="h-5 w-5" />
-        </span>
-        <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-[#F97316]">
-          Pickup
-        </span>
-      </div>
-      <div className="mt-6 overflow-hidden rounded-2xl bg-[#0F172A] p-4">
-        <div className="relative h-28">
-          <div className="absolute bottom-0 left-0 right-0 h-7 rounded-xl bg-slate-800" />
-          <div className="absolute bottom-7 left-4 h-12 w-24 rounded-t-xl bg-white" />
-          <div className="absolute bottom-7 left-28 h-10 w-14 rounded-r-lg bg-[#F97316]" />
-          <span className="absolute bottom-4 left-10 h-6 w-6 rounded-full border-4 border-slate-700 bg-slate-400" />
-          <span className="absolute bottom-4 left-32 h-6 w-6 rounded-full border-4 border-slate-700 bg-slate-400" />
-          <div className="absolute right-4 top-4 grid gap-2">
-            <span className="h-3 w-16 rounded-full bg-white/30" />
-            <span className="h-3 w-10 rounded-full bg-white/20" />
-          </div>
-        </div>
-      </div>
-      <p className="mt-4 text-sm font-black text-[#0F172A]">Move from desk to door</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">
-        Designed around the real shipping day: label, handoff, status, history.
-      </p>
-    </div>
-  );
-}
-
-function NationwideShippingVisual() {
-  return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/10">
-      <div className="relative min-h-[360px] overflow-hidden rounded-[1.5rem] bg-[#F8FAFC] p-5 sm:min-h-[430px] sm:p-7">
-        <div className="absolute inset-0 opacity-80">
-          <svg viewBox="0 0 720 420" className="h-full w-full" role="img" aria-label="Animated nationwide shipping route across the United States">
-            <path
-              d="M92 168 145 112l116-33 131 12 89 48 92 7 64 50-36 74-98 38-115 38-144-11-102-36-56-78z"
-              fill="#FFFFFF"
-              stroke="#DBEAFE"
-              strokeWidth="4"
-            />
-            <path
-              d="M108 287C172 218 235 205 292 222c61 19 87 72 152 74 70 2 105-54 173-83"
-              fill="none"
-              stroke="#2563EB"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray="10 12"
-            />
-            {[
-              [108, 287],
-              [292, 222],
-              [444, 296],
-              [617, 213],
-            ].map(([cx, cy], index) => (
-              <g key={`${cx}-${cy}`}>
-                <circle cx={cx} cy={cy} r="14" fill={index % 2 === 0 ? "#2563EB" : "#F97316"} opacity=".18" />
-                <circle cx={cx} cy={cy} r="6" fill={index % 2 === 0 ? "#2563EB" : "#F97316"} />
-              </g>
-            ))}
-          </svg>
-        </div>
-
-        <div className="nationwide-van pointer-events-none absolute left-0 top-0 z-20">
-          <div className="relative h-14 w-24 rounded-2xl bg-white shadow-xl shadow-slate-950/18 ring-1 ring-slate-200">
-            <div className="absolute bottom-3 left-4 h-7 w-12 rounded-lg bg-[#2563EB]" />
-            <div className="absolute bottom-3 left-[60px] h-6 w-7 rounded-r-lg bg-[#F97316]" />
-            <span className="absolute bottom-1 left-6 h-4 w-4 rounded-full bg-[#0F172A]" />
-            <span className="absolute bottom-1 right-5 h-4 w-4 rounded-full bg-[#0F172A]" />
-          </div>
-        </div>
-
-        <div className="relative z-10 flex flex-wrap gap-3">
-          {nationwideMilestones.map((item) => (
-            <div
-              key={item.label}
-              className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur"
+    <section className="bg-[#0F172A] py-20 text-white sm:py-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+          <MotionReveal>
+            <Badge
+              tone="blue"
+              className="border border-[#2563EB]/40 bg-[#2563EB]/15 text-blue-200 ring-blue-400/25"
             >
-              <p className={item.tone === "orange" ? "text-xs font-black text-[#F97316]" : "text-xs font-black text-[#2563EB]"}>
-                {item.label}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{item.city}</p>
-            </div>
-          ))}
-        </div>
+              <ShieldCheck className="mr-2 h-3.5 w-3.5" />
+              One workflow
+            </Badge>
+            <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
+              Multiple carriers, one calmer shipping desk.
+            </h2>
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
+              SendiFlash brings label creation, payment, tracking, and shipment history into a single operational view for US sellers.
+            </p>
+          </MotionReveal>
 
-        <div className="absolute bottom-5 left-5 right-5 z-10 rounded-3xl border border-slate-200 bg-white/92 p-4 shadow-lg backdrop-blur">
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div>
-              <p className="text-sm font-black text-[#0F172A]">Nationwide workflow</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Follow every package from label creation to delivery without jumping between tools.
-              </p>
+          <MotionReveal delay={0.12}>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                { value: "4", label: "carrier logos visible" },
+                { value: "1", label: "shipping workflow" },
+                { value: "24/7", label: "status visibility" },
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-[1.5rem] border border-white/10 bg-white/7 p-6 shadow-xl shadow-slate-950/15 backdrop-blur transition hover:-translate-y-1 hover:border-orange-300/40"
+                >
+                  <p className="text-4xl font-black text-[#FB923C]">{metric.value}</p>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">{metric.label}</p>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-2 text-xs font-black text-[#F97316]">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#F97316]" />
-              Live status view
+            <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/7 p-5 backdrop-blur">
+              <CarrierLogoStrip />
             </div>
-          </div>
+          </MotionReveal>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
 function LogisticsHeroVisual() {
   return (
     <div className="relative mx-auto max-w-xl">
-      <div className="absolute -inset-4 rounded-[2rem] bg-white/55 blur-2xl" />
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-950/12">
-        <div className="rounded-[1.5rem] bg-[#F8FAFC] p-5">
-          <div className="grid gap-4 sm:grid-cols-[0.86fr_1.14fr]">
-            <div className="rounded-3xl border border-orange-100 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-orange-100 text-[#F97316]">
-                  <Store className="h-5 w-5" />
-                </span>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#2563EB]">
-                  Ready
-                </span>
-              </div>
-              <div className="mt-6 space-y-2">
-                <div className="h-3 w-28 rounded-full bg-slate-200" />
-                <div className="h-3 w-20 rounded-full bg-slate-100" />
-              </div>
-              <div className="mt-5 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#2563EB] text-white">
-                  <Users className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-xs font-black text-[#0F172A]">Packing station</p>
-                  <p className="text-xs text-slate-500">Order ready to ship</p>
-                </div>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <div className="aspect-square rounded-2xl bg-[#F97316]/16 p-3">
-                  <Package className="h-6 w-6 text-[#F97316]" />
-                </div>
-                <div className="aspect-square rounded-2xl bg-[#2563EB]/12 p-3">
-                  <ScanLine className="h-6 w-6 text-[#2563EB]" />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Label preview
-                  </p>
-                  <p className="mt-1 text-lg font-black text-[#0F172A]">NYC to Austin</p>
-                </div>
-                <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-[#F97316]">
-                  Paid
-                </span>
-              </div>
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-                <div className="flex items-center justify-between">
-                  <Boxes className="h-7 w-7 text-[#2563EB]" />
-                  <span className="text-xs font-black text-slate-400">4 lb</span>
-                </div>
-                <div className="mt-4 grid gap-1.5">
-                  <div className="h-2.5 w-full rounded-full bg-slate-300" />
-                  <div className="h-2.5 w-5/6 rounded-full bg-slate-200" />
-                  <div className="h-2.5 w-2/3 rounded-full bg-slate-200" />
-                </div>
-                <div className="mt-5 flex h-12 items-end gap-1">
-                  {Array.from({ length: 16 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="w-full rounded-t-sm bg-[#0F172A]"
-                      style={{ height: `${index % 3 === 0 ? 42 : index % 2 === 0 ? 30 : 22}px` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1.15fr_0.85fr]">
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-[#2563EB]">
-                  <Truck className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-black text-[#0F172A]">Courier pickup</p>
-                  <p className="text-sm text-slate-500">Window confirmed</p>
-                </div>
-              </div>
-              <div className="mt-5 h-20 rounded-2xl bg-[#0F172A] p-3">
-                <div className="flex h-full items-end">
-                  <div className="h-10 w-28 rounded-lg bg-white" />
-                  <div className="h-8 w-14 rounded-r-lg bg-[#F97316]" />
-                  <span className="ml-4 h-5 w-5 rounded-full bg-slate-500" />
-                  <span className="ml-16 h-5 w-5 rounded-full bg-slate-500" />
-                </div>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-orange-100 bg-[#FFF7ED] p-4 shadow-sm">
-              <MapPinned className="h-6 w-6 text-[#F97316]" />
-              <p className="mt-4 text-sm font-black text-[#0F172A]">Tracking live</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
-                Label, status, and shipment history stay together.
-              </p>
-            </div>
-          </div>
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/12">
+        <div className="relative aspect-[1.08] overflow-hidden bg-[#F8FAFC]">
+          <Image
+            src="/landing/fulfillment-station.svg"
+            alt="Seller packing boxes at a SendiFlash shipping station"
+            fill
+            priority
+            className="object-cover"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-white/0" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkflowVisual() {
-  return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-xl shadow-slate-950/7">
-      <div className="rounded-[1.5rem] bg-[#F8FAFC] p-5">
-        <div className="grid gap-3">
-          {[
-            { icon: ClipboardCheck, title: "Shipment details", detail: "Addresses, parcel, dimensions", color: "blue" },
-            { icon: BarChart3, title: "Rate comparison", detail: "Cost, service, delivery estimate", color: "orange" },
-            { icon: Download, title: "Label and tracking", detail: "Download PDF and monitor status", color: "blue" },
-          ].map(({ icon: Icon, title, detail, color }, index) => (
-            <div
-              key={title}
-              className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200"
-            >
-              <span
-                className={
-                  color === "orange"
-                    ? "grid h-12 w-12 place-items-center rounded-2xl bg-orange-100 text-[#F97316]"
-                    : "grid h-12 w-12 place-items-center rounded-2xl bg-blue-100 text-[#2563EB]"
-                }
-              >
-                <Icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-black text-[#0F172A]">{title}</p>
-                <p className="text-sm text-slate-500">{detail}</p>
-              </div>
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
-                {index + 1}
-              </span>
+        <div className="absolute bottom-5 left-5 right-5 rounded-3xl border border-slate-200 bg-white/94 p-4 shadow-xl backdrop-blur">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#F97316] text-white">
+              <ScanLine className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-black text-[#0F172A]">Label ready in one workflow</p>
+              <p className="text-sm text-slate-500">Compare, pay, download, and track.</p>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
@@ -557,6 +349,45 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── Real logistics scenes ── */}
+        <section className="bg-white py-20 sm:py-28">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <MotionReveal>
+                <Badge tone="blue">
+                  <Truck className="mr-2 h-3.5 w-3.5" />
+                  Built around real shipping days
+                </Badge>
+                <h2 className="mt-5 text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
+                  From packing table to pickup, every step feels visible.
+                </h2>
+                <p className="mt-5 text-base leading-7 text-[#334155]">
+                  SendiFlash is designed for online sellers and small teams that need a reliable way to move packages without switching between carrier portals.
+                </p>
+              </MotionReveal>
+              <div className="grid gap-5 md:grid-cols-2">
+                <MotionReveal delay={0.08}>
+                  <ImageSceneCard
+                    src="/landing/fulfillment-station.svg"
+                    title="Prepare labels where orders happen"
+                    text="A shipping desk for addresses, parcels, rates, payment, and label downloads."
+                    badge="Fulfillment"
+                    priority
+                  />
+                </MotionReveal>
+                <MotionReveal delay={0.16}>
+                  <ImageSceneCard
+                    src="/landing/courier-pickup.svg"
+                    title="Keep pickup and delivery status in view"
+                    text="Track the operational handoff from packed order to shipment history."
+                    badge="Pickup"
+                  />
+                </MotionReveal>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── Features ── */}
         <section id="features" className="bg-[#F8FAFC] py-20 sm:py-28">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -589,67 +420,41 @@ export default function Home() {
         {/* ── Nationwide shipping ── */}
         <section className="bg-white py-20 sm:py-28">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid items-center gap-12 lg:grid-cols-[0.88fr_1.12fr]">
+            <div className="grid items-center gap-12 lg:grid-cols-[0.8fr_1.2fr]">
               <MotionReveal>
                 <Badge tone="blue">
                   <MapPinned className="mr-2 h-3.5 w-3.5" />
                   Nationwide shipping
                 </Badge>
                 <h2 className="mt-5 text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
-                  Ship anywhere in the U.S. with a workflow that feels human.
+                  Ship anywhere in the U.S. with a route that feels alive.
                 </h2>
                 <p className="mt-5 text-base leading-7 text-[#334155]">
-                  From a seller packing orders to a courier pickup and final delivery, SendiFlash keeps the work visible, organized, and easy to trust.
+                  Follow a clean coast-to-coast route as each city highlights during transit. It is lightweight, calm, and built for fast scanning.
                 </p>
-                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <MiniPackingScene />
-                  <MiniPickupScene />
+                <div className="mt-8 grid gap-3">
+                  {["Label created", "Carrier selected", "Package in transit", "Delivery status visible"].map((item) => (
+                    <div key={item} className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
+                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-50 text-[#F97316]">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </span>
+                      {item}
+                    </div>
+                  ))}
                 </div>
               </MotionReveal>
 
               <MotionReveal delay={0.12}>
-                <NationwideShippingVisual />
+                <NationwideRoute />
               </MotionReveal>
             </div>
           </div>
         </section>
 
         {/* ── How it works ── */}
-        <section id="how-it-works" className="bg-white py-20 sm:py-28">
+        <section id="how-it-works" className="bg-[#F8FAFC] py-20 sm:py-28">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionHeading
-              eyebrow="How it works"
-              title="From details to delivery in three steps"
-              description="No messy carrier portals. Enter your shipment info, compare rates, and create a label."
-            />
-            <div className="mt-14 grid items-center gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-              <MotionReveal>
-                <WorkflowVisual />
-              </MotionReveal>
-              <div className="grid gap-4">
-                {steps.map((step, index) => {
-                  const Icon = step.icon;
-                  return (
-                    <MotionCard
-                      key={step.title}
-                      delay={index * 0.08}
-                      className="relative rounded-3xl border border-slate-200 bg-[#F8FAFC] p-6 shadow-sm transition hover:border-orange-200 hover:shadow-lg hover:shadow-orange-950/6"
-                    >
-                      <div className="flex items-start gap-4">
-                        <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#F97316] text-lg font-black text-white shadow-lg shadow-orange-500/20">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <Icon className="h-6 w-6 text-[#2563EB]" />
-                          <h3 className="mt-3 text-lg font-black text-slate-950">{step.title}</h3>
-                          <p className="mt-2 text-sm leading-6 text-[#334155]">{step.text}</p>
-                        </div>
-                      </div>
-                    </MotionCard>
-                  );
-                })}
-              </div>
-            </div>
+            <ScrollStory />
           </div>
         </section>
 
@@ -791,6 +596,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <TrustMetricsSection />
 
         {/* ── FAQ ── */}
         <section id="faq" className="bg-white py-20 sm:py-28">

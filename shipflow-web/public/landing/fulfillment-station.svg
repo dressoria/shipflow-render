@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Fulfillment station</title>
+  <desc id="desc">A premium illustration of an ecommerce seller packing boxes at a shipping station.</desc>
+  <rect width="1200" height="760" rx="56" fill="#F8FAFC"/>
+  <rect x="72" y="72" width="1056" height="616" rx="44" fill="#FFFFFF" stroke="#DBEAFE" stroke-width="3"/>
+  <rect x="72" y="72" width="1056" height="178" rx="44" fill="#EFF6FF"/>
+  <path d="M72 204h1056" stroke="#DBEAFE" stroke-width="3"/>
+  <g transform="translate(116 120)">
+    <rect width="218" height="72" rx="22" fill="#FFFFFF"/>
+    <circle cx="42" cy="36" r="18" fill="#2563EB"/>
+    <path d="M35 36h14M42 29v14" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+    <text x="76" y="43" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" fill="#0F172A">Order ready</text>
+  </g>
+  <g transform="translate(816 116)">
+    <rect width="222" height="80" rx="24" fill="#FFFFFF"/>
+    <rect x="24" y="24" width="96" height="12" rx="6" fill="#CBD5E1"/>
+    <rect x="24" y="46" width="150" height="12" rx="6" fill="#93C5FD"/>
+  </g>
+  <g transform="translate(150 322)">
+    <rect x="0" y="186" width="900" height="62" rx="22" fill="#CBD5E1"/>
+    <rect x="46" y="94" width="218" height="142" rx="18" fill="#FED7AA" stroke="#FB923C" stroke-width="4"/>
+    <path d="M46 140h218M155 94v142" stroke="#FB923C" stroke-width="4" opacity=".65"/>
+    <rect x="300" y="42" width="164" height="194" rx="18" fill="#DBEAFE" stroke="#2563EB" stroke-width="4"/>
+    <path d="M300 104h164M382 42v194" stroke="#2563EB" stroke-width="4" opacity=".55"/>
+    <rect x="502" y="124" width="190" height="112" rx="18" fill="#FFF7ED" stroke="#FDBA74" stroke-width="4"/>
+    <path d="M502 166h190M596 124v112" stroke="#FDBA74" stroke-width="4" opacity=".7"/>
+    <rect x="740" y="68" width="150" height="168" rx="22" fill="#0F172A"/>
+    <rect x="762" y="92" width="106" height="20" rx="8" fill="#FFFFFF" opacity=".75"/>
+    <rect x="762" y="126" width="74" height="14" rx="7" fill="#94A3B8"/>
+    <rect x="762" y="162" width="96" height="44" rx="14" fill="#F97316"/>
+  </g>
+  <g transform="translate(214 282)">
+    <circle cx="94" cy="54" r="42" fill="#0F172A"/>
+    <path d="M58 124c10-36 62-36 72 0l16 102H42z" fill="#2563EB"/>
+    <path d="M130 122c52 16 88 45 112 88" stroke="#0F172A" stroke-width="22" stroke-linecap="round"/>
+    <path d="M54 124c-32 28-50 61-54 98" stroke="#0F172A" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="250" cy="218" r="18" fill="#F97316"/>
+  </g>
+  <g transform="translate(738 300)">
+    <rect width="260" height="168" rx="26" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="3"/>
+    <rect x="26" y="28" width="118" height="14" rx="7" fill="#CBD5E1"/>
+    <rect x="26" y="56" width="190" height="14" rx="7" fill="#E2E8F0"/>
+    <rect x="26" y="96" width="208" height="44" rx="14" fill="#EFF6FF"/>
+    <path d="M46 118h120" stroke="#2563EB" stroke-width="8" stroke-linecap="round" stroke-dasharray="8 10"/>
+    <circle cx="204" cy="118" r="11" fill="#F97316"/>
+  </g>
+</svg>

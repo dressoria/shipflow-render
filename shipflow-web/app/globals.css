@@ -24,48 +24,169 @@
   text-align: center;
 }
 
-.nationwide-van {
-  animation: sendiflash-drive-route 9s ease-in-out infinite;
-  left: 8%;
-  top: 66%;
-  transform: rotate(-8deg);
+.route-progress {
+  animation: sendiflash-route-progress 8s ease-in-out infinite;
+  transform-origin: left center;
 }
 
-@keyframes sendiflash-drive-route {
+.route-truck {
+  animation: sendiflash-route-truck 8s ease-in-out infinite;
+  left: 0;
+}
+
+.route-city,
+.route-dot {
+  transition: color 240ms ease, background-color 240ms ease, opacity 240ms ease;
+}
+
+.route-city-1,
+.route-dot-1 {
+  animation: sendiflash-route-highlight-1 8s ease-in-out infinite;
+}
+
+.route-city-2,
+.route-dot-2 {
+  animation: sendiflash-route-highlight-2 8s ease-in-out infinite;
+}
+
+.route-city-3,
+.route-dot-3 {
+  animation: sendiflash-route-highlight-3 8s ease-in-out infinite;
+}
+
+.route-city-4,
+.route-dot-4 {
+  animation: sendiflash-route-highlight-4 8s ease-in-out infinite;
+}
+
+.route-city-5,
+.route-dot-5 {
+  animation: sendiflash-route-highlight-5 8s ease-in-out infinite;
+}
+
+.scroll-story-line {
+  max-height: calc(100% - 5rem);
+  transition: height 520ms ease;
+}
+
+@keyframes sendiflash-route-progress {
   0% {
-    left: 8%;
-    top: 66%;
-    transform: rotate(-8deg);
+    transform: scaleX(0);
   }
 
-  27% {
-    left: 34%;
-    top: 49%;
-    transform: rotate(8deg);
+  18% {
+    transform: scaleX(0.24);
   }
 
-  54% {
-    left: 55%;
-    top: 69%;
-    transform: rotate(3deg);
+  42% {
+    transform: scaleX(0.5);
   }
 
-  78% {
-    left: 80%;
-    top: 47%;
-    transform: rotate(-10deg);
+  68% {
+    transform: scaleX(0.75);
   }
 
   100% {
-    left: 8%;
-    top: 66%;
-    transform: rotate(-8deg);
+    transform: scaleX(1);
+  }
+}
+
+@keyframes sendiflash-route-truck {
+  0% {
+    left: 0;
+  }
+
+  18% {
+    left: 24%;
+  }
+
+  42% {
+    left: 50%;
+  }
+
+  68% {
+    left: 75%;
+  }
+
+  100% {
+    left: calc(100% - 7rem);
+  }
+}
+
+@keyframes sendiflash-route-highlight-1 {
+  0%, 100% {
+    color: #64748b;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  0%, 18% {
+    color: #ffffff;
+    background-color: #2563eb;
+  }
+}
+
+@keyframes sendiflash-route-highlight-2 {
+  0%, 100% {
+    color: #64748b;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  18%, 42% {
+    color: #ffffff;
+    background-color: #f97316;
+  }
+}
+
+@keyframes sendiflash-route-highlight-3 {
+  0%, 100% {
+    color: #64748b;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  42%, 68% {
+    color: #ffffff;
+    background-color: #2563eb;
+  }
+}
+
+@keyframes sendiflash-route-highlight-4 {
+  0%, 100% {
+    color: #64748b;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  68%, 84% {
+    color: #ffffff;
+    background-color: #f97316;
+  }
+}
+
+@keyframes sendiflash-route-highlight-5 {
+  0%, 100% {
+    color: #64748b;
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+
+  84%, 100% {
+    color: #ffffff;
+    background-color: #2563eb;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nationwide-van {
+  .route-progress,
+  .route-truck,
+  .route-city,
+  .route-dot {
     animation: none;
+  }
+
+  .route-progress {
+    transform: scaleX(1);
+  }
+
+  .route-truck {
+    left: calc(100% - 7rem);
   }
 }
 
