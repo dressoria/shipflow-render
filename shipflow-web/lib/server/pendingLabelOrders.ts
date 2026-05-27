@@ -466,11 +466,12 @@ export async function markPendingLabelOrderLabelPurchasePending(
 
 export async function claimPendingLabelOrderForPurchase(
   orderId: string,
-  opts?: { allowTestMode?: boolean },
+  opts?: { allowTestMode?: boolean; allowActionRequiredRetry?: boolean },
 ): Promise<PendingLabelOrder | null> {
   const serviceSupabase = createServiceSupabaseClient();
   const allowedStatuses: PendingLabelOrderStatus[] = ["paid_waiting_label_purchase"];
   if (opts?.allowTestMode) allowedStatuses.push("paid_test_mode");
+  if (opts?.allowActionRequiredRetry) allowedStatuses.push("action_required");
 
   const { data, error } = await serviceSupabase
     .from("pending_label_orders")
@@ -481,6 +482,7 @@ export async function claimPendingLabelOrderForPurchase(
     .eq("id", orderId)
     .in("status", allowedStatuses)
     .is("label_id", null)
+    .is("shipment_id", null)
     .is("tracking_number", null)
     .select("*")
     .maybeSingle<Record<string, unknown>>();
@@ -506,6 +508,7 @@ export async function markPendingLabelOrderLabelPurchased(
       label_id: opts.labelId ?? null,
       tracking_number: opts.trackingNumber,
       processed_at: new Date().toISOString(),
+      error_message: null,
     })
     .eq("id", orderId);
 

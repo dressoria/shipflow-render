@@ -463,7 +463,7 @@ function OrderDetail({
           )}
 
           <div className="mt-6 flex flex-wrap gap-3">
-            {canProcessLabelOrder(order.status) && !order.labelId && !order.trackingNumber && (
+            {canProcessLabelOrder(order.status) && !order.labelId && !order.shipmentId && !order.trackingNumber && (
               <button
                 type="button"
                 disabled={mutating}

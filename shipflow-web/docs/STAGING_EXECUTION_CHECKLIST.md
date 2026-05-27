@@ -633,7 +633,7 @@ New file `lib/label-order-status.ts` exports:
 
 | Export | Purpose |
 |---|---|
-| `CAN_PROCESS_LABEL_STATUSES` | paid_waiting_label_purchase, label_purchase_pending |
+| `CAN_PROCESS_LABEL_STATUSES` | paid_waiting_label_purchase, label_purchase_pending, action_required when no label/shipment/tracking is saved |
 | `CAN_MARK_ACTION_REQUIRED_STATUSES` | pending_payment, paid_test_mode, paid_waiting_*, label_purchase_pending |
 | `CAN_MARK_REFUND_NEEDED_STATUSES` | paid_test_mode, paid_waiting_*, label_purchase_pending, action_required |
 | `CAN_REFUND_LABEL_ORDER_STATUSES` | refund_needed, action_required, paid_test_mode, paid_waiting_* |

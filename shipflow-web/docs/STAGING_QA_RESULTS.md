@@ -133,6 +133,12 @@ URL: `https://sendiflash.com/admin/label-orders`
 | Table updates without manual refresh | TBD | | | |
 | `processed_at` populated in DB | TBD | | | |
 
+Sandbox provider note: ShipEngine/ShipStation sandbox may return repeated placeholder
+tracking numbers such as `1ZXXXXXXXXXXXXXXXX`. ShipFlow now preserves the original
+provider tracking number in `shipments.metadata.provider_tracking_number_original`
+and stores a unique internal `shipments.tracking_number` when needed to satisfy the
+database uniqueness constraint.
+
 ### BLOQUE 8 — User status after Process Label
 
 | Item | Result | Evidence / note | Bug found | Required action |

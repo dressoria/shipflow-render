@@ -5,7 +5,7 @@
 // Requirements:
 //   - Admin auth (profile.role = 'admin' or email in ADMIN_EMAILS).
 //   - ENABLE_REAL_LABEL_PURCHASE=true (hard safety guard, checked in processor).
-//   - Order must be in paid_waiting_label_purchase or label_purchase_pending.
+//   - Order must be in paid_waiting_label_purchase, or action_required with no saved label/shipment/tracking.
 //   - Query param ?allow_test_mode=1 allows processing a paid_test_mode order (admin QA only).
 //
 // The processor (purchaseLabelForPendingOrder) handles all state transitions and audit logging.
@@ -81,7 +81,10 @@ export async function POST(
     const url = new URL(request.url);
     const allowTestMode = url.searchParams.get("allow_test_mode") === "1";
 
-    const result = await purchaseLabelForPendingOrder(id, { allowTestMode });
+    const result = await purchaseLabelForPendingOrder(id, {
+      allowTestMode,
+      allowActionRequiredRetry: true,
+    });
 
     return apiSuccess({
       ...result,

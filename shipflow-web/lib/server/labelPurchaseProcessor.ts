@@ -4,7 +4,7 @@
 //
 // Safety invariants:
 //   - Only runs when ENABLE_REAL_LABEL_PURCHASE=true.
-//   - Only processes orders in paid_waiting_label_purchase or label_purchase_pending status.
+//   - Only processes paid_waiting_label_purchase, or explicit admin retries from clean action_required.
 //   - Order must have paid_at and stripe_payment_intent_id set.
 //   - Idempotent: label_purchased orders return immediately without re-purchasing.
 //   - On provider failure (after payment confirmed): order marked refund_needed.
@@ -37,6 +37,11 @@ import type {
   Parcel,
   RateResult,
 } from "@/lib/logistics/types";
+
+type PersistedShipmentResult = {
+  shipmentId: string;
+  trackingNumber: string;
+};
 
 export type LabelPurchaseResult = {
   orderId: string;
@@ -174,20 +179,118 @@ function buildLabelInput(
   };
 }
 
+export function isPlaceholderTrackingNumber(trackingNumber: string): boolean {
+  const normalized = trackingNumber.trim().toUpperCase();
+  if (!normalized) return false;
+
+  if (normalized === "1ZXXXXXXXXXXXXXXXX") return true;
+  if (/TRACKING\s+NUMBER.*HERE/.test(normalized)) return true;
+  if (/X{8,}/.test(normalized)) return true;
+
+  return false;
+}
+
+function buildInternalTrackingCandidates(providerTrackingNumber: string, orderId: string): string[] {
+  const idParts = orderId.split("-").filter(Boolean);
+  const compactId = orderId.replace(/-/g, "");
+  const firstSuffix = idParts[0] ?? compactId.slice(0, 8);
+  const secondSuffix = idParts[1] ?? compactId.slice(8, 12);
+
+  return [
+    `${providerTrackingNumber}-${firstSuffix}`,
+    `${providerTrackingNumber}-${firstSuffix}-${secondSuffix}`,
+    `${providerTrackingNumber}-${compactId.slice(0, 16)}`,
+  ];
+}
+
+async function resolveTrackingNumberForShipment(
+  serviceSupabase: ReturnType<typeof createServiceSupabaseClient>,
+  order: PendingLabelOrder,
+  providerTrackingNumber: string,
+): Promise<{
+  trackingNumber: string;
+  providerTrackingNumberOriginal?: string;
+  wasPlaceholder: boolean;
+  usedInternalFallback: boolean;
+}> {
+  const wasPlaceholder = isPlaceholderTrackingNumber(providerTrackingNumber);
+  const { data: existingProviderTracking, error: existingProviderTrackingError } =
+    await serviceSupabase
+      .from("shipments")
+      .select("id")
+      .eq("tracking_number", providerTrackingNumber)
+      .maybeSingle<{ id: string }>();
+
+  if (existingProviderTrackingError) {
+    throw new Error(
+      `Could not verify tracking uniqueness: ${existingProviderTrackingError.message}`,
+    );
+  }
+
+  if (!existingProviderTracking) {
+    return {
+      trackingNumber: providerTrackingNumber,
+      providerTrackingNumberOriginal: wasPlaceholder ? providerTrackingNumber : undefined,
+      wasPlaceholder,
+      usedInternalFallback: false,
+    };
+  }
+
+  if (!wasPlaceholder) {
+    throw new Error(
+      `Tracking number already exists and does not look like a sandbox placeholder: ${providerTrackingNumber}`,
+    );
+  }
+
+  const candidates = buildInternalTrackingCandidates(providerTrackingNumber, order.id);
+  const { data: existingCandidates, error: existingCandidatesError } =
+    await serviceSupabase
+      .from("shipments")
+      .select("tracking_number")
+      .in("tracking_number", candidates)
+      .returns<{ tracking_number: string }[]>();
+
+  if (existingCandidatesError) {
+    throw new Error(
+      `Could not verify fallback tracking uniqueness: ${existingCandidatesError.message}`,
+    );
+  }
+
+  const used = new Set((existingCandidates ?? []).map((row) => row.tracking_number));
+  const trackingNumber = candidates.find((candidate) => !used.has(candidate));
+  if (!trackingNumber) {
+    throw new Error(
+      `Could not allocate a unique internal tracking number for placeholder tracking: ${providerTrackingNumber}`,
+    );
+  }
+
+  return {
+    trackingNumber,
+    providerTrackingNumberOriginal: providerTrackingNumber,
+    wasPlaceholder,
+    usedInternalFallback: true,
+  };
+}
+
 // Persists a successfully purchased label as a shipments row.
 // Direct insert via service_role — no wallet debit, no RPC.
 // Stores pending_label_order_id in metadata for reconciliation.
 async function persistShipmentFromPurchasedLabel(
   order: PendingLabelOrder,
   labelResult: LabelResult,
-): Promise<string> {
+): Promise<PersistedShipmentResult> {
   const serviceSupabase = createServiceSupabaseClient();
   const shipmentId = crypto.randomUUID();
+  const trackingResolution = await resolveTrackingNumberForShipment(
+    serviceSupabase,
+    order,
+    labelResult.trackingNumber,
+  );
 
   const { error } = await serviceSupabase.from("shipments").insert({
     id: shipmentId,
     user_id: order.userId,
-    tracking_number: labelResult.trackingNumber,
+    tracking_number: trackingResolution.trackingNumber,
     sender_name: order.origin.name?.trim() || "Sender",
     sender_phone: order.origin.phone?.trim() || "",
     origin_city: order.origin.city,
@@ -222,6 +325,10 @@ async function persistShipmentFromPurchasedLabel(
       pending_label_order_id: order.id,
       stripe_payment_intent_id: order.stripePaymentIntentId ?? null,
       phase: "5.40B",
+      provider_tracking_number_original:
+        trackingResolution.providerTrackingNumberOriginal ?? null,
+      tracking_number_was_placeholder: trackingResolution.wasPlaceholder,
+      tracking_number_internal_fallback: trackingResolution.usedInternalFallback,
     },
   });
 
@@ -229,7 +336,10 @@ async function persistShipmentFromPurchasedLabel(
     throw new Error(`Shipment persist failed: ${error.message}`);
   }
 
-  return shipmentId;
+  return {
+    shipmentId,
+    trackingNumber: trackingResolution.trackingNumber,
+  };
 }
 
 // Inner implementation — called after all entry-point guards pass.
@@ -339,9 +449,9 @@ async function purchaseLabelFromPendingOrder(
   }
 
   // Persist shipment — no wallet debit.
-  let shipmentId: string;
+  let persistedShipment: PersistedShipmentResult;
   try {
-    shipmentId = await persistShipmentFromPurchasedLabel(order, labelResult);
+    persistedShipment = await persistShipmentFromPurchasedLabel(order, labelResult);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err ?? "DB persist failed.");
     // Label exists but DB failed — needs manual reconciliation.
@@ -372,9 +482,9 @@ async function purchaseLabelFromPendingOrder(
 
   // Mark order label_purchased with shipment reference.
   await markPendingLabelOrderLabelPurchased(order.id, {
-    shipmentId,
+    shipmentId: persistedShipment.shipmentId,
     labelId: labelResult.providerLabelId ?? null,
-    trackingNumber: labelResult.trackingNumber,
+    trackingNumber: persistedShipment.trackingNumber,
   });
 
   await createAuditLog({
@@ -387,8 +497,9 @@ async function purchaseLabelFromPendingOrder(
     message: "Label purchased and shipment persisted successfully.",
     metadata: {
       ...logMeta,
-      shipmentId,
-      trackingNumber: labelResult.trackingNumber,
+      shipmentId: persistedShipment.shipmentId,
+      trackingNumber: persistedShipment.trackingNumber,
+      providerTrackingNumberOriginal: labelResult.trackingNumber,
       providerLabelId: labelResult.providerLabelId ?? null,
       hasLabelUrl: Boolean(labelResult.labelUrl),
     },
@@ -396,8 +507,8 @@ async function purchaseLabelFromPendingOrder(
 
   return {
     orderId: order.id,
-    shipmentId,
-    trackingNumber: labelResult.trackingNumber,
+    shipmentId: persistedShipment.shipmentId,
+    trackingNumber: persistedShipment.trackingNumber,
     labelUrl: labelResult.labelUrl,
     providerLabelId: labelResult.providerLabelId ?? null,
     providerShipmentId: labelResult.providerShipmentId ?? null,
@@ -407,7 +518,7 @@ async function purchaseLabelFromPendingOrder(
 // Public entry point. Loads the order, validates all safety guards, then delegates.
 export async function purchaseLabelForPendingOrder(
   orderId: string,
-  opts?: { allowTestMode?: boolean },
+  opts?: { allowTestMode?: boolean; allowActionRequiredRetry?: boolean },
 ): Promise<LabelPurchaseResult> {
   if (process.env.ENABLE_REAL_LABEL_PURCHASE !== "true") {
     throw new Error("ENABLE_REAL_LABEL_PURCHASE is not enabled. Set it to true to purchase labels.");
@@ -462,7 +573,18 @@ export async function purchaseLabelForPendingOrder(
     throw new Error("Order is paid_test_mode and cannot be processed without explicit admin allow_test_mode.");
   }
 
-  if (order.status !== "paid_waiting_label_purchase" && !(opts?.allowTestMode && order.status === "paid_test_mode")) {
+  const canRetryActionRequired =
+    opts?.allowActionRequiredRetry &&
+    order.status === "action_required" &&
+    !order.labelId &&
+    !order.shipmentId &&
+    !order.trackingNumber;
+
+  if (
+    order.status !== "paid_waiting_label_purchase" &&
+    !(opts?.allowTestMode && order.status === "paid_test_mode") &&
+    !canRetryActionRequired
+  ) {
     throw new Error(
       `Order status '${order.status}' does not allow label purchase. ` +
         "Allowed: paid_waiting_label_purchase.",
@@ -480,15 +602,16 @@ export async function purchaseLabelForPendingOrder(
   }
 
   // Guard against ambiguous state: label data present but status not terminal.
-  if (order.labelId || order.trackingNumber) {
+  if (order.labelId || order.shipmentId || order.trackingNumber) {
     throw new Error(
-      "Order already has label data but status is not label_purchased. " +
+      "Order already has label or shipment data but status is not label_purchased. " +
         "This needs manual review — do not re-purchase.",
     );
   }
 
   const claimedOrder = await claimPendingLabelOrderForPurchase(order.id, {
     allowTestMode: opts?.allowTestMode,
+    allowActionRequiredRetry: opts?.allowActionRequiredRetry,
   });
 
   if (!claimedOrder) {

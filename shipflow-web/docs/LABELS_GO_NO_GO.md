@@ -270,6 +270,9 @@ No activar globalmente sin allowlists: un flag global puede capturar pagos o lla
 - Real purchase false: nunca llama carrier.
 - Real purchase true + dueño no allowlisted: nunca llama carrier; status seguro.
 - Admin doble click y webhook duplicado: una sola transición a `label_purchase_pending`.
+- Sandbox providers may return repeated placeholder tracking numbers. ShipFlow preserves
+  the original provider tracking in shipment metadata and stores a unique internal tracking
+  value when needed so `shipments.tracking_number` remains unique.
 
 ### Refund policy técnica
 
@@ -430,7 +433,7 @@ Completado en FASE 5.45 (sin migración requerida):
 | `paid_waiting_label_purchase` | Pagado, label en cola | "Tu label está en cola de procesamiento." | Process label, Mark action_required, Mark refund_needed, Refund, Mark refunded manually | No |
 | `label_purchase_pending` | Label siendo procesada | "Tu label se está procesando." | Process label, Mark action_required, Mark refund_needed | No |
 | `label_purchased` | Label comprada exitosamente | "Tu label está lista." + tracking | — | **Sí** |
-| `action_required` | Revisión de soporte necesaria | "Tu pago fue recibido, pero el envío requiere revisión de soporte." | Mark refund_needed, Refund, Mark refunded manually | No |
+| `action_required` | Revisión de soporte necesaria | "Tu pago fue recibido, pero el envío requiere revisión de soporte." | Process label si no hay `label_id`/`shipment_id`/`tracking_number`, Mark refund_needed, Refund, Mark refunded manually | No |
 | `refund_needed` | Label falló, se requiere refund | "La label no pudo generarse. Soporte revisará tu orden." | Refund (si habilitado), Mark refunded manually | No |
 | `refund_pending` | Refund iniciado en Stripe | "El reembolso se está procesando." | Mark refunded manually | No |
 | `refunded` | Refund completado | "Reembolso completado." | — | **Sí** |

@@ -15,6 +15,7 @@ export const FINAL_LABEL_ORDER_STATUSES: PendingLabelOrderStatus[] = [
 export const CAN_PROCESS_LABEL_STATUSES: PendingLabelOrderStatus[] = [
   "paid_waiting_label_purchase",
   "label_purchase_pending",
+  "action_required",
 ];
 
 export const CAN_MARK_ACTION_REQUIRED_STATUSES: PendingLabelOrderStatus[] = [
