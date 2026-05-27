@@ -2,13 +2,14 @@ import { cn } from "@/lib/utils";
 
 type BadgeProps = {
   children: React.ReactNode;
-  tone?: "blue" | "green" | "amber" | "slate";
+  tone?: "blue" | "orange" | "green" | "amber" | "slate";
   className?: string;
 };
 
 export function Badge({ children, tone = "slate", className }: BadgeProps) {
   const tones = {
-    blue: "bg-pink-50 text-[#FF1493] ring-[#FF73C6]/40",
+    blue: "bg-blue-50 text-[#2563EB] ring-blue-200",
+    orange: "bg-orange-50 text-[#F97316] ring-orange-200",
     green: "bg-green-50 text-[#15803d] ring-green-200",
     amber: "bg-amber-50 text-amber-700 ring-amber-200",
     slate: "bg-slate-100 text-[#6B7280] ring-slate-200",

@@ -1,39 +1,44 @@
 import Link from "next/link";
-import { PackageCheck } from "lucide-react";
+import { Zap } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
 
 export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-[#0F172A] text-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr] lg:px-8">
         <div>
-          <div className="flex items-center gap-3">
-            <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#06B6D4,#22C55E)] text-white">
-              <PackageCheck className="h-5 w-5" />
+          <div className="flex items-center gap-2.5">
+            <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-white">
+              <Zap className="h-[18px] w-[18px]" />
             </span>
             <BrandName className="text-white" />
           </div>
-          <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
-            Multi-carrier shipping for ecommerce, small businesses, and operations teams across the United States.
+          <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">
+            Multi-carrier shipping for small businesses, online sellers, and operations teams. Compare rates, pay securely, ship.
           </p>
         </div>
         <div>
-          <p className="font-bold">Product</p>
-          <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <Link href="/crear-guia" className="hover:text-white">Get rates</Link>
-            <Link href="/envios" className="hover:text-white">Shipments</Link>
-            <Link href="/tracking" className="hover:text-white">Tracking</Link>
+          <p className="text-sm font-bold">Product</p>
+          <div className="mt-4 grid gap-3 text-sm text-slate-400">
+            <Link href="/crear-guia" className="hover:text-white transition">Get rates</Link>
+            <Link href="/envios" className="hover:text-white transition">Shipments</Link>
+            <Link href="/tracking" className="hover:text-white transition">Tracking</Link>
           </div>
         </div>
         <div>
-          <p className="font-bold">Contact</p>
-          <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <a href="mailto:support@shipflow.local" className="hover:text-white">
-              support@shipflow.local
+          <p className="text-sm font-bold">Contact</p>
+          <div className="mt-4 grid gap-3 text-sm text-slate-400">
+            <a href="mailto:support@sendiflash.app" className="hover:text-white transition">
+              support@sendiflash.app
             </a>
-            <Link href="/registro" className="hover:text-white">Create free account</Link>
+            <Link href="/registro" className="hover:text-white transition">Create free account</Link>
           </div>
         </div>
+      </div>
+      <div className="border-t border-white/8 px-4 py-5 sm:px-6 lg:px-8">
+        <p className="mx-auto max-w-7xl text-xs text-slate-500">
+          © {new Date().getFullYear()} SendiFlash. All rights reserved.
+        </p>
       </div>
     </footer>
   );

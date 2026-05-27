@@ -60,19 +60,29 @@ export const couriers = [
 
 export const faqs = [
   {
-    question: "Is ShipFlow connected to real carriers?",
+    question: "Do I need a carrier account?",
     answer:
-      "ShipFlow can compare real carrier rates when server-side carrier credentials are configured. Label purchase is enabled only after the secure label flow is explicitly turned on.",
+      "No. SendiFlash connects to carrier networks on your behalf. You just enter package details and we show available rates — no carrier accounts or contracts needed.",
   },
   {
-    question: "Can sellers create labels from mobile?",
+    question: "Can I compare rates before paying?",
     answer:
-      "Mobile support is planned. For now, the secure rate comparison and label flow are focused on the web app.",
+      "Yes. You always see rate options across carriers before creating a label. Review price, delivery speed, and carrier details before you confirm.",
   },
   {
-    question: "Does wallet balance charge real money?",
+    question: "How are fees shown?",
     answer:
-      "Not yet. Balance screens are ready for product validation and can be connected to payments later.",
+      "Your total includes the shipping rate, a small service fee, and a standard payment processing fee. All fees are itemized and shown before you confirm your purchase.",
+  },
+  {
+    question: "Can I see my label history?",
+    answer:
+      "Yes. All labels and shipments are saved to your account dashboard, including tracking status and label download history.",
+  },
+  {
+    question: "Is payment secure?",
+    answer:
+      "Yes. SendiFlash uses secure payment processing with industry-standard encryption. Your card details are never stored on our servers.",
   },
 ];
 

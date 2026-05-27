@@ -1,11 +1,12 @@
 :root {
-  --background: #f8f9fc;
-  --foreground: #12182b;
-  --pink: #ff1493;
-  --pink-mid: #ff4fb3;
-  --pink-soft: #ff73c6;
-  --ink: #12182b;
-  --muted: #6b7280;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --blue: #2563eb;
+  --blue-dark: #1d4ed8;
+  --orange: #f97316;
+  --orange-soft: #fb923c;
+  --ink: #0f172a;
+  --muted: #64748b;
 }
 
 html {
@@ -21,26 +22,26 @@ body {
 
 .premium-grid {
   background-image:
-    linear-gradient(rgba(255, 20, 147, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 115, 198, 0.08) 1px, transparent 1px);
+    linear-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.07) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
 .glass-panel {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px);
-  box-shadow: 0 24px 80px rgba(255, 20, 147, 0.14);
+  box-shadow: 0 24px 80px rgba(37, 99, 235, 0.12);
 }
 
 .brand-glow {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.18) inset,
-    0 18px 70px rgba(255, 20, 147, 0.34),
-    0 0 48px rgba(255, 79, 179, 0.24);
+    0 18px 70px rgba(249, 115, 22, 0.30),
+    0 0 48px rgba(37, 99, 235, 0.24);
 }
 
 .dark-glass {
-  background: rgba(18, 24, 43, 0.88);
+  background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(22px);
   border-color: rgba(255, 255, 255, 0.12);
 }

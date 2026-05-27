@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, PackageCheck, X } from "lucide-react";
+import { Menu, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { BrandName } from "@/components/BrandName";
 import { Button } from "@/components/Button";
 
 const nav = [
-  { label: "Benefits", href: "#beneficios" },
-  { label: "Carriers", href: "#couriers" },
-  { label: "How it works", href: "#como-funciona" },
-  { label: "Pricing", href: "#pagos" },
+  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -19,17 +18,21 @@ export function Header() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border border-white/70 bg-white/82 px-4 shadow-2xl shadow-slate-950/10 backdrop-blur-2xl sm:px-5 lg:px-6">
-        <Link href="/" className="flex items-center gap-3 rounded-2xl bg-[#0F172A]/82 px-2.5 py-2 shadow-lg shadow-slate-950/20 backdrop-blur-md ring-1 ring-white/15">
-          <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#06B6D4,#22C55E)] text-white">
-            <PackageCheck className="h-5 w-5" />
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border border-white/80 bg-white/88 px-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl sm:px-5 lg:px-6">
+        <Link href="/" className="flex items-center gap-2.5 rounded-2xl px-1 py-1">
+          <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#2563EB,#F97316)] text-white">
+            <Zap className="h-4.5 w-4.5 h-[18px] w-[18px]" />
           </span>
-          <BrandName className="text-base text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.38)]" />
+          <BrandName className="text-base" />
         </Link>
 
-        <nav className="hidden items-center gap-7 text-sm font-bold text-[#64748B] md:flex">
+        <nav className="hidden items-center gap-7 text-sm font-semibold text-[#64748B] md:flex">
           {nav.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-[#06B6D4]">
+            <a
+              key={item.href}
+              href={item.href}
+              className="transition hover:text-[#2563EB]"
+            >
               {item.label}
             </a>
           ))}
@@ -39,13 +42,15 @@ export function Header() {
           <Button href="/login" variant="ghost">
             Sign in
           </Button>
-          <Button href="/registro" className="rounded-2xl">Create account</Button>
+          <Button href="/registro" className="rounded-2xl">
+            Start shipping
+          </Button>
         </div>
 
         <button
           type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="grid h-10 w-10 place-items-center rounded-2xl border border-cyan-200 bg-white/80 text-slate-700 md:hidden"
+          onClick={() => setOpen((v) => !v)}
+          className="grid h-10 w-10 place-items-center rounded-2xl border border-blue-100 bg-white text-slate-700 md:hidden"
           aria-label="Open menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -53,14 +58,14 @@ export function Header() {
       </div>
 
       {open ? (
-        <div className="mx-auto mt-2 max-w-7xl rounded-3xl border border-white/70 bg-white/92 px-4 py-4 shadow-xl shadow-slate-950/10 backdrop-blur-2xl md:hidden">
-          <nav className="grid gap-2">
+        <div className="mx-auto mt-2 max-w-7xl rounded-3xl border border-white/80 bg-white/95 px-4 py-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl md:hidden">
+          <nav className="grid gap-1">
             {nav.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="rounded-2xl px-3 py-3 text-sm font-bold text-slate-700 hover:bg-cyan-50 hover:text-[#06B6D4]"
+                className="rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2563EB]"
               >
                 {item.label}
               </a>
@@ -68,7 +73,7 @@ export function Header() {
           </nav>
           <div className="mt-4 grid gap-3">
             <Button href="/registro" className="w-full">
-              Create account
+              Start shipping
             </Button>
             <Button href="/login" variant="secondary" className="w-full">
               Sign in

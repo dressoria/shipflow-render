@@ -12,7 +12,7 @@ export function SectionHeading({
   return (
     <div className="mx-auto max-w-2xl text-center">
       {eyebrow ? (
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#FF1493]">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#2563EB]">
           {eyebrow}
         </p>
       ) : null}
@@ -20,7 +20,7 @@ export function SectionHeading({
         {title}
       </h2>
       {description ? (
-        <p className="mt-4 text-base leading-7 text-slate-600">{description}</p>
+        <p className="mt-4 text-base leading-7 text-[#334155]">{description}</p>
       ) : null}
     </div>
   );
