@@ -120,7 +120,7 @@ export function AddressMapPicker({ value, onSelect, apiKey }: Props) {
           );
           onSelect(parsed);
           if (parsed.validationStatus === "needs_review") {
-            setStatusMsg("Address applied. Review the ZIP or complete the address manually.");
+            setStatusMsg("Address applied. Review the postal code or complete the address manually.");
           } else {
             setStatusMsg("Address applied automatically. You can edit the fields if needed.");
           }

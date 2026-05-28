@@ -26,6 +26,7 @@ import {
 } from "@/lib/server/pendingLabelOrders";
 import { createAuditLog, createReconciliationEvent } from "@/lib/server/auditLog";
 import { canPurchaseRealLabelForUserId } from "@/lib/server/featureGates";
+import { validateDomesticShipmentCountries } from "@/lib/domesticMarkets";
 import type {
   PendingLabelOrder,
   PendingLabelOrderParcel,
@@ -91,6 +92,9 @@ export function validateOrderSnapshots(order: PendingLabelOrder): void {
     throw new Error("Invalid rate snapshot: customerPrice must be positive.");
   }
   if (!rs.currency?.trim()) throw new Error("Invalid rate snapshot: missing currency.");
+  if (rs.currency.trim().toUpperCase() !== "USD") {
+    throw new Error("Invalid rate snapshot: only USD rates are supported right now.");
+  }
 
   const o = order.origin;
   if (!o?.street1?.trim()) throw new Error("Invalid origin: street1 is required.");
@@ -103,6 +107,7 @@ export function validateOrderSnapshots(order: PendingLabelOrder): void {
   if (!d.city?.trim()) throw new Error("Invalid destination: city is required.");
   if (!d.state?.trim()) throw new Error("Invalid destination: state is required.");
   if (!d.postalCode?.trim()) throw new Error("Invalid destination: postalCode is required.");
+  validateDomesticShipmentCountries(o, d);
 
   const p = order.parcel;
   if (!p || !Number.isFinite(p.weight) || p.weight <= 0) {

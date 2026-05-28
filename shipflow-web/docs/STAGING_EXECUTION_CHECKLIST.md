@@ -1235,3 +1235,55 @@ No-go if any of the following:
 - [ ] Wallet debit amount differs from Stripe charged amount for same rate
 - [ ] Admin table does not show cost breakdown for shipments with `provider_cost`
 - [ ] Negative margin persists in any calculated price
+
+---
+
+## FASE 5.55 — Multi-country Domestic Shipping Readiness Checklist
+
+### 1. Supported domestic countries
+- [ ] Origin country dropdown includes United States, Canada, Spain, Germany, France, and United Kingdom
+- [ ] Destination country dropdown includes United States, Canada, Spain, Germany, France, and United Kingdom
+- [ ] `UK` values normalize to `GB` in server validation
+
+### 2. Existing US flow
+- [ ] US → US address entry still works
+- [ ] US → US rates still return with configured provider
+- [ ] US → US card checkout still uses server-computed USD price
+- [ ] US → US wallet purchase still uses server-computed USD price
+- [ ] Automatic label processing still completes when provider returns a label
+
+### 3. Selected same-country markets
+- [ ] ES → ES passes form validation and attempts rates
+- [ ] DE → DE passes form validation and attempts rates
+- [ ] CA → CA passes form validation and attempts rates
+- [ ] If provider returns no services, UI shows: "No rates were returned for this route. This market may require carrier setup."
+- [ ] Checkout is not available when no rates are returned
+
+### 4. Cross-border blocks
+- [ ] ES → DE is blocked before rates
+- [ ] US → CA is blocked before rates
+- [ ] GB → FR is blocked before rates
+- [ ] User sees: "International shipping is coming soon. For now, SendiFlash supports domestic shipments within selected countries."
+
+### 5. Unsupported country blocks
+- [ ] Unsupported country is blocked before rates
+- [ ] User sees: "This country is not available yet."
+
+### 6. Currency guardrails
+- [ ] Non-USD rate snapshot cannot create Stripe label checkout
+- [ ] Non-USD pending order cannot be processed into a label
+- [ ] No currency conversion is attempted
+
+### 7. Metadata and admin visibility
+- [ ] Card order rate snapshot includes `originCountry`, `destinationCountry`, and `domesticMarket`
+- [ ] Wallet shipment metadata includes `originCountry`, `destinationCountry`, and `domesticMarket`
+- [ ] Admin can inspect country/market metadata where JSON details are available
+
+### Go / No-go
+No-go if any of the following:
+- [ ] Cross-border route reaches provider rates or checkout
+- [ ] Unsupported country reaches provider rates or checkout
+- [ ] Non-USD amount is charged or debited
+- [ ] Existing US domestic flow breaks
+- [ ] Automatic label processing breaks
+- [ ] Env files, migrations, secrets, customs, refunds, or voids are changed unexpectedly

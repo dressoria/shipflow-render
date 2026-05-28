@@ -39,6 +39,13 @@ import {
   type UserLabelOrderStatus,
 } from "@/lib/services/apiClient";
 import { getAvailableBalance } from "@/lib/services/balanceService";
+import {
+  getDomesticCountryName,
+  INTERNATIONAL_SHIPPING_SOON_MESSAGE,
+  normalizeCountryCode,
+  UNSUPPORTED_COUNTRY_MESSAGE,
+  validateDomesticShipmentCountries,
+} from "@/lib/domesticMarkets";
 import { getUserFacingLabelOrderMessage, isErrorLabelOrderStatus } from "@/lib/label-order-status";
 import type { Envio, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
@@ -330,9 +337,13 @@ export function CreateGuideForm() {
     else if (!isPhone(addr.phone)) next[`${prefix}.phone`] = "Invalid phone number.";
     if (!addr.street1?.trim()) next[`${prefix}.street1`] = "Street address is required.";
     if (!addr.city?.trim()) next[`${prefix}.city`] = "Required field.";
-    if (!addr.state?.trim()) next[`${prefix}.state`] = "State is required.";
-    if (!addr.postalCode?.trim()) next[`${prefix}.postalCode`] = "ZIP is required.";
-    if ((addr.country || "US") !== "US") next[`${prefix}.country`] = "United States only.";
+    if (!addr.state?.trim()) next[`${prefix}.state`] = "State / province / region is required.";
+    if (!addr.postalCode?.trim()) next[`${prefix}.postalCode`] = "Postal code is required.";
+    try {
+      validateDomesticShipmentCountries(addr, addr);
+    } catch {
+      next[`${prefix}.country`] = UNSUPPORTED_COUNTRY_MESSAGE;
+    }
     return next;
   }
 
@@ -342,6 +353,13 @@ export function CreateGuideForm() {
       ...validateAddress(form.destination, "destination"),
       ...(!form.productType ? { productType: "Required field." } : {}),
     };
+    try {
+      validateDomesticShipmentCountries(form.origin, form.destination);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : INTERNATIONAL_SHIPPING_SOON_MESSAGE;
+      next.form = message;
+      next["destination.country"] = message;
+    }
     const weight = Number(form.weight);
     const length = Number(form.length);
     const width = Number(form.width);
@@ -372,6 +390,7 @@ export function CreateGuideForm() {
       city: errors["origin.city"],
       state: errors["origin.state"],
       postalCode: errors["origin.postalCode"],
+      country: errors["origin.country"],
     };
   }
 
@@ -383,6 +402,7 @@ export function CreateGuideForm() {
       city: errors["destination.city"],
       state: errors["destination.state"],
       postalCode: errors["destination.postalCode"],
+      country: errors["destination.country"],
     };
   }
 
@@ -391,7 +411,10 @@ export function CreateGuideForm() {
     const packageFields = ["weight", "length", "width", "height"].filter((key) => errs[key]);
 
     if (addressFields.length > 0) {
-      return "Complete street address, city, state, and ZIP for both From and To before getting rates.";
+      if (errs.form === INTERNATIONAL_SHIPPING_SOON_MESSAGE || errs.form === UNSUPPORTED_COUNTRY_MESSAGE) {
+        return errs.form;
+      }
+      return "Complete street address, city, state/province, and postal code for both From and To before getting rates.";
     }
     if (packageFields.length > 0) {
       return "Complete package weight, length, width, and height.";
@@ -404,12 +427,12 @@ export function CreateGuideForm() {
       return "No real rate integrations are configured yet.";
     }
     if (result?.diagnostic === "address_incomplete") {
-      return "Review street address, city, state, and ZIP.";
+      return "Review street address, city, state/province, and postal code.";
     }
     if (result?.diagnostic === "providers_failed") {
-      return "We could not find rates for this route with the details entered. Review the address, ZIP, and dimensions.";
+      return "No rates were returned for this route. This market may require carrier setup.";
     }
-    return "We could not find rates for this route with the details entered. Review the address, ZIP, and dimensions.";
+    return "No rates were returned for this route. This market may require carrier setup.";
   }
 
   // ── Fetch real rates ────────────────────────────────────────────────────────
@@ -443,6 +466,7 @@ export function CreateGuideForm() {
     setErrors({});
 
     try {
+      const { countryCode } = validateDomesticShipmentCountries(form.origin, form.destination);
       const result = await apiGetRates({
         mode: "best_available",
         origin: {
@@ -451,7 +475,7 @@ export function CreateGuideForm() {
           city: form.origin.city,
           postalCode: form.origin.postalCode,
           state: form.origin.state,
-          country: "US",
+          country: countryCode,
         },
         destination: {
           line1: form.destination.street1,
@@ -459,7 +483,7 @@ export function CreateGuideForm() {
           city: form.destination.city,
           postalCode: form.destination.postalCode,
           state: form.destination.state,
-          country: "US",
+          country: countryCode,
         },
         parcel: {
           weight: Number(form.weight),
@@ -487,12 +511,14 @@ export function CreateGuideForm() {
         setRatesError("No real rate integrations are configured yet.");
       } else if (msg.toLowerCase().includes("supabase") || msg.toLowerCase().includes("not configured")) {
         setRatesError("The server is not configured correctly for rates.");
+      } else if (msg === INTERNATIONAL_SHIPPING_SOON_MESSAGE || msg === UNSUPPORTED_COUNTRY_MESSAGE) {
+        setRatesError(msg);
       } else if (msg.toLowerCase().includes("address") || msg.toLowerCase().includes("postal") || msg.toLowerCase().includes("zip")) {
-        setRatesError("Review street address, city, state, and ZIP.");
+        setRatesError("Review street address, city, state/province, and postal code.");
       } else if (msg.toLowerCase().includes("parcel") || msg.toLowerCase().includes("weight")) {
         setRatesError("Complete package weight, length, width, and height.");
       } else {
-        setRatesError("We could not find rates for this route with the details entered. Review the address, ZIP, and dimensions.");
+        setRatesError("No rates were returned for this route. This market may require carrier setup.");
       }
     } finally {
       setFetchingRates(false);
@@ -539,6 +565,7 @@ export function CreateGuideForm() {
     setInsufficientBalance(false);
 
     try {
+      const { countryCode } = validateDomesticShipmentCountries(form.origin, form.destination);
       const result: CreateLabelResult = await apiCreateLabel({
         provider: rateProvider,
         providerRateId: selectedApiRate.providerRateId,
@@ -548,13 +575,13 @@ export function CreateGuideForm() {
           city: form.origin.city,
           postalCode: form.origin.postalCode,
           state: form.origin.state,
-          country: "US",
+          country: countryCode,
         },
         destination: {
           city: form.destination.city,
           postalCode: form.destination.postalCode,
           state: form.destination.state,
-          country: "US",
+          country: countryCode,
           line1: form.destination.street1,
           line2: form.destination.street2 || undefined,
         },
@@ -583,6 +610,9 @@ export function CreateGuideForm() {
           markupMinimum: selectedApiRate.pricing.markupMinimum,
           paymentFeePercentage: selectedApiRate.pricing.paymentFeePercentage,
           paymentFeeFixed: selectedApiRate.pricing.paymentFeeFixed,
+          originCountry: countryCode,
+          destinationCountry: countryCode,
+          domesticMarket: countryCode,
         },
         idempotencyKey: idempotencyKeyRef.current,
         senderName: form.origin.name?.trim() || undefined,
@@ -625,7 +655,7 @@ export function CreateGuideForm() {
           form: "The carrier could not generate this label. Please try another rate or contact support.",
         });
       } else if (lowerMsg.includes("line1") || lowerMsg.includes("postal") || lowerMsg.includes("city")) {
-        setErrors({ form: "Review street address, city, state, and ZIP before creating the label." });
+        setErrors({ form: "Review street address, city, state/province, and postal code before creating the label." });
       } else if (lowerMsg.includes("parcel") || lowerMsg.includes("weight") || lowerMsg.includes("dimensions")) {
         setErrors({ form: "Complete package weight, length, width, and height." });
       } else {
@@ -663,6 +693,7 @@ export function CreateGuideForm() {
     setErrors({});
 
     try {
+      const { countryCode } = validateDomesticShipmentCountries(form.origin, form.destination);
       const result = await apiCreateLabelCheckoutSession({
         provider: selectedApiRate.provider,
         serviceCode: selectedApiRate.serviceCode,
@@ -681,10 +712,13 @@ export function CreateGuideForm() {
             subtotal: selectedApiRate.pricing.subtotal,
             paymentFee: selectedApiRate.pricing.paymentFee,
             customerPrice: selectedApiRate.pricing.customerPrice,
+            originCountry: countryCode,
+            destinationCountry: countryCode,
+            domesticMarket: countryCode,
           },
         },
-        origin: form.origin,
-        destination: form.destination,
+        origin: { ...form.origin, country: countryCode },
+        destination: { ...form.destination, country: countryCode },
         parcel: {
           weight: Number(form.weight),
           weightUnit: form.weightUnit,
@@ -785,7 +819,7 @@ export function CreateGuideForm() {
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">Get rates</p>
               <p className="mt-1 text-sm text-slate-500">
-                Compare rates with a From address, To address, and package details. We automatically look for the best available rate.
+                Compare rates with a From address, To address, and package details. We support domestic shipments within selected countries.
               </p>
             </div>
 
@@ -1456,7 +1490,7 @@ function AddressSummary({ addr }: { addr: StructuredAddress }) {
   const isComplete = addr.validationStatus === "complete";
   const isNeedsReview = addr.validationStatus === "needs_review";
   const parts = [addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ");
-  const countryPart = addr.country && addr.country !== "US" ? ` · ${addr.country}` : "";
+  const countryPart = ` · ${getDomesticCountryName(normalizeCountryCode(addr.country))}`;
 
   return (
     <div

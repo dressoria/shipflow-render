@@ -8,6 +8,7 @@ import {
   ProviderUnavailableError,
 } from "@/lib/logistics/errors";
 import { applyMarkup } from "@/lib/logistics/pricing";
+import { validateDomesticShipmentCountries } from "@/lib/domesticMarkets";
 import type { LogisticsAdapter } from "@/lib/logistics/adapters/LogisticsAdapter";
 import type {
   CreateLabelInput,
@@ -501,16 +502,19 @@ function requireShipEngineAddress(input: RateInput): void {
   ];
   if (required.some((value) => !value?.trim())) {
     throw new InvalidAddressError(
-      "Complete street, city, state, and ZIP for origin and destination.",
+      "Complete street, city, state/province, and postal code for origin and destination.",
     );
   }
-  if ((input.origin.country ?? "US") !== "US" || (input.destination.country ?? "US") !== "US") {
-    throw new InvalidAddressError("Only US domestic ShipEngine rates are supported right now.");
+  try {
+    validateDomesticShipmentCountries(input.origin, input.destination);
+  } catch (error) {
+    throw new InvalidAddressError(error instanceof Error ? error.message : "This route is not available yet.");
   }
 }
 
 function buildShipEngineRatesPayload(input: RateInput, carrierIds: string[]) {
   requireShipEngineAddress(input);
+  const { countryCode } = validateDomesticShipmentCountries(input.origin, input.destination);
 
   if (!Number.isFinite(input.parcel.weight) || input.parcel.weight <= 0) {
     throw new InvalidPayloadError(
@@ -544,7 +548,7 @@ function buildShipEngineRatesPayload(input: RateInput, carrierIds: string[]) {
         city_locality: input.destination.city.trim(),
         state_province: input.destination.state!.trim(),
         postal_code: input.destination.postalCode!.trim(),
-        country_code: "US",
+        country_code: countryCode,
         address_residential_indicator: "yes",
       },
       ship_from: {
@@ -555,7 +559,7 @@ function buildShipEngineRatesPayload(input: RateInput, carrierIds: string[]) {
         city_locality: input.origin.city.trim(),
         state_province: input.origin.state!.trim(),
         postal_code: input.origin.postalCode!.trim(),
-        country_code: "US",
+        country_code: countryCode,
         address_residential_indicator: "no",
       },
       packages: [
@@ -672,9 +676,9 @@ function handleShipStationHttpError(status: number, mode: "legacy" | "shipengine
     throw new ProviderRateLimitError();
   }
   if (status === 400 || status === 422) {
-    throw new InvalidPayloadError(
-      `${providerName} rejected the payload. Verify address, ZIP, dimensions, and weight.`,
-    );
+      throw new InvalidPayloadError(
+        `${providerName} rejected the payload. Verify address, postal code, dimensions, and weight.`,
+      );
   }
   throw new ProviderUnavailableError(
     `${providerName} returned an unexpected error (HTTP ${status}).`,

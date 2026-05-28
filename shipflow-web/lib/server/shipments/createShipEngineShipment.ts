@@ -14,6 +14,7 @@ import {
   isServiceRoleConfigured,
 } from "@/lib/server/supabaseServer";
 import { createAuditLog, createReconciliationEvent } from "@/lib/server/auditLog";
+import { validateDomesticShipmentCountries } from "@/lib/domesticMarkets";
 import type { Address, CreateLabelInput, LabelResult, Parcel, RateResult } from "@/lib/logistics/types";
 import type { Envio } from "@/lib/types";
 
@@ -67,10 +68,12 @@ function validateBody(body: ShipEngineLabelBody) {
     body.destination?.postalCode,
   ];
   if (required.some((value) => !value?.trim())) {
-    throw new Response("Complete street address, city, state, and ZIP for both From and To.", { status: 400 });
+    throw new Response("Complete street address, city, state/province, and postal code for both From and To.", { status: 400 });
   }
-  if ((body.origin.country ?? "US") !== "US" || (body.destination.country ?? "US") !== "US") {
-    throw new Response("Only U.S. domestic ShipEngine labels are supported right now.", { status: 400 });
+  try {
+    validateDomesticShipmentCountries(body.origin, body.destination);
+  } catch (error) {
+    throw new Response(error instanceof Error ? error.message : "This route is not available yet.", { status: 400 });
   }
   if (
     !Number.isFinite(Number(body.parcel?.weight)) || Number(body.parcel.weight) <= 0 ||
@@ -210,6 +213,8 @@ function buildRpcParams(
   idempotencyKey: string,
   pricing = calculateCustomerPrice(labelResult.rate.pricing.providerCost),
 ): Record<string, unknown> {
+  const { countryCode } = validateDomesticShipmentCountries(body.origin, body.destination);
+
   return {
     p_user_id: userId,
     p_idempotency_key: idempotencyKey,
@@ -243,6 +248,9 @@ function buildRpcParams(
       labelUrl: labelResult.labelUrl,
       carrierCode: labelResult.rate.courierId,
       serviceCode: labelResult.rate.serviceCode,
+      originCountry: countryCode,
+      destinationCountry: countryCode,
+      domesticMarket: countryCode,
     },
     p_payment_fee: pricing.paymentFee,
     p_pricing_subtotal: pricing.subtotal,

@@ -7,7 +7,7 @@ import type { LucideIcon } from "lucide-react";
 const storySteps: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
     icon: Package,
-    title: "Create your US shipment",
+    title: "Create your domestic shipment",
     text: "Enter addresses, parcel details, and shipping preferences in one focused flow.",
   },
   {

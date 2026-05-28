@@ -60,7 +60,7 @@ function buildEasyshipAddress(address: RateInput["origin"], fallbackName: string
 
   if (!line1 || !city || !state || !postalCode) {
     throw new InvalidAddressError(
-      "Complete street, city, state, and ZIP for Easyship rates.",
+      "Complete street, city, state/province, and postal code for Easyship rates.",
     );
   }
   if ((address.country ?? "US") !== "US") {
@@ -139,9 +139,9 @@ function handleEasyshipHttpError(status: number): never {
   }
   if (status === 429) throw new ProviderRateLimitError();
   if (status === 400 || status === 422) {
-    throw new InvalidPayloadError(
-      "Easyship rejected the payload. Verify address, ZIP, dimensions, weight, and item data.",
-    );
+      throw new InvalidPayloadError(
+        "Easyship rejected the payload. Verify address, postal code, dimensions, weight, and item data.",
+      );
   }
   throw new ProviderUnavailableError(
     `Easyship returned an unexpected error (HTTP ${status}).`,

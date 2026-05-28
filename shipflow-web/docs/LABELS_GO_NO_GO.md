@@ -643,3 +643,54 @@ The server always recalculates `customer_price` from `provider_cost` before crea
 - Payment fee breakdown (stored in `pricing_breakdown` JSON, not surfaced in table)
 - Aggregate margin reports (no accounting dashboard in this phase)
 - Historical orders before FASE 5.10 may have `provider_cost = null`
+
+---
+
+## FASE 5.55 — Multi-country Domestic Shipping Readiness
+
+### Operating mode
+
+SendiFlash now supports selected **domestic-by-country** markets at the validation and provider payload layer. It does not support cross-border/international shipping yet.
+
+Supported initial domestic markets:
+- `US` — United States
+- `CA` — Canada
+- `ES` — Spain
+- `DE` — Germany
+- `FR` — France
+- `GB` — United Kingdom (`UK` normalizes to `GB`)
+
+### Go conditions
+
+- Origin and destination countries are the same.
+- Country is in the supported domestic allowlist.
+- Provider returns a USD rate.
+- Existing pricing/margin rules produce a valid customer price.
+- Label purchase still revalidates server-side.
+
+### No-go conditions
+
+- Origin and destination countries differ.
+- Country is not in the supported allowlist.
+- Provider returns no usable rates for that market.
+- Provider returns non-USD pricing.
+- Any route requires customs, duties, taxes, export documents, or cross-border handling.
+
+### Safety invariants
+
+| Risk | Mitigation |
+|---|---|
+| Cross-border route enters provider checkout | Central `validateDomesticShipmentCountries()` blocks before rates, checkout, wallet label purchase, and label processing. |
+| Unsupported country reaches provider | Country allowlist blocks it before provider calls. |
+| `UK`/`GB` inconsistency | Country normalization maps `UK` to `GB`. |
+| No provider setup for selected country | UI shows a friendly no-rate/market setup message and does not allow checkout. |
+| Non-USD amount silently charged | Label checkout and label processor block non-USD snapshots. |
+
+### Known limitations
+
+- No customs/adduanas flow.
+- No international shipping.
+- No duties/taxes calculation.
+- No multi-currency conversion.
+- Carrier availability by country depends on existing provider/account setup.
+- Google Places/manual address parsing remains intentionally lightweight; non-US users may need manual province/postal edits.

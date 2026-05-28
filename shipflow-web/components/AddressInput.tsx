@@ -8,6 +8,14 @@ import {
   parsePastedUSAddress,
   US_STATE_CODES,
 } from "@/lib/googleMapsUtils";
+import {
+  getDomesticCountryName,
+  getGooglePlacesCountryRestrictions,
+  isSupportedDomesticCountry,
+  normalizeCountryCode,
+  SUPPORTED_DOMESTIC_COUNTRIES,
+  UNSUPPORTED_COUNTRY_MESSAGE,
+} from "@/lib/domesticMarkets";
 import { AddressMapPicker } from "@/components/AddressMapPicker";
 import type { StructuredAddress } from "@/lib/types";
 
@@ -64,12 +72,14 @@ type Props = {
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const HAS_GOOGLE_MAPS = Boolean(GOOGLE_MAPS_KEY);
+const GOOGLE_COUNTRY_RESTRICTIONS = getGooglePlacesCountryRestrictions();
 
-function toUSAddress(current: StructuredAddress, partial: Partial<StructuredAddress>): StructuredAddress {
+function toSupportedAddress(current: StructuredAddress, partial: Partial<StructuredAddress>): StructuredAddress {
+  const country = normalizeCountryCode(partial.country ?? current.country);
   const next = {
     ...current,
     ...partial,
-    country: "US",
+    country,
   };
 
   return {
@@ -116,7 +126,7 @@ export function AddressInput({
     const autocomplete = new window.google.maps.places.Autocomplete(searchRef.current, {
       types: ["geocode"],
       fields: ["address_components", "geometry", "formatted_address", "place_id"],
-      componentRestrictions: { country: "us" },
+      componentRestrictions: { country: GOOGLE_COUNTRY_RESTRICTIONS },
     });
 
     autocomplete.addListener("place_changed", () => {
@@ -131,8 +141,8 @@ export function AddressInput({
         "google_places",
       );
 
-      if ((parsed.country ?? "US") !== "US") {
-        setAddressError("For now, ShipFlow only supports shipments within the United States.");
+      if (!isSupportedDomesticCountry(parsed.country)) {
+        setAddressError(UNSUPPORTED_COUNTRY_MESSAGE);
         return;
       }
 
@@ -140,7 +150,7 @@ export function AddressInput({
       setSearchText(place.formatted_address ?? "");
       const current = valueRef.current;
       onChange(
-        toUSAddress(current, {
+        toSupportedAddress(current, {
           ...parsed,
           name: current.name,
           phone: current.phone,
@@ -158,7 +168,7 @@ export function AddressInput({
     const cityAutocomplete = new window.google.maps.places.Autocomplete(cityRef.current, {
       types: ["(cities)"],
       fields: ["address_components", "geometry", "formatted_address", "place_id"],
-      componentRestrictions: { country: "us" },
+      componentRestrictions: { country: GOOGLE_COUNTRY_RESTRICTIONS },
     });
 
     cityAutocomplete.addListener("place_changed", () => {
@@ -173,17 +183,17 @@ export function AddressInput({
         "google_places",
       );
 
-      if ((parsed.country ?? "US") !== "US") {
-        setAddressError("For now, ShipFlow only supports shipments within the United States.");
+      if (!isSupportedDomesticCountry(parsed.country)) {
+        setAddressError(UNSUPPORTED_COUNTRY_MESSAGE);
         return;
       }
 
       const current = valueRef.current;
-      const next = toUSAddress(current, {
+      const next = toSupportedAddress(current, {
         city: parsed.city ?? current.city,
         state: parsed.state ?? current.state,
         postalCode: parsed.postalCode ?? current.postalCode,
-        country: "US",
+        country: parsed.country ?? current.country,
         latitude: parsed.latitude ?? current.latitude,
         longitude: parsed.longitude ?? current.longitude,
         formattedAddress: parsed.formattedAddress ?? current.formattedAddress,
@@ -191,15 +201,16 @@ export function AddressInput({
         source: "google_places",
       });
       next.validationStatus = isComplete(next) ? "complete" : "needs_review";
-      setAddressError(next.postalCode ? null : "ZIP is required for accurate rates. Enter it manually.");
+      setAddressError(next.postalCode ? null : "Postal code is required for accurate rates. Enter it manually.");
       onChange(next);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsReady]);
 
   function set(field: keyof StructuredAddress, val: string) {
-    const next = toUSAddress(value, {
-      [field]: field === "state" ? val.toUpperCase() : val,
+    const next = toSupportedAddress(value, {
+      [field]: field === "state" || field === "country" ? val.toUpperCase() : val,
+      ...(field === "country" ? { state: "", postalCode: "" } : {}),
       source: "manual",
     });
     next.validationStatus = isComplete(next) ? "complete" : "needs_review";
@@ -208,28 +219,29 @@ export function AddressInput({
 
   function parseSearchText() {
     const parsed = parsePastedUSAddress(searchText);
-    const next = toUSAddress(value, {
+    const next = toSupportedAddress(value, {
       ...parsed,
+      country: parsed.country ?? value.country,
       name: value.name,
       phone: value.phone,
       company: value.company,
       street2: value.street2,
     });
     setAddressError(
-      next.validationStatus === "complete" ? null : "Review city, state, and ZIP.",
+      next.validationStatus === "complete" ? null : "Review city, state/province, and postal code.",
     );
     onChange(next);
     if (next.validationStatus !== "complete") setShowManual(true);
   }
 
   function handleMapSelect(partial: Partial<StructuredAddress>) {
-    if ((partial.country ?? "US") !== "US") {
-      setAddressError("For now, ShipFlow only supports shipments within the United States.");
+    if (!isSupportedDomesticCountry(partial.country ?? value.country)) {
+      setAddressError(UNSUPPORTED_COUNTRY_MESSAGE);
       return;
     }
 
     setAddressError(null);
-    const next = toUSAddress(value, {
+    const next = toSupportedAddress(value, {
       ...partial,
       name: value.name,
       phone: value.phone,
@@ -238,7 +250,7 @@ export function AddressInput({
     });
     setSearchText(next.formattedAddress || [next.street1, next.city, next.state, next.postalCode].filter(Boolean).join(", "));
     if (next.validationStatus === "needs_review") {
-      setAddressError("Review the ZIP or complete the address manually.");
+      setAddressError("Review the postal code or complete the address manually.");
       setShowManual(true);
     }
     onChange(next);
@@ -246,7 +258,7 @@ export function AddressInput({
 
   const complete = value.validationStatus === "complete" || isComplete(value);
   const needsReview = value.validationStatus === "needs_review";
-  const summary = [value.street1, value.city, value.state, value.postalCode].filter(Boolean).join(", ");
+  const summary = [value.street1, value.city, value.state, value.postalCode, getDomesticCountryName(value.country)].filter(Boolean).join(", ");
 
   return (
     <div className="grid min-w-0 gap-4">
@@ -280,7 +292,7 @@ export function AddressInput({
                 onBlur={() => {
                   if (!HAS_GOOGLE_MAPS && searchText.trim()) parseSearchText();
                 }}
-                placeholder="700-798 Borello Way, Mountain View, CA 94041, USA"
+                placeholder="700-798 Borello Way, Mountain View, CA 94041"
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"
               />
             </div>
@@ -318,7 +330,7 @@ export function AddressInput({
             {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
             <span className="min-w-0 break-words">{sectionLabel}: {summary}</span>
           </div>
-          {needsReview ? <p className="mt-1">Review city, state, and ZIP.</p> : null}
+          {needsReview ? <p className="mt-1">Review city, state/province, and postal code.</p> : null}
         </div>
       ) : null}
 
@@ -373,21 +385,38 @@ export function AddressInput({
             error={errors.city}
             inputRef={cityRef}
           />
-          <StateSelect value={value.state} onChange={(v) => set("state", v)} error={errors.state} />
+          {normalizeCountryCode(value.country) === "US" ? (
+            <StateSelect value={value.state} onChange={(v) => set("state", v)} error={errors.state} />
+          ) : (
+            <InputField
+              label="State / Province / Region"
+              value={value.state}
+              onChange={(v) => set("state", v)}
+              placeholder="Province, state, or region"
+              error={errors.state}
+            />
+          )}
           <InputField
-            label={requirePostal ? "ZIP *" : "ZIP"}
+            label={requirePostal ? "Postal code *" : "Postal code"}
             value={value.postalCode}
             onChange={(v) => set("postalCode", v)}
-            placeholder="94041"
+            placeholder={normalizeCountryCode(value.country) === "US" ? "94041" : "Postal code"}
             error={errors.postalCode}
           />
           <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
             Country
-            <input
-              value="United States"
-              disabled
-              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-500"
-            />
+            <select
+              value={normalizeCountryCode(value.country)}
+              onChange={(e) => set("country", e.target.value)}
+              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10"
+            >
+              {SUPPORTED_DOMESTIC_COUNTRIES.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.name}
+                </option>
+              ))}
+            </select>
+            {errors.country ? <span className="text-xs font-semibold text-red-600">{errors.country}</span> : null}
           </label>
         </div>
       ) : null}

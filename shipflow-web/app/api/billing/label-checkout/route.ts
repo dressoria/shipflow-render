@@ -33,6 +33,7 @@ import { createAuditLog } from "@/lib/server/auditLog";
 import { canUseDirectLabelPayment } from "@/lib/server/featureGates";
 import { assertLabelCheckoutRateLimit, RateLimitError } from "@/lib/server/rateLimit";
 import { calculateCustomerPrice } from "@/lib/logistics/pricing";
+import { validateDomesticShipmentCountries } from "@/lib/domesticMarkets";
 import type {
   PendingLabelOrderRateSnapshot,
   PendingLabelOrderParcel,
@@ -182,6 +183,15 @@ export async function POST(request: Request) {
   if (!isValidParcel(body.parcel)) {
     return apiError("Invalid parcel — weight, weightUnit, length, width, height, and dimensionUnit are required.", 400);
   }
+  let countryCode: string;
+  try {
+    countryCode = validateDomesticShipmentCountries(body.origin, body.destination).countryCode;
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : "This route is not available yet.", 400);
+  }
+  if (body.rateSnapshot.currency.trim().toUpperCase() !== "USD") {
+    return apiError("Only USD label payments are supported right now.", 400);
+  }
 
   // Server-side amount calculation — always re-derive from providerCost in the snapshot.
   // This ensures current markup/fee rules are applied, even if the client-side rate cache is stale.
@@ -207,7 +217,13 @@ export async function POST(request: Request) {
   const enrichedRateSnapshot: PendingLabelOrderRateSnapshot = {
     ...body.rateSnapshot,
     customerPrice: recomputedPricing.customerPrice,
-    pricingBreakdown: recomputedPricing as unknown as Record<string, unknown>,
+    currency: "USD",
+    pricingBreakdown: {
+      ...(recomputedPricing as unknown as Record<string, unknown>),
+      originCountry: countryCode,
+      destinationCountry: countryCode,
+      domesticMarket: countryCode,
+    },
   };
 
   const serviceCode = body.serviceCode ?? body.rateSnapshot.serviceCode;
@@ -224,8 +240,8 @@ export async function POST(request: Request) {
       amountCents,
       currency: "usd",
       rateSnapshot: enrichedRateSnapshot,
-      origin: body.origin,
-      destination: body.destination,
+      origin: { ...body.origin, country: countryCode },
+      destination: { ...body.destination, country: countryCode },
       parcel: body.parcel,
       idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,
     });

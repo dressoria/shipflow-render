@@ -197,7 +197,7 @@ function TrustMetricsSection() {
               Multiple carriers, one calmer shipping desk.
             </h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-              SendiFlash brings label creation, payment, tracking, and shipment history into a single operational view for US sellers.
+              SendiFlash brings label creation, payment, tracking, and shipment history into a single operational view for domestic sellers.
             </p>
           </MotionReveal>
 

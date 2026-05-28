@@ -1375,3 +1375,103 @@ None. All columns (`provider_cost`, `platform_markup`, `payment_fee`, `pricing_s
 | `npx tsc --noEmit` | Pending |
 | `npm run build` | Pending |
 | `git diff --check` | Pending |
+
+---
+
+## FASE 5.55 — Multi-country Domestic Shipping Readiness
+
+Date: 2026-05-28
+
+### Scope
+
+Prepared SendiFlash for selected same-country domestic markets only. This does not enable international, cross-border, customs, duties, export documents, new carriers, or multi-currency conversion.
+
+### US-only assumptions found
+
+| Area | Files | Finding |
+|---|---|---|
+| Address UI | `components/AddressInput.tsx`, `lib/googleMapsUtils.ts` | Google Places was restricted to `us`; manual country was disabled; state/ZIP labels and parser were US-centered. |
+| Create guide | `components/CreateGuideForm.tsx` | Default addresses and payloads forced `country: "US"`; validation rejected non-US addresses; copy referenced ZIP/US only. |
+| Rates API | `app/api/rates/route.ts` | Server rejected non-US rates before provider calls. |
+| ShipEngine rates | `lib/logistics/adapters/ShipStationAdapter.ts` | ShipEngine validation and payload sent `country_code: "US"` for origin and destination. |
+| Label purchase | `app/api/billing/label-checkout/route.ts`, `lib/server/labelPurchaseProcessor.ts`, `lib/server/shipments/createShipEngineShipment.ts` | Label order snapshots and wallet label purchase validated US-only and did not preserve domestic market metadata. |
+| Copy/docs | `app/layout.tsx`, `app/page.tsx`, `components/landing/ScrollStory.tsx`, QA docs | Public copy implied US-only shipping. |
+
+### Supported domestic countries
+
+Central helper: `lib/domesticMarkets.ts`
+
+Initial allowlist:
+- `US` — United States
+- `CA` — Canada
+- `ES` — Spain
+- `DE` — Germany
+- `FR` — France
+- `GB` — United Kingdom (`UK` input normalizes to `GB`)
+
+### Domestic-only rule
+
+Before rates, card checkout, wallet label purchase, and webhook/admin label processing:
+- origin country is normalized
+- destination country is normalized
+- both countries must be in the allowlist
+- origin country must equal destination country
+
+If countries differ, users see:
+`International shipping is coming soon. For now, SendiFlash supports domestic shipments within selected countries.`
+
+If the country is not supported, users see:
+`This country is not available yet.`
+
+### Provider and no-rate handling
+
+The provider payload now receives the normalized domestic country code. If a selected country is allowed by SendiFlash but the carrier/provider account returns no services, the UI shows:
+`No rates were returned for this route. This market may require carrier setup.`
+
+### Currency limitation
+
+The current pricing, wallet, and Stripe direct label payment paths are USD-only. Non-USD rate snapshots are blocked before checkout/label processing. No currency conversion was added.
+
+### Snapshot and metadata preservation
+
+New rate/checkout/label metadata preserves:
+- `originCountry`
+- `destinationCountry`
+- `domesticMarket`
+
+This is stored in card order snapshots and wallet shipment metadata where available.
+
+### QA scenarios to run in staging
+
+| Scenario | Expected result |
+|---|---|
+| US → US | Existing domestic flow still works. |
+| ES → ES | Passes validation and attempts provider rates. If account lacks setup, friendly no-rate message appears. |
+| DE → DE | Passes validation and attempts provider rates. If account lacks setup, friendly no-rate message appears. |
+| ES → DE | Blocked before rates with international-coming-soon message. |
+| US → CA | Blocked before rates with international-coming-soon message. |
+| Unsupported country | Blocked with country-unavailable message. |
+| Provider returns no rates | No checkout allowed; friendly market setup message appears. |
+| Card/wallet pricing | Still uses server-computed USD customer price. |
+
+### Safety confirmations
+
+- [x] No env files changed
+- [x] No secrets printed
+- [x] No migrations added
+- [x] No customs/international/export documents implemented
+- [x] No refunds/voids auto-enabled
+- [x] Direct card payment still builds
+- [x] Wallet payment still builds
+- [x] Automatic label purchase still builds
+
+### Validation results (2026-05-28)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed |
+| `git diff --check` | Passed |
+| `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
+| `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
