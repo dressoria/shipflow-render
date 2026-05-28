@@ -540,3 +540,36 @@ Devuelve count de expiradas.
 Process label: `claimPendingLabelOrderForPurchase` hace UPDATE atómico con condición en status + `label_id IS NULL` + `tracking_number IS NULL`. Solo uno puede ganar.
 Refund: idempotency key `label-refund-{orderId}` en Stripe. Si ya existe, Stripe devuelve el refund original.
 Mark refunded manual: requiere que status sea MANUAL_REFUNDED_STATUSES; si ya es `refunded` retorna sin cambios.
+
+---
+
+## FASE 5.53 — Wallet Payment for Labels
+
+### Design
+
+Wallet label purchase uses the EXISTING `/api/labels` endpoint and `create_label_shipment_transaction` RPC. No new tables or migrations are required.
+
+**Flow:**
+1. User opens ConfirmModal — balance is fetched via `getAvailableBalance()`
+2. If `walletBalance >= customerPrice`: "Pay with wallet" is available
+3. User confirms → `handleConfirmed()` → `POST /api/labels` → carrier purchase → RPC debit
+4. RPC atomically validates balance ≥ amount, creates shipment + balance_movement
+
+**Payment fee note:** Wallet payments currently use `customerPrice` (which includes the Stripe payment fee). This is consistent with existing pricing. A future optimization can remove the payment fee for wallet-only transactions.
+
+### Safety invariants for wallet label purchase
+
+| Risk | Mitigation |
+|---|---|
+| Balance goes negative | RPC validates `balance >= p_customer_price` before inserting debit |
+| Double debit on retry | `idempotency_key` unique constraint on `balance_movements`; client generates a stable key per purchase intent |
+| Balance insufficient at RPC time (race condition) | RPC check is inside a DB transaction; concurrent requests cannot both succeed |
+| Carrier label purchased but RPC fails | Client receives an error; admin can manually reconcile. Future work: auto-void carrier label on RPC failure. |
+
+### Payment method coexistence
+
+Both payment methods remain active simultaneously:
+- **Wallet** — `POST /api/labels` (always available if balance sufficient)
+- **Stripe direct** — `POST /api/billing/label-checkout` (requires `ENABLE_DIRECT_LABEL_PAYMENT=true` + feature gate)
+
+No flags changed. Direct payment still fully operational.

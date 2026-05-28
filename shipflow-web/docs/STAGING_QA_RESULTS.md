@@ -1,6 +1,79 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.52 manual refunds/voids)
+Last updated: 2026-05-28 (FASE 5.53 wallet balance + label payment UX)
+
+---
+
+## FASE 5.53 — Wallet Balance and Basic Ledger for SendiFlash
+
+Run timestamp: 2026-05-28 America/Guayaquil
+
+### Audit — what already existed
+
+| Component | Status | Notes |
+|---|---|---|
+| `balance_movements` table | ✅ Exists | type enum: recharge, debit, refund, adjustment, fee |
+| `payment_recharges` table | ✅ Exists | Stripe checkout session tracking, idempotent |
+| `GET /api/balance` | ✅ Exists | Returns balance, movements, totals |
+| `POST /api/billing/checkout-session` | ✅ Exists | Stripe Checkout for wallet recharge |
+| Stripe webhook — wallet recharge | ✅ Exists | `handleWalletRechargeCompleted`, idempotent |
+| `BalancePanel` component + `/saldo` page | ✅ Exists | User-facing wallet UI |
+| Wallet label purchase via `/api/labels` | ✅ Exists | `create_label_shipment_transaction` RPC |
+| Admin balance movements view | ✅ Exists | `/api/admin/balance-movements` |
+| Admin balance adjustments | ✅ Exists | `/api/admin/balance-adjustments` |
+| Idempotency on all balance operations | ✅ Exists | DB-level unique constraints |
+
+### What was added in FASE 5.53
+
+**ConfirmModal — explicit payment method selection**
+- Now pre-fetches wallet balance when user is authenticated
+- Refreshes balance when modal opens (fresh read before every purchase)
+- Shows current wallet balance with sufficiency indicator
+- "Pay with wallet" button: primary, enabled only when balance >= label price
+- "Pay by card" button: secondary, shown when `directCardAvailable` flag is true
+- "Add funds to wallet" link: shown when balance insufficient and no card option available
+- Payment fee note: currently wallet debits `customerPrice` (includes payment fee); this can be optimized in a future phase
+
+**BalancePanel — SendiFlash color palette**
+- Updated from green/pink to blue/orange palette matching SendiFlash branding
+- Recharge amount hover: blue (`#2563EB`) instead of green
+- Badge: `blue` tone (real blue post Badge.tsx fix)
+
+### Migration
+
+No migration required. Existing `balance_movements` schema and `create_label_shipment_transaction` RPC already support wallet-based label purchases atomically. The `pending_label_orders` table is only used for Stripe-based direct payment; wallet payments go through `/api/labels` directly.
+
+### Idempotency rules
+
+| Operation | Idempotency mechanism |
+|---|---|
+| Wallet recharge | `stripe_event_id` unique on `payment_recharges`; `idempotency_key` on `balance_movements` |
+| Wallet label purchase | `idempotencyKey` passed to `/api/labels`, propagated to `create_label_shipment_transaction` RPC as unique `idempotency_key` on `balance_movements` |
+| Stripe checkout expiry/cancel | `stripe_checkout_session_id` unique on `payment_recharges` |
+| Admin adjustments | `admin-adjustment:{key}` idempotency_key on `balance_movements` |
+
+### Direct payment still intact
+
+`POST /api/billing/label-checkout` is unchanged. Stripe webhook handlers are unchanged. Feature flags are unchanged. No env files were modified.
+
+### Safety confirmations
+
+- [x] No double debit on wallet label retry (idempotency_key propagated from client)
+- [x] No negative balance (RPC validates balance >= amount before inserting debit)
+- [x] Direct Stripe label payment still works (unchanged)
+- [x] No env files changed
+- [x] No secrets printed
+- [x] No automatic refunds or voids enabled
+- [x] No provider credential changes
+
+### Build results
+
+- lint: 0 errors, 6 pre-existing warnings (unrelated)
+- tsc --noEmit: ✅ no errors
+- npm run build: ✅ 41 routes compiled
+- git diff --check: ✅ no whitespace errors
+
+**Decision: FASE 5.53 READY FOR STAGING QA**
 
 ---
 

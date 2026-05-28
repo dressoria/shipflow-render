@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
+  CreditCard,
   Download,
   Info,
   MailCheck,
@@ -15,6 +16,7 @@ import {
   Printer,
   Save,
   Sparkles,
+  Wallet,
   X,
   XCircle,
   Zap,
@@ -36,6 +38,7 @@ import {
   type CreateLabelResult,
   type UserLabelOrderStatus,
 } from "@/lib/services/apiClient";
+import { getAvailableBalance } from "@/lib/services/balanceService";
 import { getUserFacingLabelOrderMessage, isErrorLabelOrderStatus } from "@/lib/label-order-status";
 import type { Envio, StructuredAddress } from "@/lib/types";
 import type { RateResult } from "@/lib/logistics/types";
@@ -220,6 +223,8 @@ export function CreateGuideForm() {
 
   // Pay-by-card state
   const [payByCardLoading, setPayByCardLoading] = useState(false);
+  // Wallet balance (fetched when authenticated; refreshed when confirm modal opens)
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   // Lazy initializers read query params once at mount without triggering an extra render.
   const [labelPaymentStatus] = useState<"success" | "cancelled" | null>(() => {
     if (typeof window === "undefined") return null;
@@ -277,6 +282,22 @@ export function CreateGuideForm() {
       if (intervalId !== null) window.clearInterval(intervalId);
     };
   }, [labelPaymentStatus, labelOrderId, authLoading, emailVerified]);
+
+  // Fetch wallet balance once user is authenticated
+  useEffect(() => {
+    if (authLoading || !emailVerified) return;
+    getAvailableBalance()
+      .then(setWalletBalance)
+      .catch(() => setWalletBalance(null));
+  }, [authLoading, emailVerified]);
+
+  // Refresh balance every time the confirm modal opens so it is current
+  useEffect(() => {
+    if (!showConfirm || authLoading || !emailVerified) return;
+    getAvailableBalance()
+      .then(setWalletBalance)
+      .catch(() => {});
+  }, [showConfirm, authLoading, emailVerified]);
 
   function updateOrigin(addr: StructuredAddress) {
     setForm((current) => ({ ...current, origin: addr }));
@@ -694,6 +715,12 @@ export function CreateGuideForm() {
     }
   }
 
+  // Triggered from inside the ConfirmModal — close modal first, then start card flow
+  function handlePayByCardFromModal() {
+    setShowConfirm(false);
+    handlePayByCard();
+  }
+
   // ── Config alerts ───────────────────────────────────────────────────────────
 
   const showConfigWarning = configStatus !== null && !configStatus.supabaseConfigured;
@@ -909,9 +936,16 @@ export function CreateGuideForm() {
           rate={selectedApiRate}
           saving={saving}
           labelPurchaseEnabled={configStatus?.labelPurchaseEnabled === true}
+          walletBalance={walletBalance}
+          directCardAvailable={
+            configStatus?.directLabelPaymentEnabled === true &&
+            configFeatures?.directLabelPaymentAvailable === true
+          }
+          payByCardLoading={payByCardLoading}
           onConfirm={handleConfirmed}
+          onPayByCard={handlePayByCardFromModal}
           onCancel={() => {
-            if (!saving) setShowConfirm(false);
+            if (!saving && !payByCardLoading) setShowConfirm(false);
           }}
         />
       )}
@@ -1170,13 +1204,21 @@ function ConfirmModal({
   rate,
   saving,
   labelPurchaseEnabled,
+  walletBalance,
+  directCardAvailable,
+  payByCardLoading,
   onConfirm,
+  onPayByCard,
   onCancel,
 }: {
   rate: RateResult;
   saving: boolean;
   labelPurchaseEnabled: boolean;
+  walletBalance: number | null;
+  directCardAvailable: boolean;
+  payByCardLoading: boolean;
   onConfirm: () => void;
+  onPayByCard: () => void;
   onCancel: () => void;
 }) {
   const { pricing } = rate;
@@ -1188,105 +1230,167 @@ function ConfirmModal({
     rate.supportsLabels !== false &&
     !LABELS_NOT_IMPLEMENTED_PROVIDERS.has(rate.provider);
 
+  const labelPrice = rate.customerPrice;
+  const hasEnoughBalance = walletBalance !== null && walletBalance >= labelPrice;
+  const balanceKnown = walletBalance !== null;
+  const shortBy = balanceKnown && !hasEnoughBalance ? labelPrice - walletBalance : 0;
+  const busy = saving || payByCardLoading;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
       <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
+
+        {/* Header */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-6 w-6 shrink-0 text-amber-500" />
-            <h2 className="text-lg font-black text-slate-950">
-              {supportsLabelPurchase ? "Purchase label" : "Rate selected"}
-            </h2>
-          </div>
+          <h2 className="text-lg font-black text-slate-950">
+            {supportsLabelPurchase ? "Review and pay" : "Rate selected"}
+          </h2>
           <button
             type="button"
             onClick={onCancel}
-            disabled={saving}
-            className="grid h-8 w-8 place-items-center rounded-xl hover:bg-slate-100"
+            disabled={busy}
+            className="grid h-8 w-8 place-items-center rounded-xl hover:bg-slate-100 disabled:opacity-40"
             aria-label="Cancel"
           >
             <X className="h-4 w-4 text-slate-500" />
           </button>
         </div>
 
-        <p className="mt-4 text-sm text-slate-600">
-          {supportsLabelPurchase
-            ? saving
-              ? "Purchasing label..."
-              : "This will purchase a shipping label and deduct your balance."
-            : "You can review this rate, but label purchase is not enabled yet."}
-        </p>
-
-        <p className="mt-2 text-xs text-slate-400">
-          Estimated rate based on the address and package details entered. Final pricing may
-          change if shipment details are updated.
-        </p>
-
-        {!supportsLabelPurchase ? (
+        {!supportsLabelPurchase && (
           <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
             Rate comparison is available. Label purchase is currently disabled.
           </p>
-        ) : null}
+        )}
 
+        {/* Rate & pricing breakdown */}
         <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
           <p className="font-black text-slate-950">{rate.serviceName}</p>
           <p className="text-slate-500">{carrierLabel}</p>
-          {deliveryText && (
-            <p className="mt-1 text-xs text-slate-400">{deliveryText}</p>
-          )}
+          {deliveryText && <p className="mt-1 text-xs text-slate-400">{deliveryText}</p>}
 
           {hasFeeBreakdown ? (
-            <div className="mt-3 border-t border-slate-200 pt-3 space-y-1.5 text-sm">
+            <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-slate-500">Shipping</span>
-                <span className="font-bold text-slate-950">
-                  {formatCurrency(pricing.providerCost)}
-                </span>
+                <span className="font-bold text-slate-950">{formatCurrency(pricing.providerCost)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-500">Service fee</span>
-                <span className="font-bold text-slate-950">
-                  {formatCurrency(pricing.platformMarkup)}
-                </span>
+                <span className="font-bold text-slate-950">{formatCurrency(pricing.platformMarkup)}</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-500">Payment fee</span>
-                <span className="font-bold text-slate-950">
-                  {formatCurrency(pricing.paymentFee)}
-                </span>
+                <span className="font-bold text-slate-950">{formatCurrency(pricing.paymentFee)}</span>
               </div>
               <div className="flex items-end justify-between gap-4 border-t border-slate-200 pt-2">
                 <span className="font-black text-slate-950">Total</span>
-                <span className="text-2xl font-black text-[#06B6D4]">
-                  {formatCurrency(rate.customerPrice)}
-                </span>
+                <span className="text-2xl font-black text-[#2563EB]">{formatCurrency(labelPrice)}</span>
               </div>
             </div>
           ) : (
-            <p className="mt-3 text-2xl font-black text-[#06B6D4]">
-              {formatCurrency(rate.customerPrice)}
-            </p>
+            <p className="mt-3 text-2xl font-black text-[#2563EB]">{formatCurrency(labelPrice)}</p>
           )}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={!supportsLabelPurchase || saving}
-            className="flex-1 rounded-2xl bg-[#FF1493] py-3 text-sm font-bold text-white shadow-lg shadow-pink-500/20 hover:bg-[#FF4FB3] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-          >
-            {saving ? "Purchasing label..." : supportsLabelPurchase ? "Purchase label" : "Label purchase disabled"}
-          </button>
-        </div>
+        {/* Wallet balance indicator */}
+        {supportsLabelPurchase && (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className={`grid h-9 w-9 place-items-center rounded-xl ${hasEnoughBalance ? "bg-blue-50 text-[#2563EB]" : "bg-slate-100 text-slate-500"}`}>
+                <Wallet className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Wallet balance</p>
+                <p className="font-black text-slate-950">
+                  {balanceKnown ? formatCurrency(walletBalance!) : "—"}
+                </p>
+              </div>
+            </div>
+            {balanceKnown && (
+              hasEnoughBalance ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Sufficient
+                </span>
+              ) : (
+                <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">
+                  Short {formatCurrency(shortBy)}
+                </span>
+              )
+            )}
+          </div>
+        )}
+
+        {/* Payment actions */}
+        {supportsLabelPurchase ? (
+          <div className="mt-4 grid gap-3">
+            {/* Wallet payment — primary when balance is sufficient */}
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={!hasEnoughBalance || busy}
+              className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold transition ${
+                hasEnoughBalance
+                  ? "bg-[linear-gradient(135deg,#2563EB,#3B82F6)] text-white shadow-lg shadow-blue-500/25 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+                  : "cursor-not-allowed bg-slate-100 text-slate-400"
+              }`}
+            >
+              <Wallet className="h-4 w-4" />
+              {saving
+                ? "Purchasing label..."
+                : hasEnoughBalance
+                  ? "Pay with wallet"
+                  : `Insufficient balance (need ${formatCurrency(shortBy)} more)`}
+            </button>
+
+            {/* Card payment — shown if feature is enabled */}
+            {directCardAvailable ? (
+              <button
+                type="button"
+                onClick={onPayByCard}
+                disabled={busy}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:border-[#F97316]/50 hover:bg-orange-50 hover:text-[#F97316] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <CreditCard className="h-4 w-4" />
+                {payByCardLoading ? "Redirecting to checkout..." : "Pay by card"}
+              </button>
+            ) : null}
+
+            {/* Add funds shortcut when balance is insufficient */}
+            {!hasEnoughBalance && !directCardAvailable && balanceKnown && (
+              <Link
+                href="/saldo"
+                className="flex h-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-sm font-bold text-[#2563EB] transition hover:bg-blue-100"
+              >
+                Add funds to wallet
+              </Link>
+            )}
+
+            {/* Cancel */}
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="h-10 w-full rounded-2xl text-sm font-semibold text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100"
+            >
+              Close
+            </button>
+          </div>
+        )}
+
+        <p className="mt-3 text-center text-xs text-slate-400">
+          Estimated rate. Final pricing may change if shipment details are updated.
+        </p>
       </div>
     </div>
   );

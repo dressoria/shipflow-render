@@ -1067,3 +1067,63 @@ No-go if any are true:
 - [ ] Wallet recharge duplicates balance.
 - [ ] Label purchase can be triggered twice for one order.
 - [ ] Refund can be triggered twice for one order.
+
+---
+
+## FASE 5.53 — Wallet Balance and Label Payment UX Checklist
+
+Date: 2026-05-28
+
+### Prerequisites
+- [ ] User account with verified email exists in staging
+- [ ] Stripe recharge configured (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET set)
+- [ ] At least one rate provider returning real rates
+
+### 1. Wallet balance fetch in ConfirmModal
+- [ ] Get rates for a valid shipment
+- [ ] Click "Continue" to open ConfirmModal
+- [ ] Wallet balance is shown in the modal
+- [ ] If balance >= label price: "Pay with wallet" button is enabled (blue)
+- [ ] If balance < label price: "Pay with wallet" button is disabled, shows shortfall amount
+- [ ] Balance shown matches /saldo page balance
+
+### 2. Wallet payment flow (balance sufficient)
+- [ ] Add sufficient balance via /saldo → recharge
+- [ ] Return to /crear-guia, get rates
+- [ ] Open ConfirmModal — balance shows sufficient
+- [ ] Click "Pay with wallet"
+- [ ] Label is purchased, tracking number appears
+- [ ] Balance on /saldo decreases by label amount
+- [ ] Movement appears in balance activity as "Carrier label purchase"
+
+### 3. Pay by card flow (when enabled)
+- [ ] With ENABLE_DIRECT_LABEL_PAYMENT=true and account on allowlist
+- [ ] Open ConfirmModal — "Pay by card" button is visible
+- [ ] Click "Pay by card" — modal closes, redirects to Stripe checkout
+- [ ] Complete payment — label is purchased via webhook
+- [ ] Stripe payment order appears in /admin/label-orders
+
+### 4. Insufficient balance with no card option
+- [ ] With balance < label price and card payment not available
+- [ ] Open ConfirmModal — "Pay with wallet" disabled, "Add funds to wallet" link shown
+- [ ] Click "Add funds to wallet" — navigates to /saldo
+
+### 5. Balance UI (BalancePanel)
+- [ ] /saldo page loads correctly with blue/orange palette
+- [ ] Recharge modal opens, shows amounts in new hover style (blue)
+- [ ] Recharge flow via Stripe still works
+- [ ] Balance activity list shows movements correctly
+- [ ] Stat cards (total recharged, spent, refunded, adjustments) show correct values
+
+### 6. Idempotency
+- [ ] Submitting the same wallet purchase twice (same idempotency key) does not double-debit
+- [ ] Recharging the same Stripe session twice (webhook retry) does not double-credit
+
+### Go / No-go
+No-go if any of the following:
+- [ ] Wallet balance deducted but no label created
+- [ ] Label created but balance not deducted
+- [ ] Balance goes negative
+- [ ] Double debit on retry
+- [ ] Stripe recharge duplicates balance_movement
+- [ ] /saldo page crashes or shows wrong balance

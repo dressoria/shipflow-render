@@ -92,12 +92,12 @@ export function BalancePanel() {
 
   return (
     <div className="grid min-w-0 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
-      <div className="rounded-3xl border border-pink-400/20 bg-slate-950 p-5 text-white shadow-2xl shadow-pink-950/20 sm:p-6">
+      <div className="rounded-3xl border border-[#2563EB]/20 bg-slate-950 p-5 text-white shadow-2xl shadow-slate-950/30 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
-            <CreditCard className="h-6 w-6 text-[#22C55E]" />
+            <CreditCard className="h-6 w-6 text-[#F97316]" />
           </span>
-          <Badge tone="green">Operational</Badge>
+          <Badge tone="blue">Active</Badge>
         </div>
         <p className="mt-8 text-sm text-slate-300">Available balance</p>
         <p className="mt-2 break-words text-4xl font-black sm:text-5xl">
@@ -178,7 +178,7 @@ export function BalancePanel() {
                     type="button"
                     onClick={() => startCheckout(amount)}
                     disabled={checkoutLoadingAmount != null}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-lg font-black text-slate-950 transition hover:border-[#22C55E] hover:bg-[#ECFDF5] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-lg font-black text-slate-950 transition hover:border-[#2563EB] hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {checkoutLoadingAmount === amount ? "Loading..." : formatCurrency(amount)}
                   </button>
