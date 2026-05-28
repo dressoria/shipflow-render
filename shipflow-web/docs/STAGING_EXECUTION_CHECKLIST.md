@@ -1287,3 +1287,53 @@ No-go if any of the following:
 - [ ] Existing US domestic flow breaks
 - [ ] Automatic label processing breaks
 - [ ] Env files, migrations, secrets, customs, refunds, or voids are changed unexpectedly
+
+---
+
+## FASE 5.56 — Controlled QA for Selected Domestic Markets
+
+### 1. Code-level domestic rule matrix
+- [x] US → US passes validation
+- [x] CA → CA passes validation
+- [x] ES → ES passes validation
+- [x] DE → DE passes validation
+- [x] FR → FR passes validation
+- [x] GB → GB passes validation
+- [x] UK → UK normalizes to GB and passes validation
+- [x] US → CA blocks before rates
+- [x] US → ES blocks before rates
+- [x] ES → DE blocks before rates
+- [x] FR → GB blocks before rates
+- [x] CA → US blocks before rates
+- [x] EC → EC blocks as unsupported
+- [x] MX → MX blocks as unsupported
+
+### 2. Browser/address UI operator QA
+- [ ] Origin country selector works for all supported countries
+- [ ] Destination country selector works for all supported countries
+- [ ] State/province/postal labels are not US-only
+- [ ] Google Places returns addresses for selected countries when API key is configured
+- [ ] Manual entry works without Google Places
+- [ ] Map picker still works for US and blocks unsupported countries
+
+### 3. Provider/rates operator QA
+- [ ] US → US returns rates as before
+- [ ] CA → CA attempts rates and either returns rates or friendly no-rate message
+- [ ] ES → ES attempts rates and either returns rates or friendly no-rate message
+- [ ] DE → DE attempts rates and either returns rates or friendly no-rate message
+- [ ] FR → FR attempts rates and either returns rates or friendly no-rate message
+- [ ] GB → GB attempts rates and either returns rates or friendly no-rate message
+- [ ] No checkout is available when rates array is empty
+
+### 4. Payment/label operator QA
+- [ ] Card checkout refuses cross-border route
+- [ ] Wallet label purchase refuses cross-border route
+- [ ] Non-USD rate snapshot is blocked
+- [ ] Successful same-country US flow still reaches `label_purchased`
+- [ ] Shipment appears in `/envios`
+- [ ] Shipment detail/PDF status works
+
+### 5. Final decision gate
+Current local decision: **PARTIAL / CODE PASS**.
+
+Move to PASS only after deployed operator QA confirms at least the US flow remains fully working and each selected non-US market has an explicit provider result: rates returned, or no-rates due to provider/account setup.

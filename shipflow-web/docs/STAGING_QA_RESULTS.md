@@ -1475,3 +1475,95 @@ This is stored in card order snapshots and wallet shipment metadata where availa
 | `git diff --check` | Passed |
 | `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
 | `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
+
+---
+
+## FASE 5.56 — Controlled QA for Selected Domestic Markets
+
+Date: 2026-05-28
+
+Commit tested:
+- `b346cf0 Add multi-country domestic shipping readiness`
+
+### QA scope
+
+This was a local/code-level QA pass for the selected domestic market rules introduced in FASE 5.55. Production provider/account availability and full browser checkout remain operator QA unless explicitly run against the deployed environment.
+
+### Domestic rule matrix
+
+Executed against the real `lib/domesticMarkets.ts` helper with Node's TypeScript stripping:
+
+| Scenario | Result |
+|---|---|
+| US → US | Passes validation as `US` |
+| CA → CA | Passes validation as `CA` |
+| ES → ES | Passes validation as `ES` |
+| DE → DE | Passes validation as `DE` |
+| FR → FR | Passes validation as `FR` |
+| GB → GB | Passes validation as `GB` |
+| UK → UK | Passes validation as normalized `GB` |
+| US → CA | Blocked before rates as cross-border |
+| US → ES | Blocked before rates as cross-border |
+| ES → DE | Blocked before rates as cross-border |
+| FR → GB | Blocked before rates as cross-border |
+| CA → US | Blocked before rates as cross-border |
+| EC → EC | Blocked as unsupported |
+| MX → MX | Blocked as unsupported |
+
+Expected messages preserved:
+- Cross-border: `International shipping is coming soon. For now, SendiFlash supports domestic shipments within selected countries.`
+- Unsupported: `This country is not available yet.`
+- No rates: `No rates were returned for this route. This market may require carrier setup.`
+
+### Address UI inspection
+
+| Check | Result |
+|---|---|
+| Origin/destination country selector | Implemented with supported countries in `AddressInput.tsx` |
+| UK normalization | Implemented server/client helper as `UK` → `GB` |
+| State/province/postal labels | Updated away from US-only ZIP copy in create-guide/address UI |
+| Google Places country restriction | Uses allowlist from `getGooglePlacesCountryRestrictions()` instead of hardcoded `us` |
+| Manual entry | Supports selected country dropdown plus generic state/province/region field for non-US |
+| Map picker country guard | Blocks unsupported country values before applying address |
+
+### Rates/API inspection
+
+| Check | Result |
+|---|---|
+| `/api/rates` blocks cross-border before provider call | Confirmed via `validateDomesticShipmentCountries()` in request parsing |
+| `/api/rates` blocks unsupported countries before provider call | Confirmed via central helper |
+| Provider country payload | ShipEngine rates payload now sends normalized `country_code` |
+| No-rate behavior | Empty provider results return success payload with `rates: []`, diagnostic, and friendly no-rate message |
+| Domestic markets actual rate availability | Not run against production provider account in this pass; must be operator-tested per market |
+
+### Checkout/payment guard inspection
+
+| Check | Result |
+|---|---|
+| Card checkout refuses cross-border/unsupported routes | Confirmed in `/api/billing/label-checkout` before creating pending order/Stripe session |
+| Wallet label purchase refuses cross-border/unsupported routes | Confirmed in `createShipEngineShipment` validation |
+| Webhook/admin label processor validates snapshots | Confirmed in `labelPurchaseProcessor.validateOrderSnapshots()` |
+| Snapshots preserve domestic market | `originCountry`, `destinationCountry`, and `domesticMarket` stored in card snapshot and wallet shipment metadata |
+| USD-only limitation | Non-USD rate snapshots blocked in checkout and label processor; no conversion added |
+
+### Existing US flow
+
+Code/build validation passed. A full interactive US flow (create guide → rates → card/wallet pay → automatic label → shipment detail) was not executed in this local QA pass and remains pending operator QA.
+
+### Final decision
+
+**PARTIAL / CODE PASS**
+
+The domestic rule implementation and safety guards pass local QA. Full market usability remains provider/account dependent; selected markets such as ES/DE/FR/GB/CA may require carrier setup even though validation now permits same-country rate attempts.
+
+### Validation results (2026-05-28)
+
+| Command | Result |
+|---|---|
+| Domestic helper matrix | Passed |
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; Next.js reported the existing multiple-lockfile workspace-root warning |
+| `git diff --check` | Passed |
+| `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
+| `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |

@@ -694,3 +694,32 @@ Supported initial domestic markets:
 - No multi-currency conversion.
 - Carrier availability by country depends on existing provider/account setup.
 - Google Places/manual address parsing remains intentionally lightweight; non-US users may need manual province/postal edits.
+
+---
+
+## FASE 5.56 — Selected Domestic Markets QA Decision
+
+### Code-level decision
+
+**PARTIAL / CODE PASS** as of commit `b346cf0`.
+
+The domestic country allowlist and cross-border guardrails pass local QA:
+- `US`, `CA`, `ES`, `DE`, `FR`, `GB` same-country routes pass validation.
+- `UK` normalizes to `GB`.
+- Cross-border combinations are blocked before rates.
+- Unsupported countries such as `EC` and `MX` are blocked before rates.
+- Checkout, wallet label purchase, and label processing revalidate the same domestic rule.
+- USD-only payment handling remains enforced.
+
+### Production go criteria per market
+
+A selected domestic market should be treated as commercially usable only after an operator confirms:
+1. Same-country address entry works in browser.
+2. Provider account returns at least one usable USD rate.
+3. Card or wallet checkout charges the displayed server-computed price.
+4. Automatic label purchase succeeds.
+5. Shipment appears in `/envios` and detail/PDF status works.
+
+### Provider setup expectation
+
+Passing SendiFlash validation does not guarantee the connected provider/carrier account can rate or buy labels in that country. If no rates return, the correct beta behavior is to show the market setup message and prevent checkout.
