@@ -775,6 +775,55 @@ export function AdminLabelOrdersView() {
     "canceled",
   ];
 
+  const statusCounts = (orders ?? []).reduce<Record<string, number>>((acc, order) => {
+    acc[order.status] = (acc[order.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const quickFilters: Array<{
+    label: string;
+    status: PendingLabelOrderStatus | "";
+    description: string;
+    count: number;
+    tone: string;
+  }> = [
+    {
+      label: "Needs review",
+      status: "action_required",
+      description: "Carrier or persistence exceptions",
+      count: statusCounts.action_required ?? 0,
+      tone: "border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100",
+    },
+    {
+      label: "Waiting",
+      status: "paid_waiting_label_purchase",
+      description: "Paid orders awaiting label",
+      count: statusCounts.paid_waiting_label_purchase ?? 0,
+      tone: "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100",
+    },
+    {
+      label: "Processing",
+      status: "label_purchase_pending",
+      description: "Claimed for carrier purchase",
+      count: statusCounts.label_purchase_pending ?? 0,
+      tone: "border-yellow-200 bg-yellow-50 text-yellow-800 hover:bg-yellow-100",
+    },
+    {
+      label: "Completed",
+      status: "label_purchased",
+      description: "Purchased labels",
+      count: statusCounts.label_purchased ?? 0,
+      tone: "border-green-200 bg-green-50 text-green-800 hover:bg-green-100",
+    },
+  ];
+
+  function getRowClass(status: PendingLabelOrderStatus) {
+    if (status === "action_required") return "bg-orange-50/40 hover:bg-orange-50";
+    if (status === "paid_waiting_label_purchase") return "bg-blue-50/30 hover:bg-blue-50";
+    if (status === "label_purchase_pending") return "bg-yellow-50/30 hover:bg-yellow-50";
+    return "hover:bg-slate-50";
+  }
+
   return (
     <>
       {selectedOrder && (
@@ -789,6 +838,40 @@ export function AdminLabelOrdersView() {
       )}
 
       <div className="grid gap-4">
+        <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm shadow-slate-950/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-300">
+                Automatic mode
+              </p>
+              <h2 className="mt-2 text-xl font-black">Admin is exception-only</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
+                Paid labels are purchased automatically after Stripe confirms payment. Use this panel
+                to review failures, retry only safe orders, and verify completed label records.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[520px]">
+              {quickFilters.map((filter) => {
+                const active = statusFilter === filter.status;
+                return (
+                  <button
+                    key={filter.label}
+                    type="button"
+                    onClick={() => setStatusFilter(active ? "" : filter.status)}
+                    className={`rounded-2xl border px-3 py-3 text-left transition ${filter.tone} ${
+                      active ? "ring-2 ring-white/80" : ""
+                    }`}
+                    title={filter.description}
+                  >
+                    <span className="block text-lg font-black">{filter.count}</span>
+                    <span className="block text-xs font-black">{filter.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
@@ -816,6 +899,7 @@ export function AdminLabelOrdersView() {
               className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-semibold outline-none transition focus:border-[#FF1493]"
             >
               <option value="">All providers</option>
+              <option value="shipstation">ShipStation</option>
               <option value="shipengine">ShipEngine</option>
               <option value="shippo">Shippo</option>
               <option value="easypost">EasyPost</option>
@@ -878,6 +962,7 @@ export function AdminLabelOrdersView() {
                     <th className="px-4 py-3"></th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Amount</th>
+                    <th className="px-4 py-3">User</th>
                     <th className="px-4 py-3">Provider</th>
                     <th className="px-4 py-3">Service</th>
                     <th className="px-4 py-3">Stripe session</th>
@@ -891,7 +976,7 @@ export function AdminLabelOrdersView() {
                   {orders.map((order) => (
                     <tr
                       key={order.id}
-                      className="hover:bg-slate-50"
+                      className={getRowClass(order.status)}
                     >
                       <td className="px-4 py-3">
                         <StatusIcon status={order.status} />
@@ -901,6 +986,17 @@ export function AdminLabelOrdersView() {
                       </td>
                       <td className="px-4 py-3 font-semibold">
                         {formatCents(order.amountCents, order.currency)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(order.userId)}
+                          className="inline-flex items-center gap-1 font-mono text-xs text-slate-500 hover:text-slate-800"
+                          title={order.userId}
+                        >
+                          {truncate(order.userId)}
+                          <Copy className="h-3 w-3" />
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-slate-600">{order.provider}</td>
                       <td className="px-4 py-3 text-slate-500">

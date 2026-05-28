@@ -1,6 +1,47 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.50 automatic processing activation QA)
+Last updated: 2026-05-28 (FASE 5.51 operating UX)
+
+---
+
+## FASE 5.51 — Commercial Operating UX for Automatic Label Flow
+
+Run timestamp: 2026-05-28 America/Guayaquil
+
+Scope: user-facing shipment history/detail UX and admin exception operations for the automatic direct-label flow.
+
+### Operating mode
+
+- Automatic label processing is the intended operating mode when `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`.
+- Admin `/admin/label-orders` is now treated as an exception panel, not the normal label creation path.
+- Normal users see label-ready, preparing, or review states without raw provider errors.
+- Refunds, voids, and wallet remain intentionally out of scope and off.
+
+### UX changes documented
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| My Shipments | READY FOR QA | Shipment list highlights automatic labels, tracking, carrier/service, label status, price, date, detail link, tracking link, and label PDF action when available. |
+| Shipment detail | READY FOR QA | Detail page includes tracking copy action, carrier/service, label status, payment status, provider references, and a clear label PDF action. Raw metadata is not shown to normal users. |
+| Success flow | READY FOR QA | Existing automatic success banner remains the source of truth: label ready, preparing, or review messaging based on order status. |
+| Admin exceptions | READY FOR QA | Admin list adds automatic-mode guidance, quick filters for needs review/waiting/processing/completed, user id visibility, and stronger exception row styling. |
+| Access control | PASS | Shipment APIs continue to require verified users and filter by `user_id`. |
+
+### Safety
+
+- Env files changed: no.
+- Migrations added: no.
+- Refunds enabled or executed: no.
+- Voids enabled or executed: no.
+- Wallet changes: no.
+- Provider credentials changed: no.
+- Public landing redesign: no.
+
+### Decision
+
+**Final decision: READY FOR CONTROLLED BETA QA**
+
+Reason: the automatic label flow already has payment/provider support; this phase improves the operating UX around normal shipment visibility and exception-only admin handling without changing payment, provider, auth, schema, refunds, voids, or wallet behavior.
 
 ---
 

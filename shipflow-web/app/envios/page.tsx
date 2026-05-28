@@ -4,8 +4,8 @@ import { ShipmentsTable } from "@/components/ShipmentsTable";
 export default function ShipmentsPage() {
   return (
     <DashboardShell
-      title="Shipments"
-      description="Review created shipments, statuses, costs, and available actions."
+      title="My Shipments"
+      description="Download labels, review tracking numbers, and manage your shipping history after checkout."
     >
       <ShipmentsTable />
     </DashboardShell>

@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.50)
+Last updated: 2026-05-28 (FASE 5.51)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -193,6 +193,42 @@ Safety:
 - [ ] No void executed.
 - [ ] No env file committed.
 - [ ] No secrets printed.
+
+## FASE 5.51 Operating UX Checklist
+
+User shipment history:
+
+- [x] `/envios` explains that labels appear automatically after checkout.
+- [x] Shipment cards/table show tracking number, carrier/provider, service, status, label status, created date, price, and actions.
+- [x] Label/PDF action is visible when `label_url` exists.
+- [x] Loading, empty, and error states are clear.
+- [x] Mobile shipment cards remain usable.
+
+Shipment detail:
+
+- [x] `/guia/[tracking]` shows tracking, carrier/provider, service, label status, payment status, created date, and provider references.
+- [x] User can copy tracking.
+- [x] User can open the carrier label PDF when available.
+- [x] Raw metadata is not shown to normal users.
+- [x] Access still depends on verified user shipment ownership through the shipments API.
+
+Admin exceptions:
+
+- [x] Admin label orders page explains automatic mode and exception-only operation.
+- [x] Quick filters exist for needs review, waiting, processing, and completed.
+- [x] `action_required` and waiting rows are visually distinct.
+- [x] Table includes user id, amount, provider/service, tracking, created date, and status.
+- [x] Existing safe retry and double-submit protections remain unchanged.
+
+Safety:
+
+- [x] No env file edits.
+- [x] No migrations.
+- [x] No refunds enabled or executed.
+- [x] No voids enabled or executed.
+- [x] No wallet changes.
+- [x] No public landing redesign.
+- [x] No provider credential changes.
 
 ## 1. Local Pre-Check
 

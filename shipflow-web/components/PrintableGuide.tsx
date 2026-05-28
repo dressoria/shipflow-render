@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, PackageCheck, Printer } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Download, PackageCheck, Printer } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { BrandName } from "@/components/BrandName";
 import { formatDate } from "@/lib/forms";
@@ -25,6 +25,7 @@ function displayRecordStatus(status?: string | null) {
 export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
   const [shipment, setShipment] = useState<Envio | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copiedTracking, setCopiedTracking] = useState(false);
 
   useEffect(() => {
     window.setTimeout(() => {
@@ -60,6 +61,13 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
     );
   }
 
+  function copyTracking() {
+    if (!shipment?.trackingNumber) return;
+    navigator.clipboard.writeText(shipment.trackingNumber).catch(() => undefined);
+    setCopiedTracking(true);
+    window.setTimeout(() => setCopiedTracking(false), 1500);
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-3 py-6 sm:px-4 sm:py-8 print:bg-white print:p-0">
       <div className="print-hidden mx-auto mb-6 flex max-w-5xl flex-wrap items-center justify-between gap-3">
@@ -80,13 +88,25 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#FF1493] px-4 text-sm font-bold text-white shadow-xl shadow-pink-500/20"
             >
               <Download className="mr-2 h-4 w-4" />
-              Download carrier label
+              Open carrier label
             </a>
           ) : (
             <span className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800">
               Carrier label unavailable
             </span>
           )}
+          <button
+            type="button"
+            onClick={copyTracking}
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 px-4 text-sm font-bold text-blue-700"
+          >
+            {copiedTracking ? (
+              <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+            ) : (
+              <Copy className="mr-2 h-4 w-4" />
+            )}
+            {copiedTracking ? "Copied" : "Copy tracking"}
+          </button>
           <button onClick={() => window.print()} className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-bold text-slate-700 shadow-sm">
             <Printer className="mr-2 h-4 w-4" />
             Print summary
@@ -113,7 +133,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               </span>
               <div className="min-w-0">
                 <p className="guide-wrap text-xl"><BrandName /></p>
-                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipment summary</p>
+                <p className="guide-wrap mt-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Shipment details</p>
               </div>
             </div>
             <div className="min-w-0 text-left md:text-right print:text-right">
@@ -157,10 +177,46 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
               rows={[
                 ["Product", shipment.productType],
                 ["Weight", `${shipment.weight} kg`],
-                ["Carrier", shipment.courier],
+                ["Carrier", shipment.provider || shipment.courier],
+                ["Service", shipment.providerServiceCode || "Service selected"],
                 ["Date", formatDate(shipment.date)],
               ]}
             />
+            <InfoBlock
+              title="References"
+              rows={[
+                ["Tracking", shipment.trackingNumber],
+                ["Shipment ID", shipment.id],
+                ["Provider shipment", shipment.providerShipmentId ?? "Not available"],
+                ["Provider label", shipment.providerLabelId ?? "Not available"],
+                ["Label status", displayRecordStatus(shipment.labelStatus)],
+                ["Payment status", displayRecordStatus(shipment.paymentStatus)],
+              ]}
+            />
+            {shipment.labelStatus === "purchased" && shipment.labelUrl ? (
+              <section className="print-hidden min-w-0 rounded-3xl border border-orange-100 bg-orange-50 p-4 text-left">
+                <h2 className="guide-wrap text-xs font-black uppercase tracking-[0.16em] text-orange-700">Carrier label ready</h2>
+                <p className="guide-wrap mt-2 text-sm font-semibold leading-6 text-orange-900">
+                  Use the carrier PDF for the box. This summary helps you review the shipment, but it is not a replacement for the official label.
+                </p>
+                <a
+                  href={shipment.labelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex h-10 items-center rounded-2xl bg-[#F97316] px-4 text-sm font-black text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Open label PDF
+                </a>
+              </section>
+            ) : shipment.labelStatus === "purchased" ? (
+              <section className="print-hidden min-w-0 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-left">
+                <h2 className="guide-wrap text-xs font-black uppercase tracking-[0.16em] text-amber-700">Label review</h2>
+                <p className="guide-wrap mt-2 text-sm font-semibold leading-6 text-amber-800">
+                  The label was purchased, but the carrier PDF is not available on this record yet.
+                </p>
+              </section>
+            ) : null}
             <PricingBlock shipment={shipment} />
             <Barcode codeBlocks={codeBlocks} trackingNumber={shipment.trackingNumber} />
           </div>
@@ -170,7 +226,7 @@ export function PrintableGuide({ trackingNumber }: { trackingNumber: string }) {
             <ul className="mt-2 grid min-w-0 gap-1 text-left text-xs font-semibold leading-5 text-slate-700 sm:grid-cols-2 print:grid-cols-2">
               <li className="guide-wrap">Use the official carrier label PDF for the package.</li>
               <li className="guide-wrap">Validate recipient details before handoff.</li>
-              <li className="guide-wrap">This summary is for ShipFlow records and review.</li>
+              <li className="guide-wrap">This summary is for SendiFlash records and review.</li>
               <li className="guide-wrap">Tracking updates appear once the carrier reports movement.</li>
             </ul>
           </footer>

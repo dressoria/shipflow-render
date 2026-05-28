@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.50)
+Última revisión: 2026-05-28 (FASE 5.51)
 
 ---
 
@@ -81,6 +81,8 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
 - [x] Lista de `pending_label_orders` accesible para admin sin exponer secrets (FASE 5.39C)
 - [x] Filtros por status, provider, y búsqueda por session/PI/tracking (FASE 5.39C)
+- [x] Panel admin orientado a excepciones para modo automático, con filtros rápidos por needs review/waiting/processing/completed (FASE 5.51)
+- [x] Lista admin muestra usuario, amount, provider/service, tracking, fechas y estados operativos para soporte (FASE 5.51)
 - [x] Detalle de orden con snapshots JSON colapsables, sin secrets (FASE 5.39C)
 - [x] `Process label` manual protegido contra doble click/doble submit desde admin UI (FASE 5.48)
 - [x] Retry de `action_required` visible solo cuando no existe label/shipment/tracking guardado (FASE 5.48)
@@ -138,10 +140,19 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
 - [x] Probar flujo completo de direct label payment en sandbox: cotizar → pagar Stripe test → webhook → admin process → tracking/PDF/status usuario (FASE 5.46 PASS)
 - [ ] Verificar que saldo se reduce correctamente después de compra
-- [ ] Verificar que tracking number aparece en /envios y /guia/[tracking]
+- [x] Verificar que tracking number aparece en /envios y /guia/[tracking] con acciones de detalle, tracking y label PDF cuando existe (FASE 5.51 UX ready)
 - [ ] Verificar que void (si ENABLE_REAL_LABEL_VOID=true) devuelve saldo correctamente
 - [x] Correr `npm run build` limpio antes de cierre QA (FASE 5.46/5.47 pre-check)
 - [ ] Revisar logs de producción 30 minutos después de activar
+
+## 8.1 Operating UX — Controlled Beta
+
+- [x] `/envios` funciona como historial comercial de envíos para labels automáticas.
+- [x] Cada envío muestra tracking, carrier/provider, service code si existe, status, label status, fecha, precio y acciones.
+- [x] `/guia/[tracking]` muestra detalle sin exponer metadata cruda a usuarios normales.
+- [x] Detalle incluye copiar tracking y abrir/descargar label PDF si `label_url` existe.
+- [x] Empty, loading y error states son claros para usuarios.
+- [x] Admin se posiciona como panel de excepciones para `action_required`, `paid_waiting_label_purchase`, `label_purchase_pending` y `label_purchased`.
 
 ---
 
