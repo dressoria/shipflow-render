@@ -7,6 +7,7 @@ import {
   apiAdminGetLabelOrder,
   apiGetConfigFeatures,
   apiGetConfigStatus,
+  apiVoidLabel,
   type ConfigFeatures,
   type ConfigStatus,
 } from "@/lib/services/apiClient";
@@ -119,6 +120,111 @@ function getProcessLabelReadiness(order: PendingLabelOrder): {
     canProcess: false,
     title: "Processing unavailable",
     note: `Process label is available only for paid orders awaiting a label, or clean action_required retries. Current status: ${getLabelOrderStatusLabel(order.status)}.`,
+  };
+}
+
+function getRefundReadiness(
+  order: PendingLabelOrder,
+  configStatus: ConfigStatus | null,
+  configFeatures: ConfigFeatures | null,
+): { canRefund: boolean; canRecordManual: boolean; title: string; note: string } {
+  const hasLabelData = Boolean(order.labelId || order.shipmentId || order.trackingNumber);
+
+  if (order.status === "refunded") {
+    return {
+      canRefund: false,
+      canRecordManual: false,
+      title: "Refund completed",
+      note: "This order is already marked refunded. No additional refund action is available.",
+    };
+  }
+
+  if (order.status === "refund_pending") {
+    return {
+      canRefund: false,
+      canRecordManual: true,
+      title: "Refund pending",
+      note: "A Stripe refund was already requested. Do not submit another refund; record manual completion only after verifying Stripe.",
+    };
+  }
+
+  if (!order.stripePaymentIntentId || !order.paidAt) {
+    return {
+      canRefund: false,
+      canRecordManual: false,
+      title: "Refund unavailable",
+      note: "Refunds require a completed Stripe payment intent and paid_at timestamp.",
+    };
+  }
+
+  if (hasLabelData) {
+    return {
+      canRefund: false,
+      canRecordManual: false,
+      title: "Refund blocked",
+      note: "This order already has label, shipment, or tracking data. Review void/return handling instead of refunding directly.",
+    };
+  }
+
+  if (!canRefundLabelOrder(order.status)) {
+    return {
+      canRefund: false,
+      canRecordManual: canMarkRefundedManual(order.status),
+      title: "Refund not allowed for this status",
+      note: `Current status is ${getLabelOrderStatusLabel(order.status)}.`,
+    };
+  }
+
+  if (!configStatus?.labelPaymentRefundsEnabled || !configFeatures?.labelPaymentRefundAvailable) {
+    return {
+      canRefund: false,
+      canRecordManual: canMarkRefundedManual(order.status),
+      title: "Stripe refund disabled",
+      note: "App refunds are disabled in this environment. Use Stripe Dashboard manually, then record the manual refund here when safe.",
+    };
+  }
+
+  return {
+    canRefund: true,
+    canRecordManual: canMarkRefundedManual(order.status),
+    title: "Stripe refund available",
+    note: "This paid order has no saved label, shipment, or tracking data. A single Stripe refund can be submitted with confirmation.",
+  };
+}
+
+function getVoidReadiness(
+  order: PendingLabelOrder,
+  configStatus: ConfigStatus | null,
+  configFeatures: ConfigFeatures | null,
+): { canVoid: boolean; title: string; note: string } {
+  if (order.status !== "label_purchased") {
+    return {
+      canVoid: false,
+      title: "Void unavailable",
+      note: "Voids are only reviewed for completed purchased labels.",
+    };
+  }
+
+  if (!order.shipmentId || !order.labelId || !order.trackingNumber) {
+    return {
+      canVoid: false,
+      title: "Void blocked",
+      note: "Voids require a saved shipment, label id, and tracking number.",
+    };
+  }
+
+  if (!configStatus?.labelVoidEnabled || !configFeatures?.realVoidAvailable) {
+    return {
+      canVoid: false,
+      title: "Void disabled",
+      note: "Carrier voids are disabled in this environment. Do not use the label if support is reviewing a cancellation.",
+    };
+  }
+
+  return {
+    canVoid: true,
+    title: "Carrier void available",
+    note: "This will call the carrier void endpoint once and update the shipment when the carrier confirms.",
   };
 }
 
@@ -302,6 +408,8 @@ function OrderDetail({
   const [processResult, setProcessResult] = useState<string | null>(null);
   const processInFlightRef = useRef(false);
   const processReadiness = getProcessLabelReadiness(order);
+  const refundReadiness = getRefundReadiness(order, configStatus, configFeatures);
+  const voidReadiness = getVoidReadiness(order, configStatus, configFeatures);
 
   async function handleActionRequired(reason: string) {
     setMutating(true);
@@ -402,6 +510,35 @@ function OrderDetail({
       setMutateError(err instanceof Error ? err.message : "Label purchase failed.");
     } finally {
       processInFlightRef.current = false;
+      setMutating(false);
+    }
+  }
+
+  async function handleVoidLabel() {
+    if (mutating || !voidReadiness.canVoid || !order.shipmentId) return;
+    if (
+      !confirm(
+        "Void this carrier label now? This calls the carrier API and cannot be undone.\n\n" +
+          "Requires ENABLE_REAL_LABEL_VOID=true on the server.",
+      )
+    ) {
+      return;
+    }
+
+    setMutating(true);
+    setMutateError(null);
+    setProcessResult(null);
+    try {
+      const result = await apiVoidLabel(order.shipmentId);
+      setProcessResult(
+        `${result.message} Tracking: ${result.shipment.trackingNumber} · Label status: ${result.labelStatus}`,
+      );
+      const refreshed = await apiAdminGetLabelOrder(order.id);
+      onMutated(refreshed.order);
+      onRefresh();
+    } catch (err) {
+      setMutateError(err instanceof Error ? err.message : "Label void failed.");
+    } finally {
       setMutating(false);
     }
   }
@@ -546,6 +683,31 @@ function OrderDetail({
             <p className="mt-1 leading-6">{processReadiness.note}</p>
           </div>
 
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${
+                refundReadiness.canRefund
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : order.status === "refunded"
+                    ? "border-teal-100 bg-teal-50 text-teal-800"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}
+            >
+              <p className="font-bold">{refundReadiness.title}</p>
+              <p className="mt-1 leading-6">{refundReadiness.note}</p>
+            </div>
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${
+                voidReadiness.canVoid
+                  ? "border-orange-200 bg-orange-50 text-orange-800"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}
+            >
+              <p className="font-bold">{voidReadiness.title}</p>
+              <p className="mt-1 leading-6">{voidReadiness.note}</p>
+            </div>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3">
             {canProcessLabelOrder(order.status) && (
               <button
@@ -582,8 +744,8 @@ function OrderDetail({
                 Mark refund needed
               </button>
             )}
-            {canRefundLabelOrder(order.status) && !order.labelId && !order.trackingNumber && (
-              configStatus?.labelPaymentRefundsEnabled && configFeatures?.labelPaymentRefundAvailable ? (
+            {canRefundLabelOrder(order.status) && !order.labelId && !order.shipmentId && !order.trackingNumber && (
+              refundReadiness.canRefund ? (
                 <button
                   type="button"
                   disabled={mutating}
@@ -607,7 +769,7 @@ function OrderDetail({
                 </button>
               )
             )}
-            {canMarkRefundedManual(order.status) && !!order.stripePaymentIntentId && !!order.paidAt && (
+            {refundReadiness.canRecordManual && !!order.stripePaymentIntentId && !!order.paidAt && (
               <button
                 type="button"
                 disabled={mutating}
@@ -616,6 +778,17 @@ function OrderDetail({
                 className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-bold text-teal-700 disabled:opacity-40"
               >
                 Mark refunded manually
+              </button>
+            )}
+            {order.status === "label_purchased" && (
+              <button
+                type="button"
+                disabled={mutating || !voidReadiness.canVoid}
+                onClick={handleVoidLabel}
+                title={voidReadiness.note}
+                className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-bold text-orange-700 disabled:opacity-40"
+              >
+                {mutating ? "Voiding…" : "Void label"}
               </button>
             )}
             {order.status === "pending_payment" && (

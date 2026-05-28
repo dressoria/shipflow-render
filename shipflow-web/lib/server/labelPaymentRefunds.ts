@@ -45,8 +45,8 @@ export function validateOrderRefundEligibility(order: PendingLabelOrder): void {
   if (!Number.isFinite(order.amountCents) || order.amountCents <= 0) {
     throw new Error("This order has an invalid amount and cannot be refunded.");
   }
-  if (order.labelId || order.trackingNumber) {
-    throw new Error("This order already has label data and cannot be refunded directly yet.");
+  if (order.labelId || order.shipmentId || order.trackingNumber) {
+    throw new Error("This order already has label, shipment, or tracking data and cannot be refunded directly yet.");
   }
 }
 
@@ -185,8 +185,8 @@ export async function markOrderRefundedManual(
   if (!order.paidAt) {
     throw new Error("This order has no paid_at timestamp.");
   }
-  if (order.labelId || order.trackingNumber) {
-    throw new Error("This order already has label data and cannot be marked refunded directly.");
+  if (order.labelId || order.shipmentId || order.trackingNumber) {
+    throw new Error("This order already has label, shipment, or tracking data and cannot be marked refunded directly.");
   }
   if (order.status === "refunded") return order;
 

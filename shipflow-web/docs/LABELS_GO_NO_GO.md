@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.51)
+Última revisión: 2026-05-28 (FASE 5.52)
 
 ---
 
@@ -94,7 +94,8 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Refund foundation documentada — flujo refund_needed → refund_pending → refunded (FASE 5.39C)
 - [ ] **PENDIENTE:** Lista de labels con `label_failed` accesible para soporte (FASE 5.39D+)
 - [x] Flujo de refund real por admin detrás de `ENABLE_LABEL_PAYMENT_REFUNDS=false` (FASE 5.40D)
-- [ ] **PENDIENTE:** Flujo de void documentado — solo con `ENABLE_REAL_LABEL_VOID=true` y solo shipments "purchased"
+- [x] Controles de refund manual seguros: no refund si no hay pago, ya fue refunded/refund_pending, o existe label/shipment/tracking (FASE 5.52)
+- [x] Flujo de void documentado y restringido a admin — solo con `ENABLE_REAL_LABEL_VOID=true` y solo labels purchased con shipment/label/tracking (FASE 5.52)
 - [ ] **PENDIENTE:** Cron/worker para expiry automático (actualmente sweep manual)
 
 ---
@@ -153,6 +154,33 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Detalle incluye copiar tracking y abrir/descargar label PDF si `label_url` existe.
 - [x] Empty, loading y error states son claros para usuarios.
 - [x] Admin se posiciona como panel de excepciones para `action_required`, `paid_waiting_label_purchase`, `label_purchase_pending` y `label_purchased`.
+- [x] Admin detail muestra readiness de refund/void y explica cuándo están deshabilitados por flags o estado.
+
+## 8.2 Manual Refund/Void Exception Handling
+
+Current production posture:
+
+- `ENABLE_REAL_LABEL_VOID=false`.
+- `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+- No automatic refund after provider failure.
+- No automatic void after provider failure.
+
+Refund safety:
+
+- App refund endpoint is admin-only and gated by `ENABLE_LABEL_PAYMENT_REFUNDS`.
+- Real Stripe refund requires `stripe_payment_intent_id`, `paid_at`, valid amount, eligible status, and no `label_id`, `shipment_id`, or `tracking_number`.
+- `refund_pending` and `refunded` block duplicate refund attempts.
+- Stripe idempotency key remains `label-refund-{order.id}`.
+- If refunds are disabled, support uses Stripe Dashboard manually and records the result with "Mark refunded manually" only when safe.
+
+Void safety:
+
+- Carrier void endpoint is admin-only and gated by `ENABLE_REAL_LABEL_VOID`.
+- Void requires saved shipment, label id, tracking number, `label_status=purchased`, and `payment_status=paid`.
+- Already-voided labels return idempotently.
+- Existing refund movements block duplicate void/refund persistence.
+- Successful void stores `shipments.metadata.label_void` with provider response summary and admin/timestamp context.
+- Normal users can see voided/refunded statuses but do not see void controls.
 
 ---
 

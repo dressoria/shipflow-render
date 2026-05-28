@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.51)
+Last updated: 2026-05-28 (FASE 5.52)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -229,6 +229,56 @@ Safety:
 - [x] No wallet changes.
 - [x] No public landing redesign.
 - [x] No provider credential changes.
+
+## FASE 5.52 Manual Refund/Void Admin Checklist
+
+Current flags:
+
+- [x] `ENABLE_REAL_LABEL_VOID=false`.
+- [x] `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+- [x] No automatic refund behavior enabled.
+- [x] No automatic void behavior enabled.
+
+Audit results:
+
+- [x] Admin Stripe refund endpoint exists: `/api/admin/label-orders/[id]/refund`.
+- [x] Manual refund recording endpoint exists: `/api/admin/label-orders/[id]/mark-refunded-manual`.
+- [x] Provider void endpoint exists and is now admin-only: `/api/labels/[id]/void`.
+- [x] ShipStation/ShipEngine void helpers already exist.
+- [x] Shipment label statuses include `purchased`, `voided`, and `refunded`.
+- [x] Pending label order refund fields are mapped.
+
+Refund QA when flag is enabled in a controlled environment:
+
+- [ ] Admin sees Stripe refund disabled when `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+- [ ] Refund button enables only for eligible paid orders with no `label_id`, `shipment_id`, or `tracking_number`.
+- [ ] Refund is blocked without `stripe_payment_intent_id`.
+- [ ] Refund is blocked without `paid_at`.
+- [ ] Refund is blocked for `refund_pending` and `refunded`.
+- [ ] Refund is blocked for `label_purchased`.
+- [ ] Repeated request uses Stripe idempotency key `label-refund-{order.id}` and does not double refund.
+- [ ] Manual refunded recording is only used after Stripe Dashboard verification.
+
+Void QA when flag is enabled in a controlled environment:
+
+- [ ] Normal users do not see void controls in `/envios`.
+- [ ] Non-admin API callers cannot void labels.
+- [ ] Admin sees carrier void disabled when `ENABLE_REAL_LABEL_VOID=false`.
+- [ ] Void button enables only for purchased labels with `shipment_id`, `label_id`, and `tracking_number`.
+- [ ] Void is blocked if shipment `label_status` is not `purchased`.
+- [ ] Void is blocked if shipment is already `voided`.
+- [ ] Duplicate void returns current voided state and does not call provider twice.
+- [ ] Existing refund movement blocks duplicate void/refund persistence.
+- [ ] Successful void stores `shipments.metadata.label_void` with provider status/message, admin user, timestamp, and refund marker.
+
+Safety:
+
+- [x] No env file edits.
+- [x] No migrations.
+- [x] No wallet feature added.
+- [x] No public landing changes.
+- [x] No provider credential changes.
+- [x] No refund or void executed by Codex.
 
 ## 1. Local Pre-Check
 

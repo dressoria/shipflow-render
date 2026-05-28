@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Download, FileText, RefreshCw, Truck } from "lucide-react";
+import { Download, FileText, RefreshCw, Truck } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate } from "@/lib/forms";
 import { getShipments } from "@/lib/services/shipmentService";
-import { apiGetConfigStatus, apiVoidLabel, type ConfigStatus } from "@/lib/services/apiClient";
 import type { Envio } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -61,10 +60,6 @@ export function ShipmentsTable() {
   const [shipments, setShipments] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [voidingId, setVoidingId] = useState<string | null>(null);
-  const [voidError, setVoidError] = useState<string | null>(null);
-  const [voidSuccess, setVoidSuccess] = useState<string | null>(null);
-  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
   async function load() {
     try {
@@ -80,37 +75,7 @@ export function ShipmentsTable() {
 
   useEffect(() => {
     window.setTimeout(() => { load(); }, 0);
-    apiGetConfigStatus().then(setConfigStatus);
   }, []);
-
-  function startVoid(id: string) {
-    if (configStatus?.labelVoidEnabled !== true) {
-      setVoidError("Void is not enabled yet.");
-      setVoidSuccess(null);
-      setVoidingId(null);
-      return;
-    }
-    setVoidingId(id);
-    setVoidError(null);
-    setVoidSuccess(null);
-  }
-
-  function cancelVoid() {
-    setVoidingId(null);
-    setVoidError(null);
-  }
-
-  async function confirmVoid(shipmentId: string) {
-    try {
-      setVoidError(null);
-      const result = await apiVoidLabel(shipmentId);
-      setVoidSuccess(result.message || "Label voided.");
-      setVoidingId(null);
-      await load();
-    } catch (err) {
-      setVoidError(err instanceof Error ? err.message : "We could not void this label.");
-    }
-  }
 
   if (loading) {
     return (
@@ -146,10 +111,6 @@ export function ShipmentsTable() {
     );
   }
 
-  const canVoid = (s: Envio) =>
-    configStatus?.labelVoidEnabled === true &&
-    s.provider === "shipstation" &&
-    s.labelStatus === "purchased";
   const renderActions = (shipment: Envio) => (
     <div className="flex flex-wrap items-start gap-2">
       <Link
@@ -186,43 +147,6 @@ export function ShipmentsTable() {
         </span>
       ) : null}
 
-      {canVoid(shipment) ? (
-        voidingId === shipment.id ? (
-          <div className="grid gap-1">
-            <div className="flex items-center gap-1 rounded-2xl bg-amber-50 px-3 py-1.5">
-              <AlertTriangle className="h-3 w-3 text-amber-600" />
-              <span className="text-xs font-bold text-amber-700">Void?</span>
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => confirmVoid(shipment.id)}
-                className="rounded-xl bg-red-100 px-2 py-1 text-xs font-black text-red-700 hover:bg-red-200"
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                onClick={cancelVoid}
-                className="rounded-xl bg-slate-100 px-2 py-1 text-xs font-black text-slate-600 hover:bg-slate-200"
-              >
-                No
-              </button>
-            </div>
-            {voidError ? (
-              <p className="text-xs font-semibold text-red-600">{voidError}</p>
-            ) : null}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => startVoid(shipment.id)}
-            className="rounded-2xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-red-50 hover:text-red-700"
-          >
-            Void label
-          </button>
-        )
-      ) : null}
     </div>
   );
 
@@ -245,16 +169,6 @@ export function ShipmentsTable() {
           </Link>
         </div>
       </div>
-      {voidSuccess && (
-        <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
-          {voidSuccess}
-        </div>
-      )}
-      {voidError && !voidingId && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-          {voidError}
-        </div>
-      )}
       <div className="grid gap-3 md:hidden">
         {shipments.map((shipment) => (
           <article

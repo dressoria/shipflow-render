@@ -3,16 +3,12 @@ import {
   apiErrorFromUnknown,
   apiSuccess,
 } from "@/lib/server/apiResponse";
+import { requireAdminUser } from "@/lib/server/adminAuth";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { ShipEngineLabelAdapter } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
 import { createAuditLog, createReconciliationEvent } from "@/lib/server/auditLog";
 import { fromShipmentRow, type ShipmentRow } from "@/lib/server/shipments/createInternalShipment";
-import {
-  createServiceSupabaseClient,
-  isServerSupabaseConfigured,
-  isServiceRoleConfigured,
-  requireVerifiedUser,
-} from "@/lib/server/supabaseServer";
+import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
 import { canVoidRealLabel } from "@/lib/server/featureGates";
 
 function isShipEngineMode() {
@@ -39,15 +35,17 @@ function logVoidReconciliationFailure(
 
 async function auditVoidEvent(
   eventType: string,
-  userId: string,
+  actorUserId: string,
+  actorEmail: string | null,
   shipment: ShipmentRow,
   message: string,
   severity: "info" | "warning" | "error" | "critical" = "info",
   metadata: Record<string, unknown> = {},
 ) {
   await createAuditLog({
-    actorUserId: userId,
-    userId,
+    actorUserId,
+    actorEmail,
+    userId: shipment.user_id ?? null,
     eventType,
     severity,
     entityType: "shipment",
@@ -66,7 +64,7 @@ async function auditVoidEvent(
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (!isServerSupabaseConfigured) {
+  if (!isServerSupabaseConfigured || !isServiceRoleConfigured) {
     return apiError("Server is not configured correctly.", 503);
   }
 
@@ -75,13 +73,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const shipmentId = decodeURIComponent(id ?? "").trim();
     if (!shipmentId) return apiError("Shipment ID is required.", 400);
 
-    const { supabase, user } = await requireVerifiedUser(request);
+    const { serviceSupabase, user } = await requireAdminUser(request);
 
-    const { data: shipment, error: shipmentError } = await supabase
+    const { data: shipment, error: shipmentError } = await serviceSupabase
       .from("shipments")
       .select("*")
       .eq("id", shipmentId)
-      .eq("user_id", user.id)
       .maybeSingle<ShipmentRow>();
 
     if (shipmentError) throw shipmentError;
@@ -92,6 +89,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await auditVoidEvent(
         "idempotency_conflict",
         user.id,
+        user.email ?? null,
         shipment,
         "Duplicate void attempt returned existing voided shipment.",
         "warning",
@@ -111,6 +109,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await auditVoidEvent(
         "label_feature_gate_denied",
         user.id,
+        user.email ?? null,
         shipment,
         "Void attempt blocked by feature gate.",
         "warning",
@@ -127,7 +126,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     // ── ShipStation void ────────────────────────────────────────────────────
     if (provider === "shipstation") {
       if (shipment.label_status !== "purchased") {
-        await auditVoidEvent("label_void_failed", user.id, shipment, "Void blocked because label is not purchased.", "warning");
+        await auditVoidEvent("label_void_failed", user.id, user.email ?? null, shipment, "Void blocked because label is not purchased.", "warning");
         return apiError(
           "This label cannot be voided in its current state.",
           409,
@@ -135,30 +134,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
 
       if (shipment.payment_status !== "paid") {
-        await auditVoidEvent("label_void_failed", user.id, shipment, "Void blocked because payment is not paid.", "warning");
+        await auditVoidEvent("label_void_failed", user.id, user.email ?? null, shipment, "Void blocked because payment is not paid.", "warning");
         return apiError("Only paid labels can be voided and refunded.", 409);
       }
 
-      // Require service_role for atomic refund persistence.
-      if (!isServiceRoleConfigured) {
-        await auditVoidEvent("label_void_failed", user.id, shipment, "Void blocked because service role is not configured.", "error");
-        return apiError(
-          "The server is not ready to void labels with automatic refunds.",
-          503,
-        );
-      }
-
       // Idempotency: if refund already exists, the void was already processed.
-      const { data: existingRefund } = await supabase
+      const { data: existingRefund } = await serviceSupabase
         .from("balance_movements")
         .select("id")
         .eq("reference_id", shipmentId)
         .eq("type", "refund")
-        .eq("user_id", user.id)
+        .eq("user_id", shipment.user_id ?? "")
         .maybeSingle();
 
       if (existingRefund) {
-        await auditVoidEvent("idempotency_conflict", user.id, shipment, "Duplicate void/refund attempt found existing refund.", "warning");
+        await auditVoidEvent("idempotency_conflict", user.id, user.email ?? null, shipment, "Duplicate void/refund attempt found existing refund.", "warning");
         return apiSuccess({
           shipment: fromShipmentRow(shipment),
           labelStatus: "voided",
@@ -168,10 +158,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
 
       let voidResult;
-      await auditVoidEvent("label_void_started", user.id, shipment, "Carrier label void started.");
+      await auditVoidEvent("label_void_started", user.id, user.email ?? null, shipment, "Carrier label void started.");
       if (isShipEngineMode()) {
         if (!shipment.provider_label_id) {
-          await auditVoidEvent("label_void_failed", user.id, shipment, "Void blocked because provider label ID is missing.", "warning");
+          await auditVoidEvent("label_void_failed", user.id, user.email ?? null, shipment, "Void blocked because provider label ID is missing.", "warning");
           return apiError("This label cannot be voided because the carrier label ID is missing.", 409);
         }
 
@@ -187,6 +177,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           await auditVoidEvent(
             "label_void_failed",
             user.id,
+            user.email ?? null,
             shipment,
             "Carrier could not void this label.",
             "error",
@@ -206,6 +197,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           await auditVoidEvent(
             "label_void_failed",
             user.id,
+            user.email ?? null,
             shipment,
             "Carrier could not void this label.",
             "error",
@@ -215,18 +207,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         }
       }
 
-      await auditVoidEvent("label_void_succeeded", user.id, shipment, "Carrier void was approved.", "info", {
+      await auditVoidEvent("label_void_succeeded", user.id, user.email ?? null, shipment, "Carrier void was approved.", "info", {
         providerStatus: voidResult.providerStatus ?? null,
       });
 
       // ShipStation confirmed void. Now persist atomically: update status + insert refund.
-      const serviceClient = createServiceSupabaseClient();
       const refundAmount = Number(shipment.customer_price ?? shipment.total ?? 0);
 
-      const { data: voidRpcData, error: voidRpcError } = await serviceClient.rpc(
+      const { data: voidRpcData, error: voidRpcError } = await serviceSupabase.rpc(
         "void_label_refund_transaction",
         {
-          p_user_id: user.id,
+          p_user_id: shipment.user_id ?? user.id,
           p_shipment_id: shipmentId,
           p_refund_amount: refundAmount,
           p_tracking_number: shipment.tracking_number ?? "",
@@ -240,7 +231,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         logVoidReconciliationFailure(requestId, user.id, shipment, voidRpcError ?? "EMPTY_RPC_RESPONSE");
         await createReconciliationEvent({
           actorUserId: user.id,
-          userId: user.id,
+          actorEmail: user.email ?? null,
+          userId: shipment.user_id ?? null,
           eventType: "label_void_refund_failed",
           entityType: "shipment",
           entityId: shipment.id,
@@ -254,22 +246,49 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             refundAmount,
             cause: voidRpcError?.message ?? "EMPTY_RPC_RESPONSE",
           },
-        }, serviceClient);
+        }, serviceSupabase);
         return apiError(
           `The carrier voided this label, but the refund could not be saved. Please contact support with the request ID: ${requestId}.`,
           500,
         );
       }
 
+      const { error: metadataError } = await serviceSupabase
+        .from("shipments")
+        .update({
+          metadata: {
+            ...(shipment.metadata ?? {}),
+            label_void: {
+              voided_at: new Date().toISOString(),
+              admin_user_id: user.id,
+              provider_status: voidResult.providerStatus ?? null,
+              provider_message: voidResult.message ?? null,
+              refunded: voidResult.refunded,
+            },
+          },
+        })
+        .eq("id", shipmentId);
+
+      if (metadataError) {
+        await auditVoidEvent(
+          "label_void_metadata_update_failed",
+          user.id,
+          user.email ?? null,
+          shipment,
+          "Carrier void succeeded but metadata update failed.",
+          "warning",
+          { cause: metadataError.message },
+        );
+      }
+
       // Fetch updated shipment for the response.
-      const { data: updatedShipment } = await supabase
+      const { data: updatedShipment } = await serviceSupabase
         .from("shipments")
         .select("*")
         .eq("id", shipmentId)
-        .eq("user_id", user.id)
         .single<ShipmentRow>();
 
-      await auditVoidEvent("label_void_succeeded", user.id, updatedShipment ?? shipment, "Void/refund persisted successfully.", "info", {
+      await auditVoidEvent("label_void_succeeded", user.id, user.email ?? null, updatedShipment ?? shipment, "Void/refund persisted successfully.", "info", {
         refundAmount,
       });
 
@@ -281,7 +300,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       });
     }
 
-    await auditVoidEvent("label_void_failed", user.id, shipment, "Void requested for unsupported provider.", "warning");
+    await auditVoidEvent("label_void_failed", user.id, user.email ?? null, shipment, "Void requested for unsupported provider.", "warning");
     return apiError("Void is not supported for this label yet.", 501);
   } catch (error) {
     if (!(error instanceof Response)) {

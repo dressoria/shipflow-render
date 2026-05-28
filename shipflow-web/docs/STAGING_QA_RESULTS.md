@@ -1,6 +1,57 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.51 operating UX)
+Last updated: 2026-05-28 (FASE 5.52 manual refunds/voids)
+
+---
+
+## FASE 5.52 — Manual Refunds and Voids for Admin Exception Handling
+
+Run timestamp: 2026-05-28 America/Guayaquil
+
+Scope: tighten manual admin exception controls for label voids and label-payment refunds. This phase does not enable automatic refunds or automatic voids.
+
+### Existing code found
+
+| Area | Existing implementation |
+| --- | --- |
+| Stripe refund endpoint | `POST /api/admin/label-orders/[id]/refund`, gated by `ENABLE_LABEL_PAYMENT_REFUNDS` and admin allowlist. |
+| Manual refund recording | `POST /api/admin/label-orders/[id]/mark-refunded-manual`. |
+| Refund helper | `lib/server/labelPaymentRefunds.ts` with Stripe idempotency key `label-refund-{order.id}`. |
+| Provider void endpoint | `POST /api/labels/[id]/void`, now restricted to admin users. |
+| Provider void helpers | ShipStation/ShipEngine adapter void helpers already exist. |
+| Shipment label status | `shipments.label_status` supports `purchased`, `voided`, `refunded`, etc. |
+| Pending order refund fields | `stripe_refund_id`, `refund_attempted_at`, `refunded_at`, and `refund_error_message` are already mapped. |
+
+### Changes
+
+- Direct Stripe refund validation now blocks orders that already have `label_id`, `shipment_id`, or `tracking_number`.
+- Manual refunded recording now blocks orders that already have `label_id`, `shipment_id`, or `tracking_number`.
+- Carrier void endpoint now requires admin access and service role; normal users no longer get a void control in My Shipments.
+- Successful carrier voids persist a `metadata.label_void` record on the shipment with admin, provider status/message, timestamp, and refund marker.
+- Admin label order detail now shows refund and void readiness panels with clear reasons when disabled by flags or state.
+- Admin can only submit app refunds when the refund flag and admin feature gate are available.
+- Admin can only submit carrier voids when the void flag and admin feature gate are available, and the order has a completed shipment/label/tracking record.
+
+### Current flags
+
+- `ENABLE_REAL_LABEL_VOID=false`: carrier voids remain disabled.
+- `ENABLE_LABEL_PAYMENT_REFUNDS=false`: Stripe refunds remain disabled.
+- No refund or void was executed by Codex.
+
+### Safety
+
+- No automatic refund after provider failure.
+- No automatic void after provider failure.
+- No double refund: refunded/refund_pending statuses are blocked, and Stripe idempotency remains `label-refund-{order.id}`.
+- No direct refund when payment is incomplete, missing a payment intent, already refunded, or has label/shipment/tracking data.
+- No double void: already-voided labels return idempotently, and existing refund movements block duplicate void/refund persistence.
+- Normal users see voided/refunded statuses but do not see admin-only controls.
+
+### Decision
+
+**Final decision: READY FOR FLAGGED ADMIN QA**
+
+Reason: controls are in place and remain inert while `ENABLE_REAL_LABEL_VOID=false` and `ENABLE_LABEL_PAYMENT_REFUNDS=false`. A future QA run can enable either flag in a controlled environment with allowlisted admins only.
 
 ---
 
