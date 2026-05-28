@@ -1,6 +1,100 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.53 wallet balance + label payment UX)
+Last updated: 2026-05-28 (FASE 5.55 controlled beta readiness QA)
+
+---
+
+## FASE 5.55 — Production QA and Controlled Beta Release Checklist
+
+Run timestamp: 2026-05-28 America/Guayaquil
+
+Commit tested:
+
+- `04db119` — Add pricing margin controls for labels
+
+Important commits included in history:
+
+- `c65ea8e` — Enable safe automatic label processing after payment
+- `df37081` — Improve shipment and admin operating UX
+- `6ab4e4a` — Add safe admin refund and void controls
+- `55842bb` — Add wallet balance and ledger foundation
+- `04db119` — Add pricing margin controls for labels
+
+### Production config/status
+
+Checked:
+
+```text
+https://sendiflash.com/api/config/status
+```
+
+Observed result:
+
+| Flag / status | Result | Observed value |
+| --- | --- | --- |
+| `buildEnvOk` | PASS | `true` |
+| `directLabelPaymentEnabled` | PASS | `true` |
+| `realLabelPurchaseEnabled` | PASS | `true` |
+| `processLabelInWebhookEnabled` | PASS | `true` |
+| `labelVoidEnabled` | PASS | `false` |
+| `labelPaymentRefundsEnabled` | PASS | `false` |
+| `stripeRechargeEnabled` | PASS | `true` |
+| `ratesConfigured` | PASS | `true` |
+| `activeRateProviders` | PASS | `3` |
+| `appUrlHost` | PASS | `sendiflash.com` |
+
+### HTTP smoke checks
+
+Unauthenticated HTTP smoke checks from Codex:
+
+| Route | Result | Note |
+| --- | --- | --- |
+| `/` | PASS | HTTP 200 |
+| `/login` | PASS | HTTP 200 |
+| `/registro` | PASS | HTTP 200 |
+| `/crear-guia` | PASS | HTTP 200 app shell |
+| `/saldo` | PASS | HTTP 200 app shell |
+| `/admin/label-orders` | PASS | HTTP 200 app shell; authorization is client/server-session dependent and requires browser QA |
+
+### QA results by area
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Public landing and auth | PARTIAL | Public pages load by HTTP smoke. Login/signup/dashboard redirects require interactive browser session and test credentials. |
+| Create guide flow | PARTIAL | Code path is present; interactive address/rate selection requires browser/user session. Pricing is server-backed by the current label checkout/rate flow. |
+| Direct card payment flow | PARTIAL | Production flags are correct for automatic processing. A fresh Stripe Checkout payment was not run by Codex because it requires interactive browser/Stripe/Supabase access. |
+| Wallet recharge flow | PARTIAL | `/saldo` shell loads and Stripe recharge is enabled. New recharge/payment/webhook credit test requires interactive Stripe flow. |
+| Wallet label purchase flow | PARTIAL | Wallet foundation and UI are documented in FASE 5.53. Full debit/label purchase test requires authenticated browser and sufficient test balance. |
+| My Shipments and shipment detail | PARTIAL | UX implemented and compiled; authenticated ownership, PDF link, and copy tracking need browser QA. |
+| Admin exception panel | PARTIAL | UI and safeguards are implemented and compiled; admin/non-admin access and filters need browser QA with admin account. |
+| Refund/void gated behavior | PASS BY CONFIG / PARTIAL UI | Config confirms `labelVoidEnabled=false` and `labelPaymentRefundsEnabled=false`; no refund/void executed. Admin disabled-state UI needs browser QA. |
+| Pricing and margin controls | READY FOR QA | `04db119` is current HEAD. Full displayed price = charged/debited price validation requires new direct-card and wallet test orders. |
+| Config and safety | PASS | Expected flags observed. No env files, secrets, migrations, refunds, or voids touched by this QA pass. |
+
+### Bugs found / fixes applied
+
+- No code blocker was found during local validation and public HTTP/config smoke checks.
+- No feature fixes were applied in this phase.
+- Documentation was updated to record controlled beta readiness status and remaining manual QA.
+
+### Manual beta QA still required
+
+Run with the allowlisted verified test user and admin account:
+
+1. Create a new guide, get rates, and confirm rate cards show the final customer price.
+2. Pay by Stripe test card and confirm automatic `label_purchased` without admin `Process label`.
+3. Confirm `pending_label_orders.amount_cents` equals displayed/charged customer price.
+4. Confirm shipment has tracking, label URL, provider cost, customer price, and margin fields.
+5. Recharge wallet, confirm ledger credit once, and verify duplicate webhook does not double credit.
+6. Buy a label with wallet balance, confirm server-computed debit and no negative balance.
+7. Confirm `/envios` and `/guia/[tracking]` only show the signed-in user's shipments.
+8. Confirm admin quick filters and disabled refund/void reasons in `/admin/label-orders`.
+
+### Decision
+
+**Final decision: PARTIAL / READY FOR CONTROLLED MANUAL BETA QA**
+
+Reason: codebase, build, and production config are aligned for controlled beta; the remaining PASS criteria require live authenticated browser, Stripe Checkout, webhook, Supabase DB, and admin verification steps that were not executed from Codex in this phase. Refunds and voids remain disabled as intended.
 
 ---
 

@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.52)
+Last updated: 2026-05-28 (FASE 5.55)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -279,6 +279,71 @@ Safety:
 - [x] No public landing changes.
 - [x] No provider credential changes.
 - [x] No refund or void executed by Codex.
+
+## FASE 5.55 Controlled Beta Release QA Checklist
+
+Commit/config:
+
+- [x] Local HEAD reviewed: `04db119 Add pricing margin controls for labels`.
+- [x] History includes `c65ea8e`, `df37081`, `6ab4e4a`, `55842bb`, and `04db119`.
+- [x] Working tree was clean before docs update.
+- [x] `/api/config/status` reports `directLabelPaymentEnabled=true`.
+- [x] `/api/config/status` reports `realLabelPurchaseEnabled=true`.
+- [x] `/api/config/status` reports `processLabelInWebhookEnabled=true`.
+- [x] `/api/config/status` reports `labelVoidEnabled=false`.
+- [x] `/api/config/status` reports `labelPaymentRefundsEnabled=false`.
+- [x] `/api/config/status` reports `stripeRechargeEnabled=true`.
+- [x] `/api/config/status` reports `buildEnvOk=true`.
+
+Public/app shell smoke:
+
+- [x] `/` returns HTTP 200.
+- [x] `/login` returns HTTP 200.
+- [x] `/registro` returns HTTP 200.
+- [x] `/crear-guia` returns HTTP 200 app shell.
+- [x] `/saldo` returns HTTP 200 app shell.
+- [x] `/admin/label-orders` returns HTTP 200 app shell.
+
+Manual browser QA required:
+
+- [ ] Signup works end-to-end.
+- [ ] Login works and redirects verified user to dashboard/create guide.
+- [ ] Unauthenticated users are redirected safely where required.
+- [ ] Create guide origin/destination/package validation works.
+- [ ] Get rates works with real configured providers.
+- [ ] Rate cards show final customer price.
+- [ ] Direct-card checkout amount equals displayed price.
+- [ ] Stripe webhook automatically buys label when `processLabelInWebhookEnabled=true`.
+- [ ] New direct-card order reaches `label_purchased`.
+- [ ] New shipment has tracking/PDF and appears in My Shipments.
+- [ ] Wallet recharge credits balance once.
+- [ ] Wallet label purchase debits server-computed customer price.
+- [ ] Wallet balance cannot go negative.
+- [ ] Shipment detail copy tracking and label PDF links work.
+- [ ] User cannot see another user's shipments.
+- [ ] Admin quick filters work.
+- [ ] Admin completed labels cannot be processed again.
+- [ ] Admin safe retry appears only for clean `action_required` orders.
+- [ ] Refund/void controls remain disabled or unavailable while flags are false.
+
+Pricing/margin QA required:
+
+- [ ] Displayed price equals Stripe direct charge.
+- [ ] Displayed price equals wallet debit.
+- [ ] `pending_label_orders.amount_cents` equals charged direct-card amount.
+- [ ] Shipment/admin displays provider cost, customer price, and margin.
+- [ ] Customer price is never below provider cost.
+- [ ] No floating point money issue observed in cents/ledger values.
+
+Safety:
+
+- [x] No env files changed.
+- [x] No secrets printed.
+- [x] No provider credentials touched.
+- [x] No migrations applied by Codex.
+- [x] No refunds executed.
+- [x] No voids executed.
+- [x] No automatic refund/void behavior enabled.
 
 ## 1. Local Pre-Check
 

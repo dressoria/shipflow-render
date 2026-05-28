@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.52)
+Última revisión: 2026-05-28 (FASE 5.55)
 
 ---
 
@@ -181,6 +181,36 @@ Void safety:
 - Existing refund movements block duplicate void/refund persistence.
 - Successful void stores `shipments.metadata.label_void` with provider response summary and admin/timestamp context.
 - Normal users can see voided/refunded statuses but do not see void controls.
+
+## 8.3 Controlled Beta Readiness — FASE 5.55
+
+Production config observed from `/api/config/status`:
+
+- [x] `buildEnvOk=true`.
+- [x] `directLabelPaymentEnabled=true`.
+- [x] `realLabelPurchaseEnabled=true`.
+- [x] `processLabelInWebhookEnabled=true`.
+- [x] `labelVoidEnabled=false`.
+- [x] `labelPaymentRefundsEnabled=false`.
+- [x] `stripeRechargeEnabled=true`.
+- [x] `ratesConfigured=true`.
+
+Release posture:
+
+- [x] Core automatic direct-card label flow is implemented.
+- [x] Wallet recharge and wallet label purchase foundations are implemented.
+- [x] Pricing margin controls are present in current HEAD `04db119`.
+- [x] Admin is exception-oriented, with refund/void controls gated off by flags.
+- [x] Public/app-shell smoke checks returned HTTP 200 for `/`, `/login`, `/registro`, `/crear-guia`, `/saldo`, and `/admin/label-orders`.
+- [ ] Full authenticated browser QA for signup/login/dashboard.
+- [ ] Fresh direct-card Stripe Checkout order with automatic label purchase.
+- [ ] Fresh wallet recharge and wallet label purchase.
+- [ ] Supabase verification for newest pending label order, shipment, balance movement, and pricing/margin fields.
+- [ ] Admin browser QA for filters, safe retry, completed-state blocking, and disabled refund/void reasons.
+
+Beta decision:
+
+**PARTIAL / ready for controlled manual beta QA.** Do not call this production PASS until a fresh authenticated Stripe direct-card order and wallet order complete end-to-end with DB verification.
 
 ---
 
