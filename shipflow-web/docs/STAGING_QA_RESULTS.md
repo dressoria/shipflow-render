@@ -1481,6 +1481,132 @@ This is stored in card order snapshots and wallet shipment metadata where availa
 
 ---
 
+## FASE 5.58 — Final Controlled Beta Deployment Readiness
+
+Date: 2026-05-28
+
+### Commits checked
+
+Local `main`:
+- `df6748f Prepare SendiFlash beta onboarding and support`
+- `0ea42ff Record selected domestic markets QA`
+- `b346cf0 Add multi-country domestic shipping readiness`
+
+Production check indicates `sendiflash.com` is not yet deployed to `df6748f`, because beta support/legal routes added in that commit return 404.
+
+### Production config/status
+
+Checked:
+`https://sendiflash.com/api/config/status`
+
+Result:
+
+| Flag/status | Result |
+|---|---|
+| `buildEnvOk` | `true` |
+| `supabaseConfigured` | `true` |
+| `serviceRoleConfigured` | `true` |
+| `ratesConfigured` | `true` |
+| `googleMapsConfigured` | `true` |
+| `stripeRechargeConfigured` | `true` |
+| `stripeRechargeEnabled` | `true` |
+| `activeRateProviders` | `3` |
+| `directLabelPaymentEnabled` | `true` |
+| `realLabelPurchaseEnabled` | `true` |
+| `processLabelInWebhookEnabled` | `true` |
+| `labelVoidEnabled` | `false` |
+| `labelPaymentRefundsEnabled` | `false` |
+| `appUrlHost` | `sendiflash.com` |
+
+No secrets were printed or documented.
+
+### Route checks
+
+Unauthenticated HTTP checks:
+
+| Route | Production result | Notes |
+|---|---:|---|
+| `/` | 200 | Loads |
+| `/login` | 200 | Loads |
+| `/registro` | 200 | Loads |
+| `/dashboard` | 200 | Protected client shell loads; auth guard requires browser session |
+| `/crear-guia` | 200 | Protected client shell loads; auth guard requires browser session |
+| `/envios` | 200 | Protected client shell loads; auth guard requires browser session |
+| `/saldo` | 200 | Protected client shell loads; auth guard requires browser session |
+| `/admin/label-orders` | 200 | Admin shell loads; admin access must be verified with admin session |
+| `/support` | 404 | Added in `df6748f`; pending deploy |
+| `/terms` | 404 | Added in `df6748f`; pending deploy |
+| `/privacy` | 404 | Added in `df6748f`; pending deploy |
+| `/support-policy` | 404 | Added in `df6748f`; pending deploy |
+
+Local build generated the new support/legal routes successfully, so the 404s are deployment state, not a local build issue.
+
+### End-to-end beta scenarios to run after redeploy
+
+**A. Card label purchase**
+- Create guide.
+- Get rates.
+- Pay with Stripe card checkout.
+- Webhook confirms payment.
+- Automatic label processing purchases label.
+- User sees tracking/PDF.
+- Shipment appears in `/envios`.
+
+**B. Wallet recharge**
+- Open `/saldo`.
+- Recharge balance through Stripe.
+- Webhook credits balance once.
+- Ledger shows recharge.
+
+**C. Wallet label purchase**
+- Create guide.
+- Choose wallet payment.
+- Balance is debited using server-computed price.
+- Label is purchased.
+- Shipment appears in `/envios`.
+- Balance does not go negative.
+
+**D. Admin exception flow**
+- `action_required` orders are visible in `/admin/label-orders`.
+- Retry only appears when safe.
+- Completed orders cannot be processed again.
+- Refund/void controls remain gated by disabled flags.
+
+**E. Multi-country domestic**
+- US → US works or remains confirmed.
+- ES → ES / DE → DE pass validation and either return rates or friendly no-rate/provider setup message.
+- Cross-border routes are blocked before rates.
+- Unsupported countries are blocked before rates.
+
+### Known limitations
+
+- Latest beta onboarding/support commit must be redeployed before inviting users.
+- Full browser/session QA for dashboard/admin access was not executed in this pass.
+- International/cross-border shipping is not supported.
+- Customs, duties, taxes, export documents, promo codes, subscriptions, and multi-currency conversion are not implemented.
+- Refunds and voids remain manual/admin-reviewed and disabled by default flags.
+- Non-US selected domestic markets may require carrier/provider account setup.
+
+### Final beta decision
+
+**PARTIAL**
+
+Core production config is healthy and routes currently deployed are not returning 500/502. However, the latest beta onboarding/support pages from `df6748f` are not deployed yet, so controlled beta release should wait for redeploy to latest `main` and a quick post-deploy route check.
+
+### Validation results (2026-05-28)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; local build includes `/support`, `/terms`, `/privacy`, `/support-policy` |
+| `git diff --check` | Passed |
+| legacy localStorage grep | Expected docs/storage cleanup references only |
+| unsafe eval grep | Documentation reference only |
+| secret diff grep | No secret-like values found in docs diff |
+
+---
+
 ## FASE 5.57 — Beta Release Hardening and Onboarding
 
 Date: 2026-05-28
@@ -1530,10 +1656,13 @@ Known limitations remain:
 
 | Command | Result |
 |---|---|
-| `npm run lint` | Pending |
-| `npx tsc --noEmit` | Pending |
-| `npm run build` | Pending |
-| `git diff --check` | Pending |
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; new routes `/support`, `/terms`, `/privacy`, and `/support-policy` generated locally |
+| `git diff --check` | Passed |
+| legacy localStorage grep | Expected docs/storage cleanup references only |
+| unsafe eval grep | Documentation reference only |
+| secret diff grep | No secret-like values found in code/docs diff |
 
 ---
 

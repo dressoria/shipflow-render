@@ -755,3 +755,41 @@ SendiFlash is ready for **controlled beta onboarding** after operator verificati
 - Provider/account setup may still limit non-US rate availability.
 - USD-only pricing and payments.
 - Manual support review for label exceptions, refunds, and voids.
+
+---
+
+## FASE 5.58 — Final Controlled Beta Deployment Gate
+
+### Decision
+
+**PARTIAL** until production is redeployed to latest `main` (`df6748f` or newer) and the post-deploy route checks pass.
+
+### What is ready
+
+- Production config/status reports expected beta flags:
+  - direct label payment enabled
+  - real label purchase enabled
+  - process label in webhook enabled
+  - label void disabled
+  - label payment refunds disabled
+- Main deployed routes return 200 with no observed 500/502.
+- Local build generates the new beta support/legal routes.
+- No code/env changes are needed for the support/legal 404s; they indicate production is behind latest main.
+
+### Blocking release item
+
+Production currently returns 404 for routes added in `df6748f`:
+- `/support`
+- `/terms`
+- `/privacy`
+- `/support-policy`
+
+Do not invite beta users until these routes return 200 after redeploy.
+
+### Post-redeploy go criteria
+
+- Latest `main` deployed.
+- `/support`, `/terms`, `/privacy`, `/support-policy` return 200.
+- `/api/config/status` still shows expected beta flags.
+- One card or wallet label purchase reaches `label_purchased`.
+- Admin exception panel remains accessible to admin only.

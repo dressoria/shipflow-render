@@ -1381,3 +1381,59 @@ Move to PASS only after deployed operator QA confirms at least the US flow remai
 - [ ] No automatic voids added
 - [ ] Wallet/card/direct label payment still compile
 - [ ] Multi-country domestic validation still compiles
+
+---
+
+## FASE 5.58 — Final Controlled Beta Deployment Checklist
+
+### 1. Deploy latest main
+- [ ] Production VM is on latest `main`
+- [ ] `git log --oneline -5` shows `df6748f Prepare SendiFlash beta onboarding and support` or newer
+- [ ] `docker compose build --no-cache shipflow-web` completed
+- [ ] `docker compose up -d shipflow-web` completed
+- [ ] `docker network connect appsolux-network shipflow-web || true` completed
+
+### 2. Config/status
+- [x] `/api/config/status` reachable
+- [x] `buildEnvOk=true`
+- [x] `supabaseConfigured=true`
+- [x] `ratesConfigured=true`
+- [x] `googleMapsConfigured=true`
+- [x] `stripeRechargeConfigured=true`
+- [x] `directLabelPaymentEnabled=true`
+- [x] `realLabelPurchaseEnabled=true`
+- [x] `processLabelInWebhookEnabled=true`
+- [x] `labelVoidEnabled=false`
+- [x] `labelPaymentRefundsEnabled=false`
+
+### 3. Route checks
+- [x] `/` returns 200
+- [x] `/login` returns 200
+- [x] `/registro` returns 200
+- [x] `/dashboard` returns 200 client shell
+- [x] `/crear-guia` returns 200 client shell
+- [x] `/envios` returns 200 client shell
+- [x] `/saldo` returns 200 client shell
+- [x] `/admin/label-orders` returns 200 client shell
+- [ ] `/support` returns 200 after redeploy to `df6748f` or newer
+- [ ] `/terms` returns 200 after redeploy to `df6748f` or newer
+- [ ] `/privacy` returns 200 after redeploy to `df6748f` or newer
+- [ ] `/support-policy` returns 200 after redeploy to `df6748f` or newer
+
+### 4. End-to-end beta scenarios
+- [ ] Card label purchase reaches `label_purchased`
+- [ ] Stripe webhook processes payment and automatic label purchase
+- [ ] User sees tracking/PDF
+- [ ] Shipment appears in `/envios`
+- [ ] Wallet recharge credits balance once
+- [ ] Wallet label purchase debits balance without going negative
+- [ ] Admin exception retry appears only when safe
+- [ ] Completed orders cannot be processed again
+- [ ] Refund/void controls remain disabled by flags
+- [ ] Cross-border domestic-market routes are blocked before rates
+- [ ] Unsupported countries are blocked before rates
+
+### 5. Final decision
+Current decision: **PARTIAL**.
+
+Release can move to PASS after latest main is deployed, support/legal routes return 200, and one clean card or wallet label purchase is verified end-to-end in production/staging.
