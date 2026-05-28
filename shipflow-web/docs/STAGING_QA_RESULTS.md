@@ -1,6 +1,55 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.48 manual processing hardening)
+Last updated: 2026-05-28 (FASE 5.49 automatic label processing)
+
+---
+
+## FASE 5.49 — Safe Automatic Label Processing After Stripe Payment
+
+Run timestamp: 2026-05-28 12:49 America/Guayaquil
+
+Scope: support automatic label purchase from the Stripe `checkout.session.completed`
+webhook when `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`, while preserving the existing
+manual admin mode when the flag is false.
+
+### Design
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Manual safe mode | PASS | When `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false`, webhook keeps current behavior: mark payment captured and leave order in `paid_waiting_label_purchase` for admin processing. |
+| Automatic mode | PASS | When `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`, webhook records the paid state, checks the account gate, and calls the server-side label processor. |
+| Idempotency | PASS | Existing processor claim still moves clean paid orders to `label_purchase_pending` before carrier calls. Stripe retries can recover clean `paid_waiting_label_purchase` orders when auto mode is enabled, but `label_purchased`, `label_purchase_pending`, and unsafe orders are not reprocessed. |
+| Duplicate purchase protection | PASS | Auto processing requires no existing `label_id`, `shipment_id`, or `tracking_number`; processor also re-checks status and claim result before purchase. |
+| Failure fallback | PASS | Automatic carrier failures mark the order `action_required` with a clear admin message. Webhook still returns 200 to Stripe and does not execute refunds or voids. |
+| User success page | PASS | Success banner polls the order after redirect; shows "We're preparing your label" while pending/processing, "Your label is ready" with tracking/PDF link when purchased, and support review messaging for `action_required`. |
+| Admin exception flow | PASS | Admin manual processing remains available for `paid_waiting_label_purchase` and clean `action_required` retries; FASE 5.48 double-submit and retry safety remain intact. |
+
+### Flag behavior
+
+- `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false`: manual safe mode.
+- `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`: automatic label processing after Stripe confirms payment.
+- `ENABLE_REAL_LABEL_VOID=false`: voids remain off.
+- `ENABLE_LABEL_PAYMENT_REFUNDS=false`: refunds remain off.
+- Wallet is not used for direct label payment.
+
+### Safety
+
+| Safety item | Result | Note |
+| --- | --- | --- |
+| Env files touched | PASS | No env files changed. |
+| Migrations added | PASS | No migrations required. Existing statuses and claim helper were sufficient. |
+| Refunds implemented/enabled | PASS | No refund behavior changed or enabled. |
+| Voids implemented/enabled | PASS | No void behavior changed or enabled. |
+| Wallet touched | PASS | No wallet flow changes. |
+| Public landing touched | PASS | No landing changes. |
+| Stripe recharge webhook | PASS | Existing wallet recharge handler unchanged. |
+| Secrets exposed | PASS | No secrets added to docs or output. |
+
+### Decision
+
+**Final decision: READY FOR FLAGGED QA**
+
+Reason: implementation is behind `ENABLE_PROCESS_LABEL_IN_WEBHOOK`, preserves manual mode by default, and reuses existing claim/idempotency protections. Production remains manual until the env flag is explicitly changed outside Codex.
 
 ---
 

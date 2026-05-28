@@ -9,6 +9,7 @@ import {
 import { getStripeClient, getStripeWebhookSecret, isStripeConfigured, isStripeWebhookConfigured } from "@/lib/server/stripe";
 import {
   getPendingLabelOrderByCheckoutSession,
+  getPendingLabelOrderByIdForAdmin,
   markPendingLabelOrderPaidTestMode,
   markPendingLabelOrderPaidWaitingPurchase,
   markPendingLabelOrderActionRequired,
@@ -345,10 +346,23 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
     throw new Error("pending_label_order not found for this Stripe session.");
   }
 
-  // Idempotency: if already processed, ignore without error.
+  const realLabelPurchaseEnabled = process.env.ENABLE_REAL_LABEL_PURCHASE === "true";
+  const processLabelInWebhookEnabled = process.env.ENABLE_PROCESS_LABEL_IN_WEBHOOK === "true";
+  const canAttemptInlineFromPaidWaiting =
+    realLabelPurchaseEnabled &&
+    processLabelInWebhookEnabled &&
+    order.status === "paid_waiting_label_purchase" &&
+    !order.labelId &&
+    !order.shipmentId &&
+    !order.trackingNumber;
+
+  // Idempotency: if already processed, ignore without error. When automatic
+  // processing is enabled, a clean paid_waiting order is allowed to continue so
+  // a Stripe retry can recover after payment was recorded but before label
+  // processing completed.
   if (
     order.status === "paid_test_mode" ||
-    order.status === "paid_waiting_label_purchase" ||
+    (order.status === "paid_waiting_label_purchase" && !canAttemptInlineFromPaidWaiting) ||
     order.status === "label_purchase_pending" ||
     order.status === "label_purchased"
   ) {
@@ -424,7 +438,7 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
   //
   // Frontend MUST NOT use success_url to purchase the label.
 
-  if (process.env.ENABLE_REAL_LABEL_PURCHASE !== "true") {
+  if (!realLabelPurchaseEnabled) {
     await markPendingLabelOrderPaidTestMode(order.id, {
       stripePaymentIntentId,
       stripeEventId: event.id,
@@ -493,7 +507,7 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
     metadata: { stripeEventId: event.id, stripeCheckoutSessionId: checkoutSessionId, orderId: order.id },
   }, serviceSupabase);
 
-  if (process.env.ENABLE_PROCESS_LABEL_IN_WEBHOOK !== "true") {
+  if (!processLabelInWebhookEnabled) {
     return { waitingPurchase: true };
   }
 
@@ -522,7 +536,9 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
   // Risk: carrier API call inside webhook — may exceed Stripe's 30s response window.
   // Only enable after confirming carrier latency is acceptable in staging.
   try {
-    const purchaseResult = await purchaseLabelForPendingOrder(order.id);
+    const purchaseResult = await purchaseLabelForPendingOrder(order.id, {
+      carrierFailureStatus: "action_required",
+    });
     await createAuditLog({
       userId: order.userId,
       eventType: "label_payment_label_purchased_inline",
@@ -540,8 +556,22 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
     }, serviceSupabase);
     return { labelPurchased: true, trackingNumber: purchaseResult.trackingNumber };
   } catch (err) {
-    // Processor already set order to refund_needed or action_required with audit log.
-    // Log here too so the webhook error path is traceable.
+    const errorMessage = err instanceof Error ? err.message : String(err ?? "unknown");
+    const latest = await getPendingLabelOrderByIdForAdmin(order.id).catch(() => null);
+
+    if (
+      latest?.status === "paid_waiting_label_purchase" ||
+      latest?.status === "paid_test_mode"
+    ) {
+      await markPendingLabelOrderActionRequired(
+        latest.id,
+        `Automatic label purchase failed: ${errorMessage}`,
+      );
+    }
+
+    // Processor already sets most controlled failures to action_required. Log
+    // here too so the webhook error path is traceable and Stripe still receives
+    // a 200 response.
     await createAuditLog({
       userId: order.userId,
       eventType: "label_payment_inline_purchase_failed",
@@ -553,7 +583,7 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
       metadata: {
         stripeEventId: event.id,
         orderId: order.id,
-        error: err instanceof Error ? err.message : String(err ?? "unknown"),
+        error: errorMessage,
       },
     }, serviceSupabase);
     // Return 200 to Stripe — the order is in a terminal failure state; Stripe should not retry.

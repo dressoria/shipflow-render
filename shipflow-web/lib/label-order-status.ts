@@ -107,8 +107,8 @@ const USER_FACING_MESSAGES: Record<PendingLabelOrderStatus, string> = {
   pending_payment: "Your payment has not been completed yet.",
   paid_test_mode:
     "Payment confirmed in test mode. Label purchase is disabled, so no label was generated.",
-  paid_waiting_label_purchase: "Payment confirmed. Your label is waiting for processing.",
-  label_purchase_pending: "Your label is being processed.",
+  paid_waiting_label_purchase: "Payment confirmed. We're preparing your label.",
+  label_purchase_pending: "We're preparing your label with the carrier.",
   label_purchased: "Your label is ready.",
   action_required:
     "Your payment was received, but this shipment needs support review before a label can be generated.",

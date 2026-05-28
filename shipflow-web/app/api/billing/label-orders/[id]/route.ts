@@ -14,6 +14,7 @@ import {
   isServerSupabaseConfigured,
   isServiceRoleConfigured,
   requireVerifiedUser,
+  createServiceSupabaseClient,
 } from "@/lib/server/supabaseServer";
 import { getPendingLabelOrderForUser } from "@/lib/server/pendingLabelOrders";
 
@@ -49,6 +50,18 @@ export async function GET(
       return apiError("Order not found.", 404);
     }
 
+    let labelUrl: string | null = null;
+    if (order.shipmentId) {
+      const serviceSupabase = createServiceSupabaseClient();
+      const { data: shipment } = await serviceSupabase
+        .from("shipments")
+        .select("label_url")
+        .eq("id", order.shipmentId)
+        .eq("user_id", userId)
+        .maybeSingle<{ label_url: string | null }>();
+      labelUrl = shipment?.label_url ?? null;
+    }
+
     return apiSuccess({
       id: order.id,
       status: order.status,
@@ -58,6 +71,7 @@ export async function GET(
       amountCents: order.amountCents,
       currency: order.currency,
       trackingNumber: order.trackingNumber ?? null,
+      labelUrl,
       labelId: order.labelId ?? null,
       shipmentId: order.shipmentId ?? null,
       errorMessage: order.errorMessage ?? null,

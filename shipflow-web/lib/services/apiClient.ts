@@ -185,6 +185,7 @@ export type UserLabelOrderStatus = {
   amountCents: number;
   currency: string;
   trackingNumber: string | null;
+  labelUrl: string | null;
   labelId: string | null;
   shipmentId: string | null;
   errorMessage: string | null;

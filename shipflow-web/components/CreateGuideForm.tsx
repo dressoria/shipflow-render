@@ -145,6 +145,20 @@ function LabelPaymentSuccessBanner({
         <Link href="/envios" className="underline font-medium">
           View in My Shipments
         </Link>
+        {order?.labelUrl && (
+          <>
+            {" "}
+            ·{" "}
+            <a
+              href={order.labelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              View label PDF
+            </a>
+          </>
+        )}
         .
       </>
     );
@@ -154,7 +168,10 @@ function LabelPaymentSuccessBanner({
     Icon = CheckCircle2;
     colorClass = "border-purple-200 bg-purple-50 text-purple-800";
   } else if (status !== null) {
-    title = "Payment received.";
+    title =
+      status === "paid_waiting_label_purchase" || status === "label_purchase_pending"
+        ? "We're preparing your label."
+        : "Payment received.";
     body = getUserFacingLabelOrderMessage(status);
     Icon = CheckCircle2;
     colorClass = "border-green-200 bg-green-50 text-green-800";
@@ -231,9 +248,34 @@ export function CreateGuideForm() {
 
   useEffect(() => {
     if (labelPaymentStatus !== "success" || !labelOrderId || authLoading || !emailVerified) return;
-    apiGetUserLabelOrder(labelOrderId)
-      .then(setLabelOrderStatus)
-      .catch(() => setLabelOrderStatus(null));
+    let cancelled = false;
+    let intervalId: number | null = null;
+
+    const fetchOrder = () => {
+      apiGetUserLabelOrder(labelOrderId)
+        .then((order) => {
+          if (cancelled) return;
+          setLabelOrderStatus(order);
+          if (
+            order.status === "label_purchased" ||
+            isErrorLabelOrderStatus(order.status) ||
+            order.status === "paid_test_mode"
+          ) {
+            if (intervalId !== null) window.clearInterval(intervalId);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setLabelOrderStatus(null);
+        });
+    };
+
+    fetchOrder();
+    intervalId = window.setInterval(fetchOrder, 4000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
   }, [labelPaymentStatus, labelOrderId, authLoading, emailVerified]);
 
   function updateOrigin(addr: StructuredAddress) {

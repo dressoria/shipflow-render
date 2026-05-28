@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.48)
+Last updated: 2026-05-28 (FASE 5.49)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -114,6 +114,44 @@ Expected PASS criteria:
 - [x] Processing failures remain visible in the existing admin error panel.
 - [x] No Stripe webhook behavior changed.
 - [x] No env files, migrations, refunds, voids, wallet, or process-in-webhook flags changed.
+
+## FASE 5.49 Automatic Processing QA Checklist
+
+Manual mode pre-check:
+
+- [ ] Confirm `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false` leaves paid orders in `paid_waiting_label_purchase`.
+- [ ] Confirm admin can still process `paid_waiting_label_purchase` manually.
+- [ ] Confirm admin can still retry clean `action_required` orders.
+
+Automatic mode pre-check:
+
+- [ ] Enable `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` manually in the target environment only.
+- [ ] Do not enable refunds.
+- [ ] Do not enable voids.
+- [ ] Confirm `/api/config/status` shows `processLabelInWebhookEnabled=true`.
+
+Automatic mode clean run:
+
+- [ ] Create a new guide as allowed test user.
+- [ ] Pay with Stripe test card.
+- [ ] Confirm webhook records `paid_at` and `stripe_payment_intent_id`.
+- [ ] Confirm webhook automatically purchases the label.
+- [ ] Confirm newest `pending_label_orders.status = label_purchased`.
+- [ ] Confirm `label_id`, `tracking_number`, `shipment_id`, and `processed_at` are populated.
+- [ ] Confirm newest shipment has `label_status = purchased`.
+- [ ] Confirm `metadata.pending_label_order_id` and `metadata.stripe_payment_intent_id` are present.
+- [ ] If sandbox placeholder tracking is returned, confirm fallback metadata preserves the original tracking number.
+- [ ] Confirm user success page moves from preparing state to label ready without admin intervention.
+- [ ] Confirm My Shipments shows the shipment.
+
+Automatic failure QA:
+
+- [ ] If carrier/rate/provider fails, confirm webhook returns 200 to Stripe.
+- [ ] Confirm order becomes `action_required`.
+- [ ] Confirm `error_message` is clear for admin and safe for user display.
+- [ ] Confirm no refund is attempted.
+- [ ] Confirm no void is attempted.
+- [ ] Confirm admin can retry manually only if no label/shipment/tracking data exists.
 
 ## 1. Local Pre-Check
 

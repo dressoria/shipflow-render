@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.48)
+Última revisión: 2026-05-28 (FASE 5.49)
 
 ---
 
@@ -45,6 +45,7 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Label purchase **solo** server-side — cliente nunca compra label directamente (FASE 5.46)
 - [x] Frontend nunca ejecuta label purchase por success_url de Stripe — manual admin processing con webhook auto-process apagado (FASE 5.46)
 - [x] Label purchase real probada en sandbox con direct Stripe payment (FASE 5.46 PASS)
+- [x] Label purchase automático preparado detrás de `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` (FASE 5.49)
 - [x] Label URL o base64 retornada y descargable (FASE 5.46 PASS, provider sample label)
 - [x] Tracking number guardado en shipments con fallback interno para placeholder sandbox duplicado (FASE 5.46 PASS)
 - [x] `createShipEngineShipment` probado end-to-end en modo sandbox antes de activar (FASE 5.46 PASS)
@@ -69,6 +70,9 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Caso pago exitoso + label falla → status `action_required` controlado; retry exitoso tras fix sandbox duplicate tracking (FASE 5.46 PASS)
 - [x] Caso pago exitoso + label ya comprada (idempotency) → evitar doble compra con claim/estado de procesamiento (FASE 5.46)
 - [x] Probar webhook con evento label_direct_payment en sandbox antes de activar (FASE 5.46 PASS)
+- [x] `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false` conserva modo manual seguro (FASE 5.49)
+- [x] `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` intenta compra automática tras registrar pago (FASE 5.49)
+- [x] Fallo automático de carrier queda en `action_required`, no ejecuta refund/void (FASE 5.49)
 
 ---
 

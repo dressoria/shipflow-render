@@ -345,6 +345,7 @@ async function persistShipmentFromPurchasedLabel(
 // Inner implementation — called after all entry-point guards pass.
 async function purchaseLabelFromPendingOrder(
   order: PendingLabelOrder,
+  opts?: { carrierFailureStatus?: "action_required" | "refund_needed" },
 ): Promise<LabelPurchaseResult> {
   const logMeta = {
     orderId: order.id,
@@ -432,20 +433,35 @@ async function purchaseLabelFromPendingOrder(
     labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err ?? "Carrier call failed.");
-    // Payment was captured — mark refund_needed so support can process a Stripe refund.
-    await markPendingLabelOrderRefundNeeded(order.id, msg);
+    const shouldMarkActionRequired = opts?.carrierFailureStatus === "action_required";
+    if (shouldMarkActionRequired) {
+      await markPendingLabelOrderActionRequired(
+        order.id,
+        `Automatic label purchase failed: ${msg}`,
+      );
+    } else {
+      // Payment was captured — mark refund_needed so support can process a Stripe refund.
+      await markPendingLabelOrderRefundNeeded(order.id, msg);
+    }
     await createAuditLog({
       userId: order.userId,
-      eventType: "label_purchase_failed_refund_needed",
+      eventType: shouldMarkActionRequired
+        ? "label_purchase_failed_action_required"
+        : "label_purchase_failed_refund_needed",
       severity: "error",
       entityType: "shipment",
       entityId: order.id,
       provider: order.provider,
-      message:
-        "Label purchase failed: carrier returned an error. Order marked refund_needed.",
+      message: shouldMarkActionRequired
+        ? "Label purchase failed: carrier returned an error. Order marked action_required."
+        : "Label purchase failed: carrier returned an error. Order marked refund_needed.",
       metadata: { ...logMeta, reason: msg },
     });
-    throw new Error(`Order marked refund_needed: ${msg}`);
+    throw new Error(
+      shouldMarkActionRequired
+        ? `Order marked action_required: ${msg}`
+        : `Order marked refund_needed: ${msg}`,
+    );
   }
 
   // Persist shipment — no wallet debit.
@@ -518,7 +534,11 @@ async function purchaseLabelFromPendingOrder(
 // Public entry point. Loads the order, validates all safety guards, then delegates.
 export async function purchaseLabelForPendingOrder(
   orderId: string,
-  opts?: { allowTestMode?: boolean; allowActionRequiredRetry?: boolean },
+  opts?: {
+    allowTestMode?: boolean;
+    allowActionRequiredRetry?: boolean;
+    carrierFailureStatus?: "action_required" | "refund_needed";
+  },
 ): Promise<LabelPurchaseResult> {
   if (process.env.ENABLE_REAL_LABEL_PURCHASE !== "true") {
     throw new Error("ENABLE_REAL_LABEL_PURCHASE is not enabled. Set it to true to purchase labels.");
@@ -642,5 +662,7 @@ export async function purchaseLabelForPendingOrder(
     );
   }
 
-  return purchaseLabelFromPendingOrder(claimedOrder);
+  return purchaseLabelFromPendingOrder(claimedOrder, {
+    carrierFailureStatus: opts?.carrierFailureStatus,
+  });
 }
