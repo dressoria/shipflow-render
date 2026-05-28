@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
 
 export function Footer() {
@@ -7,10 +6,8 @@ export function Footer() {
     <footer className="border-t border-white/10 bg-[#0F172A] text-white">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.6fr_1fr_1fr] lg:px-8">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[#2563EB] text-[#FB923C]">
-              <Zap className="h-[18px] w-[18px]" />
-            </span>
+          <div className="flex items-center gap-3">
+            <span className="h-8 w-1.5 rounded-full bg-[#F97316]" aria-hidden="true" />
             <BrandName className="text-white" />
           </div>
           <p className="mt-4 max-w-sm text-sm leading-6 text-slate-400">

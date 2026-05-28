@@ -3,9 +3,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ShipFlow | Shipping across the U.S.",
+  title: "SendiFlash | Shipping across the U.S.",
   description:
-    "A platform to compare rates, create labels, and track shipments across the United States.",
+    "Compare rates, create labels, and track shipments across the United States with SendiFlash.",
 };
 
 export default function RootLayout({

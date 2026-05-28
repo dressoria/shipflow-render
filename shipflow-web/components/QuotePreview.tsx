@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Clock3, MapPin, Package, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, MapPin, Package, ScanLine, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/Badge";
 
@@ -19,14 +19,15 @@ export function QuotePreview() {
   return (
     <div className="relative">
       <div className="absolute -inset-4 rounded-[2rem] bg-[#2563EB]/8 blur-2xl" />
-      <div className="relative overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-slate-950/12">
+      <div className="quote-preview relative overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-slate-950/12">
+        <div className="quote-sweep pointer-events-none absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-[#F97316]/12 to-transparent" />
         <div className="flex items-center justify-between border-b border-slate-100 bg-[#0F172A] px-5 py-4 text-white">
           <div>
             <p className="text-sm font-bold">Shipping desk</p>
             <p className="text-xs text-slate-400">Compare rates before you pay</p>
           </div>
           <Badge tone="blue" className="border border-[#2563EB]/40 bg-[#2563EB]/20 text-blue-200 ring-blue-400/30">
-            <Zap className="mr-1 h-3 w-3" />
+            <ScanLine className="mr-1 h-3 w-3" />
             Live rates
           </Badge>
         </div>
@@ -71,7 +72,7 @@ export function QuotePreview() {
                 <p className="font-black text-slate-950">{price}</p>
                 <div className="mt-2 h-1.5 w-20 rounded-full bg-slate-100">
                   <div
-                    className="h-1.5 rounded-full bg-[#F97316] transition-all"
+                    className="quote-rate-bar h-1.5 rounded-full bg-[#F97316] transition-all"
                     style={{ width: barWidth }}
                   />
                 </div>

@@ -4,7 +4,7 @@ export function BrandName({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-baseline font-['Sora',_'Plus_Jakarta_Sans',_'Outfit',_'Poppins',_ui-sans-serif,_system-ui,_sans-serif] text-[1.08em] font-bold leading-none tracking-[0.03em] text-[#0F172A]",
+        "inline-flex items-baseline font-['Sora',_'Plus_Jakarta_Sans',_'Outfit',_'Poppins',_ui-sans-serif,_system-ui,_sans-serif] text-[1.08em] font-extrabold leading-none tracking-[0.01em] text-[#0F172A]",
         className,
       )}
     >

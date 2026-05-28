@@ -2,13 +2,13 @@
 
 import { CheckCircle2, MapPinned, Truck } from "lucide-react";
 
-const routeStops = ["New York", "Chicago", "Denver", "Las Vegas", "Los Angeles"];
+const routeStops = ["Miami", "Atlanta", "Dallas", "Phoenix", "Los Angeles"];
 
 export function NationwideRoute() {
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+    <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/10 transition hover:-translate-y-1 hover:border-blue-200">
       <div className="relative min-h-[360px] bg-[#F8FAFC] p-5 sm:min-h-[430px] sm:p-8">
-        <div className="absolute inset-x-8 top-8 flex items-center justify-between text-xs font-black text-slate-400 sm:inset-x-12">
+        <div className="absolute inset-x-5 top-8 flex items-center justify-between text-[0.68rem] font-black text-slate-400 sm:inset-x-12 sm:text-xs">
           {routeStops.map((city, index) => (
             <span key={city} className={`route-city route-city-${index + 1} rounded-full bg-white/80 px-2 py-1 shadow-sm`}>
               {city}
@@ -16,8 +16,8 @@ export function NationwideRoute() {
           ))}
         </div>
 
-        <div className="absolute left-8 right-8 top-1/2 h-px bg-slate-300 sm:left-12 sm:right-12">
-          <div className="route-progress h-px bg-[#2563EB]" />
+        <div className="absolute left-8 right-8 top-1/2 h-1 rounded-full bg-slate-200 sm:left-12 sm:right-12">
+          <div className="route-progress h-1 rounded-full bg-[#2563EB]" />
           {routeStops.map((city, index) => (
             <span
               key={city}

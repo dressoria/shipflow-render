@@ -12,7 +12,6 @@ import {
   Tag,
   Truck,
   Users,
-  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -38,15 +37,15 @@ const trustBadges = [
 const carrierLogos = [
   { name: "USPS", src: "/carriers/usps.svg" },
   { name: "UPS", src: "/carriers/ups.svg" },
-  { name: "FedEx", src: "/carriers/fedex.svg" },
+  { name: "FedEx", src: "/carriers/fedex.png" },
   { name: "DHL", src: "/carriers/dhl.svg" },
 ];
 
 const features: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
-    icon: Zap,
+    icon: ScanLine,
     title: "Compare shipping rates",
-    text: "See live rates across carriers before committing to a label. Pick the best price and service for each shipment.",
+    text: "Review carrier options side by side, then choose the service that fits the shipment.",
   },
   {
     icon: Printer,
@@ -85,7 +84,7 @@ const pricingItems: Array<{ label: string; description: string; icon: LucideIcon
   {
     label: "Service fee",
     description: "Small platform fee included in the displayed rate",
-    icon: Zap,
+    icon: Tag,
     colorClass: "bg-orange-50 text-[#F97316]",
   },
   {
@@ -134,6 +133,7 @@ function CarrierLogoStrip() {
               width={160}
               height={56}
               className="max-h-12 w-full object-contain transition duration-300 group-hover:scale-[1.04]"
+              unoptimized={carrier.src.endsWith(".png")}
             />
           </div>
         ))}
@@ -159,7 +159,7 @@ function ImageSceneCard({
   priority?: boolean;
 }) {
   return (
-    <div className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-950/10">
+    <div className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition hover:-translate-y-1 hover:border-[#F97316]/35 hover:bg-orange-50/20 hover:shadow-2xl hover:shadow-slate-950/10">
       <div className="relative aspect-[1.48] overflow-hidden bg-[#F8FAFC]">
         <Image
           src={src}
@@ -168,12 +168,12 @@ function ImageSceneCard({
           priority={priority}
           className="object-cover transition duration-700 group-hover:scale-[1.03]"
         />
-        <div className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-2 text-xs font-black text-[#F97316] shadow-sm backdrop-blur">
+        <div className="absolute left-4 top-4 rounded-full border border-orange-100 bg-white/90 px-4 py-2 text-xs font-black text-[#F97316] shadow-sm backdrop-blur transition group-hover:border-[#F97316]/35 group-hover:bg-[#F97316] group-hover:text-white">
           {badge}
         </div>
       </div>
       <div className="p-6">
-        <h3 className="text-xl font-black text-[#0F172A]">{title}</h3>
+        <h3 className="text-xl font-black text-[#0F172A] transition group-hover:text-[#2563EB]">{title}</h3>
         <p className="mt-3 text-sm leading-6 text-[#334155]">{text}</p>
       </div>
     </div>
@@ -230,7 +230,7 @@ function TrustMetricsSection() {
 function LogisticsHeroVisual() {
   return (
     <div className="relative mx-auto max-w-xl">
-      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/12">
+      <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/12 transition hover:-translate-y-1 hover:border-[#F97316]/30 hover:shadow-orange-950/10">
         <div className="relative aspect-[1.08] overflow-hidden bg-[#F8FAFC]">
           <Image
             src="/landing/fulfillment-station.svg"
@@ -452,7 +452,7 @@ export default function Home() {
         </section>
 
         {/* ── How it works ── */}
-        <section id="how-it-works" className="bg-[#F8FAFC] py-20 sm:py-28">
+        <section id="how-it-works" className="bg-[#07111F] py-20 text-white sm:py-28">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <ScrollStory />
           </div>
@@ -535,7 +535,7 @@ export default function Home() {
             </MotionReveal>
             <MotionReveal>
               <Badge tone="blue">
-                <Zap className="mr-2 h-3.5 w-3.5" />
+                <ScanLine className="mr-2 h-3.5 w-3.5" />
                 Carrier comparison
               </Badge>
               <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
@@ -631,7 +631,7 @@ export default function Home() {
                 tone="blue"
                 className="border border-[#2563EB]/40 bg-[#2563EB]/15 text-blue-200 ring-blue-400/25"
               >
-                <Zap className="mr-2 h-3.5 w-3.5" />
+                <Tag className="mr-2 h-3.5 w-3.5" />
                 Get started today
               </Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">

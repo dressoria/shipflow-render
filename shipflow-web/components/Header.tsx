@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { BrandName } from "@/components/BrandName";
 import { Button } from "@/components/Button";
@@ -19,10 +19,8 @@ export function Header() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border border-white/80 bg-white/88 px-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl sm:px-5 lg:px-6">
-        <Link href="/" className="flex items-center gap-2.5 rounded-2xl px-1 py-1">
-          <span className="brand-glow grid h-9 w-9 place-items-center rounded-xl bg-[#2563EB] text-[#FB923C]">
-            <Zap className="h-[18px] w-[18px]" />
-          </span>
+        <Link href="/" className="flex items-center gap-3 rounded-2xl px-1 py-1">
+          <span className="h-8 w-1.5 rounded-full bg-[#F97316]" aria-hidden="true" />
           <BrandName className="text-base" />
         </Link>
 

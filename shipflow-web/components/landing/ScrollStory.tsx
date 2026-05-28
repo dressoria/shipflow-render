@@ -55,16 +55,33 @@ export function ScrollStory() {
         <p className="text-sm font-black uppercase tracking-[0.18em] text-[#F97316]">
           How SendiFlash works
         </p>
-        <h2 className="mt-4 text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
+        <h2 className="mt-4 text-4xl font-black tracking-tight text-white md:text-5xl">
           A shipping story that stays clear from cart to doorstep.
         </h2>
-        <p className="mt-5 text-base leading-7 text-[#334155]">
+        <p className="mt-5 text-base leading-7 text-slate-300">
           The workflow is built around the moments sellers actually care about: creating a shipment, choosing a carrier, buying the label, and tracking the package.
         </p>
+        <div className="mt-8 overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/7 p-5 shadow-2xl shadow-slate-950/20 backdrop-blur">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-200">Current focus</p>
+              <p className="mt-2 text-lg font-black text-white">{storySteps[activeIndex].title}</p>
+            </div>
+            <span className="rounded-full bg-[#F97316] px-3 py-1.5 text-xs font-black text-white">
+              {activeIndex + 1}/{storySteps.length}
+            </span>
+          </div>
+          <div className="mt-5 h-1.5 rounded-full bg-white/10">
+            <div
+              className="h-1.5 rounded-full bg-[#F97316] transition-all duration-500"
+              style={{ width: `${((activeIndex + 1) / storySteps.length) * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="relative">
-        <div className="absolute bottom-10 left-6 top-10 w-px bg-slate-200" />
+        <div className="absolute bottom-10 left-6 top-10 w-px bg-white/12" />
         <div
           className="scroll-story-line absolute left-6 top-10 w-px bg-[#F97316]"
           style={{ height: `${((activeIndex + 1) / storySteps.length) * 100}%` }}
@@ -80,24 +97,24 @@ export function ScrollStory() {
                 ref={(node) => {
                   itemRefs.current[index] = node;
                 }}
-                className={`relative ml-12 rounded-[1.5rem] border bg-white p-6 shadow-sm transition duration-500 ${
+                className={`relative ml-12 rounded-[1.5rem] border p-6 shadow-sm transition duration-500 ${
                   isActive
-                    ? "border-orange-200 shadow-xl shadow-orange-950/8"
-                    : "border-slate-200 opacity-80"
+                    ? "border-orange-300/45 bg-white/12 shadow-2xl shadow-orange-950/15"
+                    : "border-white/10 bg-white/6 opacity-75 hover:opacity-95"
                 }`}
               >
                 <span
-                  className={`absolute -left-[3.25rem] top-6 grid h-12 w-12 place-items-center rounded-2xl border-4 border-white shadow-lg transition duration-500 ${
-                    isActive ? "bg-[#F97316] text-white" : "bg-blue-50 text-[#2563EB]"
+                  className={`absolute -left-[3.25rem] top-6 grid h-12 w-12 place-items-center rounded-2xl border-4 border-[#07111F] shadow-lg transition duration-500 ${
+                    isActive ? "bg-[#F97316] text-white" : "bg-[#122033] text-blue-200"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-200/70">
                   Step {index + 1}
                 </p>
-                <h3 className="mt-3 text-xl font-black text-[#0F172A]">{step.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#334155]">{step.text}</p>
+                <h3 className="mt-3 text-xl font-black text-white">{step.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{step.text}</p>
               </div>
             );
           })}
