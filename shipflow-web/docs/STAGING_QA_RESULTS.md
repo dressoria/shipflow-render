@@ -1,6 +1,169 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.49 automatic label processing)
+Last updated: 2026-05-28 (FASE 5.50 automatic processing activation QA)
+
+---
+
+## FASE 5.50 — Automatic Label Processing Production Activation QA
+
+Run timestamp: 2026-05-28 12:52 America/Guayaquil
+
+Commit intended for activation:
+
+- `c65ea8e` — Enable safe automatic label processing after payment
+
+### Current production config pre-check
+
+Checked:
+
+```text
+https://sendiflash.com/api/config/status
+```
+
+| Flag / status | Result | Observed value |
+| --- | --- | --- |
+| `buildEnvOk` | PASS | `true` |
+| `directLabelPaymentEnabled` | PASS | `true` |
+| `realLabelPurchaseEnabled` | PASS | `true` |
+| `processLabelInWebhookEnabled` | PENDING ACTIVATION | `false` |
+| `labelVoidEnabled` | PASS | `false` |
+| `labelPaymentRefundsEnabled` | PASS | `false` |
+| `appUrlHost` | PASS | `sendiflash.com` |
+
+### Activation status
+
+| Step | Result | Evidence / note | Required action |
+| --- | --- | --- | --- |
+| Latest code includes automatic processing support | PASS | Local HEAD includes `c65ea8e` | Deploy `c65ea8e` or newer |
+| Production env flag enabled | NOT DONE BY CODEX | Public status still shows `processLabelInWebhookEnabled=false` | Operator must set `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` in VM `.env.production` only |
+| Rebuild/restart after flag change | NOT DONE BY CODEX | Requires VM access | Operator must rebuild and restart `shipflow-web` |
+| Automatic clean order test | NOT RUN | Requires flag enabled plus browser/user/admin/Supabase access | Run after config status confirms `processLabelInWebhookEnabled=true` |
+
+### Operator activation runbook
+
+Run on VM only:
+
+```bash
+cd /home/ubuntu/appsolux-apps/shipflow/shipflow
+git fetch origin main
+git reset --hard origin/main
+git log --oneline -8
+```
+
+Confirm `c65ea8e` or newer is present. Then update VM `.env.production` only:
+
+```env
+ENABLE_PROCESS_LABEL_IN_WEBHOOK=true
+ENABLE_REAL_LABEL_VOID=false
+ENABLE_LABEL_PAYMENT_REFUNDS=false
+```
+
+Then:
+
+```bash
+set -a
+source shipflow-web/.env.production
+set +a
+
+docker compose build --no-cache shipflow-web
+docker compose up -d shipflow-web
+docker network connect appsolux-network shipflow-web || true
+
+sleep 5
+curl -s http://localhost:3003/api/config/status
+curl -s https://sendiflash.com/api/config/status
+```
+
+Expected after activation:
+
+- `directLabelPaymentEnabled=true`
+- `realLabelPurchaseEnabled=true`
+- `processLabelInWebhookEnabled=true`
+- `labelVoidEnabled=false`
+- `labelPaymentRefundsEnabled=false`
+
+### Automatic processing QA to run after activation
+
+1. Create a new guide as the allowlisted test user.
+2. Get rates.
+3. Pay with Stripe test card.
+4. Do not click `Process label` manually.
+5. Wait for redirect and webhook.
+6. Confirm the newest order automatically becomes `label_purchased`.
+7. Confirm shipment is created.
+8. Confirm tracking, label id, shipment id, processed timestamp, and label URL when returned.
+9. Confirm user success page shows "Your label is ready".
+10. Confirm My Shipments shows the shipment.
+11. Confirm admin shows completed state and no processing action is needed.
+
+### Database checks after automatic test
+
+```sql
+select id, user_id, status, amount_cents, currency,
+       stripe_checkout_session_id,
+       stripe_payment_intent_id,
+       paid_at,
+       label_id,
+       tracking_number,
+       shipment_id,
+       processed_at,
+       error_message,
+       created_at,
+       updated_at
+from pending_label_orders
+order by created_at desc
+limit 5;
+```
+
+Expected newest order:
+
+- `status = 'label_purchased'`
+- `label_id` has value
+- `tracking_number` has value
+- `shipment_id` has value
+- `processed_at` has value
+- `error_message is null`
+
+```sql
+select id,
+       user_id,
+       tracking_number,
+       provider,
+       provider_label_id,
+       provider_shipment_id,
+       label_url,
+       status,
+       label_status,
+       metadata,
+       created_at
+from shipments
+order by created_at desc
+limit 5;
+```
+
+Expected newest shipment:
+
+- `provider = 'shipstation'`
+- `label_status = 'purchased'`
+- `label_url` has value if provider returned it
+- `metadata.pending_label_order_id` is present
+- `metadata.stripe_payment_intent_id` is present
+- if sandbox placeholder tracking appears, fallback tracking is unique and metadata preserves original tracking
+
+### Safety rules for the activation test
+
+- Do not click `Process label` manually for the automatic test order.
+- Do not run refund.
+- Do not run void.
+- Do not enable refunds.
+- Do not enable voids.
+- Do not commit env files or secrets.
+
+### Decision
+
+**Final decision: PARTIAL / ACTIVATION PENDING**
+
+Reason: code support exists in `c65ea8e`, direct payment and real label purchase are enabled, and refunds/voids remain disabled. Automatic processing is not yet active in production because `/api/config/status` still reports `processLabelInWebhookEnabled=false`. Promote to PASS only after the operator enables the flag in VM `.env.production`, redeploys, and a new clean order automatically reaches `label_purchased` without admin clicking `Process label`.
 
 ---
 

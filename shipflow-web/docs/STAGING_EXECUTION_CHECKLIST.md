@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.49)
+Last updated: 2026-05-28 (FASE 5.50)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -152,6 +152,47 @@ Automatic failure QA:
 - [ ] Confirm no refund is attempted.
 - [ ] Confirm no void is attempted.
 - [ ] Confirm admin can retry manually only if no label/shipment/tracking data exists.
+
+## FASE 5.50 Production Activation Checklist
+
+Activation code:
+
+- [ ] Deploy `c65ea8e` or newer.
+- [ ] Confirm `git log --oneline -8` shows `c65ea8e`.
+
+VM env changes, VM only:
+
+- [ ] Set `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`.
+- [ ] Keep `ENABLE_REAL_LABEL_VOID=false`.
+- [ ] Keep `ENABLE_LABEL_PAYMENT_REFUNDS=false`.
+- [ ] Do not commit `.env.production`.
+
+Runtime status:
+
+- [ ] `directLabelPaymentEnabled=true`.
+- [ ] `realLabelPurchaseEnabled=true`.
+- [ ] `processLabelInWebhookEnabled=true`.
+- [ ] `labelVoidEnabled=false`.
+- [ ] `labelPaymentRefundsEnabled=false`.
+
+Automatic order QA:
+
+- [ ] Create a clean order as allowlisted test user.
+- [ ] Pay with Stripe test card.
+- [ ] Do not click admin `Process label`.
+- [ ] Confirm webhook automatically moves order to `label_purchased`.
+- [ ] Confirm shipment is created.
+- [ ] Confirm tracking, label id, shipment id, and label URL when returned.
+- [ ] Confirm user success page shows "Your label is ready".
+- [ ] Confirm My Shipments shows the shipment.
+- [ ] Confirm admin shows completed state.
+
+Safety:
+
+- [ ] No refund executed.
+- [ ] No void executed.
+- [ ] No env file committed.
+- [ ] No secrets printed.
 
 ## 1. Local Pre-Check
 

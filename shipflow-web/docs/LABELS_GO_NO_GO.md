@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.49)
+Última revisión: 2026-05-28 (FASE 5.50)
 
 ---
 
@@ -73,6 +73,7 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] `ENABLE_PROCESS_LABEL_IN_WEBHOOK=false` conserva modo manual seguro (FASE 5.49)
 - [x] `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` intenta compra automática tras registrar pago (FASE 5.49)
 - [x] Fallo automático de carrier queda en `action_required`, no ejecuta refund/void (FASE 5.49)
+- [ ] **PENDIENTE:** Activar `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true` en VM y validar compra automática end-to-end (FASE 5.50)
 
 ---
 
