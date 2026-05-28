@@ -140,11 +140,22 @@ export function AdminUsersTable({ users }: { users: Usuario[] }) {
   );
 }
 
+function inferPaymentMethod(shipment: Envio): "Wallet" | "Card" | null {
+  const breakdown = shipment.pricingBreakdown;
+  if (breakdown && typeof breakdown.paymentMethod === "string") {
+    if (breakdown.paymentMethod === "card") return "Card";
+    if (breakdown.paymentMethod === "wallet") return "Wallet";
+  }
+  if (shipment.pricingModel === "direct_label_payment") return "Card";
+  if (shipment.pricingModel === "shipflow_v1") return "Wallet";
+  return null;
+}
+
 export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] | Envio[] }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
       <div className="overflow-x-auto">
-        <div className="grid min-w-[1180px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1fr_1.2fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+        <div className="grid min-w-[1280px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
           <span>Tracking</span>
           <span>User</span>
           <span>Recipient</span>
@@ -152,7 +163,7 @@ export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] 
           <span>Carrier</span>
           <span>Label</span>
           <span>Payment</span>
-          <span>Total</span>
+          <span>Charged / Cost</span>
           <span>Actions</span>
         </div>
         {shipments.length === 0 ? (
@@ -160,16 +171,31 @@ export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] 
         ) : (
           shipments.map((shipment) => {
             const adminShipment = shipment as AdminShipment;
+            const paymentMethod = inferPaymentMethod(shipment);
+            const hasCostBreakdown = shipment.providerCost != null;
+            const marginUsd = hasCostBreakdown ? ((shipment.platformMarkup ?? 0)) : null;
             return (
-              <div key={shipment.id} className="grid min-w-[1180px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1fr_1.2fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
+              <div key={shipment.id} className="grid min-w-[1280px] grid-cols-[1.1fr_1.2fr_1fr_1fr_0.9fr_0.9fr_0.9fr_1.2fr_1.2fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
                 <span className="break-words font-black text-slate-950">{shipment.trackingNumber}</span>
                 <span className="break-words text-slate-600">{adminShipment.userEmail ?? shipment.userId ?? "Unknown"}</span>
                 <span className="text-slate-600">{shipment.recipientName}</span>
                 <span className="text-slate-600">{shipment.destinationCity}</span>
                 <span className="text-slate-600">{shipment.courier}</span>
                 <span><Badge tone={statusTone(shipment.labelStatus)}>{displayStatus(shipment.labelStatus)}</Badge></span>
-                <span><Badge tone={statusTone(shipment.paymentStatus)}>{displayStatus(shipment.paymentStatus)}</Badge></span>
-                <span className="font-bold text-slate-950">{formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)}</span>
+                <div>
+                  <Badge tone={statusTone(shipment.paymentStatus)}>{displayStatus(shipment.paymentStatus)}</Badge>
+                  {paymentMethod ? (
+                    <p className="mt-0.5 text-xs text-slate-500">{paymentMethod}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-950">{formatCurrency(shipment.customerPrice ?? shipment.total ?? shipment.value)}</p>
+                  {hasCostBreakdown ? (
+                    <p className="text-xs text-slate-500">
+                      Cost {formatCurrency(shipment.providerCost!)} · +{formatCurrency(marginUsd!)}
+                    </p>
+                  ) : null}
+                </div>
                 <span className="flex flex-wrap gap-2">
                   <Link className="font-bold text-[#FF1493]" href={`/guia/${shipment.trackingNumber}`}>View shipment</Link>
                   <Link className="font-bold text-[#FF1493]" href={`/tracking?trackingNumber=${shipment.trackingNumber}`}>Track</Link>

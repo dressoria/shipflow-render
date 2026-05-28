@@ -16,6 +16,7 @@
 import { createServiceSupabaseClient } from "@/lib/server/supabaseServer";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { ShipEngineLabelAdapter } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
+import { calculateCustomerPrice } from "@/lib/logistics/pricing";
 import {
   getPendingLabelOrderByIdForAdmin,
   claimPendingLabelOrderForPurchase,
@@ -287,6 +288,14 @@ async function persistShipmentFromPurchasedLabel(
     labelResult.trackingNumber,
   );
 
+  // Compute full pricing breakdown from snapshot data.
+  // providerCost is present and validated before this path is reached.
+  const snapshotProviderCost = order.rateSnapshot.providerCost ?? 0;
+  const pricing = snapshotProviderCost > 0
+    ? calculateCustomerPrice(snapshotProviderCost)
+    : null;
+  const customerPriceUsd = order.amountCents / 100;
+
   const { error } = await serviceSupabase.from("shipments").insert({
     id: shipmentId,
     user_id: order.userId,
@@ -301,14 +310,17 @@ async function persistShipmentFromPurchasedLabel(
     weight: order.parcel.weight,
     product_type: "Package",
     courier: labelResult.rate.courierName || labelResult.rate.courierId,
-    shipping_subtotal: order.amountCents / 100,
-    total: order.amountCents / 100,
-    customer_price: order.amountCents / 100,
-    provider_cost: order.rateSnapshot.providerCost ?? null,
+    shipping_subtotal: snapshotProviderCost > 0 ? snapshotProviderCost : customerPriceUsd,
+    total: customerPriceUsd,
+    customer_price: customerPriceUsd,
+    provider_cost: snapshotProviderCost > 0 ? snapshotProviderCost : null,
+    platform_markup: pricing?.platformMarkup ?? null,
+    payment_fee: pricing?.paymentFee ?? null,
+    pricing_subtotal: pricing?.subtotal ?? null,
     cash_on_delivery: false,
     cash_amount: 0,
     status: "Pendiente",
-    value: order.amountCents / 100,
+    value: customerPriceUsd,
     payment_status: "paid",
     label_status: "purchased",
     provider: order.provider,
@@ -320,11 +332,12 @@ async function persistShipmentFromPurchasedLabel(
     idempotency_key: `direct-label-${order.id}`,
     currency: "USD",
     pricing_model: "direct_label_payment",
+    pricing_breakdown: pricing ? { ...pricing, paymentMethod: "card" } : null,
     metadata: {
       source: "direct_label_payment",
       pending_label_order_id: order.id,
       stripe_payment_intent_id: order.stripePaymentIntentId ?? null,
-      phase: "5.40B",
+      phase: "5.54",
       provider_tracking_number_original:
         trackingResolution.providerTrackingNumberOriginal ?? null,
       tracking_number_was_placeholder: trackingResolution.wasPlaceholder,

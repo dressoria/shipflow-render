@@ -573,3 +573,43 @@ Both payment methods remain active simultaneously:
 - **Stripe direct** — `POST /api/billing/label-checkout` (requires `ENABLE_DIRECT_LABEL_PAYMENT=true` + feature gate)
 
 No flags changed. Direct payment still fully operational.
+
+---
+
+## FASE 5.54 — Pricing Margin Controls
+
+### Pricing model
+
+```
+customer_price = provider_cost + max(min_markup, provider_cost × markup_pct) + (subtotal × fee_pct + fee_fixed)
+```
+
+Defaults: 6% markup / $0.99 minimum / 2.9%+$0.30 payment fee. All configurable via env vars (no env file modified).
+
+### Mismatch prevention
+
+The server always recalculates `customer_price` from `provider_cost` before creating a Stripe Checkout Session. The client-sent `customerPrice` in the rate snapshot is cross-checked; a console warning is logged if the divergence exceeds $1.00, but pricing always uses the server computation.
+
+### Safety invariants
+
+| Risk | Mitigation |
+|---|---|
+| Client manipulates `customerPrice` | Server ignores client `customerPrice`; recomputes from `providerCost` |
+| Markup config drift between quote and payment | Server always applies current config at checkout time; user sees rate from quote |
+| Negative margin | `calculatePlatformMarkup` uses `max(min_markup, ...)` — markup never below `$0.99` |
+| Floating-point money | `roundMoney(toFixed(2))` throughout; all amounts are integer cents in DB |
+| Payment method unknown after purchase | `pricing_breakdown.paymentMethod` set to `"wallet"` or `"card"` on every new shipment |
+
+### What admin can see (FASE 5.54)
+
+- Customer charged amount (`customer_price`)
+- Provider carrier cost (`provider_cost`)
+- Platform markup (`platform_markup`)
+- Payment method (Wallet / Card) inferred from `pricing_breakdown.paymentMethod` or `pricing_model`
+- Label and payment status badges
+
+### What admin cannot see yet
+
+- Payment fee breakdown (stored in `pricing_breakdown` JSON, not surfaced in table)
+- Aggregate margin reports (no accounting dashboard in this phase)
+- Historical orders before FASE 5.10 may have `provider_cost = null`

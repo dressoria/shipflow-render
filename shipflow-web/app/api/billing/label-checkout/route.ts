@@ -32,6 +32,7 @@ import {
 import { createAuditLog } from "@/lib/server/auditLog";
 import { canUseDirectLabelPayment } from "@/lib/server/featureGates";
 import { assertLabelCheckoutRateLimit, RateLimitError } from "@/lib/server/rateLimit";
+import { calculateCustomerPrice } from "@/lib/logistics/pricing";
 import type {
   PendingLabelOrderRateSnapshot,
   PendingLabelOrderParcel,
@@ -182,16 +183,32 @@ export async function POST(request: Request) {
     return apiError("Invalid parcel — weight, weightUnit, length, width, height, and dimensionUnit are required.", 400);
   }
 
-  // Server-side amount calculation — derive from frozen rate snapshot, never trust client value.
-  const customerPriceUsd = body.rateSnapshot.customerPrice;
-  if (!Number.isFinite(customerPriceUsd) || customerPriceUsd <= 0) {
-    return apiError("Rate price is invalid.", 400);
-  }
-  const amountCents = Math.round(customerPriceUsd * 100);
+  // Server-side amount calculation — always re-derive from providerCost in the snapshot.
+  // This ensures current markup/fee rules are applied, even if the client-side rate cache is stale.
+  const recomputedPricing = calculateCustomerPrice(body.rateSnapshot.providerCost);
+  const amountCents = Math.round(recomputedPricing.customerPrice * 100);
   if (amountCents < 50) {
     // Stripe minimum is 50 cents for USD.
     return apiError("Label price is too low to process.", 400);
   }
+
+  // Log if the client's quoted price diverges significantly from the server-computed price.
+  const clientCustomerPrice = body.rateSnapshot.customerPrice;
+  if (Math.abs(recomputedPricing.customerPrice - clientCustomerPrice) > 1.00) {
+    console.warn("[LabelCheckout] price mismatch — snapshot vs server recalculation", {
+      userId,
+      snapshotCustomerPrice: clientCustomerPrice,
+      serverCustomerPrice: recomputedPricing.customerPrice,
+      providerCost: body.rateSnapshot.providerCost,
+    });
+  }
+
+  // Enrich snapshot with server-computed pricing breakdown for storage and audit.
+  const enrichedRateSnapshot: PendingLabelOrderRateSnapshot = {
+    ...body.rateSnapshot,
+    customerPrice: recomputedPricing.customerPrice,
+    pricingBreakdown: recomputedPricing as unknown as Record<string, unknown>,
+  };
 
   const serviceCode = body.serviceCode ?? body.rateSnapshot.serviceCode;
   const serviceName = body.serviceName;
@@ -206,7 +223,7 @@ export async function POST(request: Request) {
       serviceName,
       amountCents,
       currency: "usd",
-      rateSnapshot: body.rateSnapshot,
+      rateSnapshot: enrichedRateSnapshot,
       origin: body.origin,
       destination: body.destination,
       parcel: body.parcel,

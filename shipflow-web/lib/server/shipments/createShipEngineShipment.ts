@@ -247,7 +247,7 @@ function buildRpcParams(
     p_payment_fee: pricing.paymentFee,
     p_pricing_subtotal: pricing.subtotal,
     p_pricing_model: "shipflow_v1",
-    p_pricing_breakdown: pricing,
+    p_pricing_breakdown: { ...pricing, paymentMethod: "wallet" },
     p_provider_rate_id: labelResult.rate.providerRateId ?? null,
     p_label_url: labelResult.labelUrl ?? null,
     p_label_status: "purchased",

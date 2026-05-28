@@ -1194,3 +1194,90 @@ Current bug list:
 | `npx tsc --noEmit` | Passed | No TypeScript errors |
 | `npm run build` | Passed | Next.js build completed successfully |
 | `git diff --check` | Passed | No whitespace errors |
+
+---
+
+## FASE 5.54 — Pricing Margin Controls
+
+### Current pricing behavior (audited 2026-05-28)
+
+| Layer | File | Behavior |
+|---|---|---|
+| Rate fetch | `lib/logistics/rateAggregator.ts` | `repriceRate()` calls `calculateCustomerPrice(providerCost)` for every raw provider rate |
+| Pricing engine | `lib/logistics/pricing.ts` | `platformMarkup = max(markupMinimum, providerCost × markupPct)` + `paymentFee = subtotal × feePct + feeFixed` |
+| Config defaults | `lib/logistics/pricing.ts` | 6% markup / $0.99 min / 2.9%+$0.30 payment fee — configurable via env vars (no env file changed) |
+| Stripe checkout | `app/api/billing/label-checkout/route.ts` | Recalculates from `providerCost` server-side; ignores client-sent `customerPrice` |
+| Wallet debit | `lib/server/shipments/createShipEngineShipment.ts` | Uses `calculateCustomerPrice(revalidatedRate.pricing.providerCost)` — server-computed, not client-supplied |
+| Card shipment persist | `lib/server/labelPurchaseProcessor.ts` | Now stores full breakdown: `provider_cost`, `platform_markup`, `payment_fee`, `pricing_subtotal`, `pricing_breakdown` |
+| Pricing snapshot | `pending_label_orders.rate_snapshot` | Stores enriched snapshot with `pricingBreakdown` from server re-computation |
+
+### Pricing model implemented
+
+```
+provider_cost       = raw carrier rate (from ShipStation / EasyPost / Shippo)
+platform_markup     = max(LABEL_MARKUP_MIN_USD, provider_cost × LABEL_MARKUP_PCT)
+pricing_subtotal    = provider_cost + platform_markup
+payment_fee         = pricing_subtotal × LABEL_PAYMENT_FEE_PCT + LABEL_PAYMENT_FEE_FIXED_USD
+customer_price      = pricing_subtotal + payment_fee
+```
+
+Defaults (when env vars absent): 6% markup / $0.99 min / 2.9%+$0.30 payment fee.
+
+### Configurable env vars (server-side only, none added to .env)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LABEL_MARKUP_PCT` | `0.06` | Platform markup percentage |
+| `LABEL_MARKUP_MIN_USD` | `0.99` | Minimum platform markup in USD |
+| `LABEL_PAYMENT_FEE_PCT` | `0.029` | Payment processing fee percentage |
+| `LABEL_PAYMENT_FEE_FIXED_USD` | `0.30` | Fixed payment processing fee in USD |
+
+### Payment method tracking
+
+| Path | `pricing_model` | `pricing_breakdown.paymentMethod` |
+|---|---|---|
+| Wallet (`/api/labels`) | `shipflow_v1` | `wallet` |
+| Card (`/api/billing/label-checkout` → processor) | `direct_label_payment` | `card` |
+
+### Mismatch prevention
+
+Server-side in `label-checkout/route.ts`:
+- `amountCents` is derived from `calculateCustomerPrice(rateSnapshot.providerCost)` — NOT from client-sent `customerPrice`
+- If client-sent price diverges > $1.00 from server-computed, a warning is logged
+- The enriched `rateSnapshot` stored in `pending_label_orders` uses server-computed `customerPrice` and full `pricingBreakdown`
+
+### Admin visibility
+
+`AdminShipmentsTable` now shows:
+- **Charged / Cost** column: customer price + "Cost $X · +$Y" breakdown
+- **Payment** column: badge (Paid/Refunded) + payment method (Wallet / Card)
+- Inferred from `pricingBreakdown.paymentMethod` first, then `pricingModel` for older rows
+
+### Migration required
+
+None. All columns (`provider_cost`, `platform_markup`, `payment_fee`, `pricing_subtotal`, `pricing_model`, `pricing_breakdown`) existed from FASE 5.10.
+
+### Limitations
+
+- Payment fee is charged on both wallet and card paths (no wallet-only discount)
+- Provider cost validation relies on the carrier API being honest; no cross-check
+- Markup config is env var only; no DB-driven config yet (TODO in pricing.ts)
+
+### Safety confirmations
+
+- [ ] No env files changed
+- [ ] No secrets printed
+- [ ] No automatic refunds/voids enabled
+- [ ] Direct card payment still works
+- [ ] Wallet payment still works
+- [ ] Automatic label purchase still works
+- [ ] No provider credentials changed
+
+### Validation results (2026-05-28)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Pending |
+| `npx tsc --noEmit` | Pending |
+| `npm run build` | Pending |
+| `git diff --check` | Pending |

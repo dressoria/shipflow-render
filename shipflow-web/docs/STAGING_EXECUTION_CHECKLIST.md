@@ -1127,3 +1127,46 @@ No-go if any of the following:
 - [ ] Double debit on retry
 - [ ] Stripe recharge duplicates balance_movement
 - [ ] /saldo page crashes or shows wrong balance
+
+---
+
+## FASE 5.54 — Pricing Margin Controls QA Checklist
+
+### 1. Rate display consistency
+- [ ] Get a rate quote in `/crear-guia`
+- [ ] Confirm displayed price = providerCost + markup + payment fee
+- [ ] Select a rate and open ConfirmModal — price shown matches quoted price
+
+### 2. Stripe checkout amount matches displayed price
+- [ ] Click "Pay by card" (requires `ENABLE_DIRECT_LABEL_PAYMENT=true`)
+- [ ] Arrive at Stripe Checkout — confirm amount on checkout page matches confirmed rate
+- [ ] Check `pending_label_orders` row: `amount_cents` matches displayed price × 100
+
+### 3. Wallet debit amount matches displayed price
+- [ ] With sufficient balance, click "Pay with wallet"
+- [ ] After purchase, check `/saldo` balance activity
+- [ ] Debit amount matches confirmed price
+
+### 4. Admin pricing breakdown
+- [ ] Navigate to `/admin/envios`
+- [ ] For a purchased shipment with `provider_cost` populated:
+  - [ ] "Charged / Cost" column shows customer price on first line
+  - [ ] Second line shows "Cost $X · +$Y" with breakdown
+- [ ] Payment method shown (Wallet or Card) below payment status badge
+
+### 5. Price mismatch log (dev/staging only)
+- [ ] Manually forge a request with `customerPrice` far from `providerCost × markup`
+- [ ] Confirm server uses its own computed price, not the forged one
+- [ ] Confirm warning is logged (not a user-facing error)
+
+### 6. Pricing config env vars (optional)
+- [ ] Temporarily set `LABEL_MARKUP_PCT=0.10` in staging env
+- [ ] Verify rates now show 10% markup
+- [ ] Remove env var — verify reverts to default 6%
+
+### Go / No-go
+No-go if any of the following:
+- [ ] Client-sent `customerPrice` accepted by server without recalculation
+- [ ] Wallet debit amount differs from Stripe charged amount for same rate
+- [ ] Admin table does not show cost breakdown for shipments with `provider_cost`
+- [ ] Negative margin persists in any calculated price
