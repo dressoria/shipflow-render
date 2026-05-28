@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Copy, RefreshCw, XCircle } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import {
@@ -58,6 +58,68 @@ function truncate(value: string | undefined, n = 12) {
 
 function copyToClipboard(value: string) {
   navigator.clipboard.writeText(value).catch(() => undefined);
+}
+
+function getProcessLabelReadiness(order: PendingLabelOrder): {
+  canProcess: boolean;
+  title: string;
+  note: string;
+} {
+  const hasLabelData = Boolean(order.labelId || order.shipmentId || order.trackingNumber);
+
+  if (order.status === "label_purchased") {
+    return {
+      canProcess: false,
+      title: "Label already purchased",
+      note: "This order already has a purchased label. Processing again is disabled to avoid duplicate purchases.",
+    };
+  }
+
+  if (order.status === "paid_waiting_label_purchase") {
+    if (hasLabelData) {
+      return {
+        canProcess: false,
+        title: "Manual review required",
+        note: "This paid order already has label, shipment, or tracking data. Do not process again from the UI.",
+      };
+    }
+
+    return {
+      canProcess: true,
+      title: "Ready for manual processing",
+      note: "Payment is captured and no label, shipment, or tracking data has been saved yet.",
+    };
+  }
+
+  if (order.status === "action_required") {
+    if (hasLabelData) {
+      return {
+        canProcess: false,
+        title: "Retry blocked",
+        note: "This action_required order already has label, shipment, or tracking data. Review it manually to avoid a duplicate carrier purchase.",
+      };
+    }
+
+    return {
+      canProcess: true,
+      title: "Safe retry available",
+      note: "Retry is allowed because no label_id, shipment_id, or tracking_number is saved on this action_required order.",
+    };
+  }
+
+  if (order.status === "label_purchase_pending") {
+    return {
+      canProcess: false,
+      title: "Already processing",
+      note: "This order is already marked as label processing. Refresh before taking another action.",
+    };
+  }
+
+  return {
+    canProcess: false,
+    title: "Processing unavailable",
+    note: `Process label is available only for paid orders awaiting a label, or clean action_required retries. Current status: ${getLabelOrderStatusLabel(order.status)}.`,
+  };
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
@@ -225,17 +287,21 @@ function OrderDetail({
   configFeatures,
   onClose,
   onMutated,
+  onRefresh,
 }: {
   order: PendingLabelOrder;
   configStatus: ConfigStatus | null;
   configFeatures: ConfigFeatures | null;
   onClose: () => void;
   onMutated: (updated: PendingLabelOrder) => void;
+  onRefresh: () => void;
 }) {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [mutating, setMutating] = useState(false);
   const [mutateError, setMutateError] = useState<string | null>(null);
   const [processResult, setProcessResult] = useState<string | null>(null);
+  const processInFlightRef = useRef(false);
+  const processReadiness = getProcessLabelReadiness(order);
 
   async function handleActionRequired(reason: string) {
     setMutating(true);
@@ -308,6 +374,10 @@ function OrderDetail({
   }
 
   async function handleProcessLabel() {
+    if (processInFlightRef.current || mutating || !processReadiness.canProcess) {
+      return;
+    }
+
     if (
       !confirm(
         "Purchase label now? This calls the carrier API using the stored rate snapshot.\n\n" +
@@ -316,6 +386,7 @@ function OrderDetail({
     ) {
       return;
     }
+    processInFlightRef.current = true;
     setMutating(true);
     setMutateError(null);
     setProcessResult(null);
@@ -326,9 +397,11 @@ function OrderDetail({
       );
       const refreshed = await apiAdminGetLabelOrder(order.id);
       onMutated(refreshed.order);
+      onRefresh();
     } catch (err) {
       setMutateError(err instanceof Error ? err.message : "Label purchase failed.");
     } finally {
+      processInFlightRef.current = false;
       setMutating(false);
     }
   }
@@ -454,21 +527,36 @@ function OrderDetail({
           {processResult && (
             <div className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700">
               <p className="font-semibold">{processResult}</p>
-              {order.shipmentId && (
-                <p className="mt-1 text-xs text-green-600">
-                  Shipment ID: <span className="font-mono">{order.shipmentId}</span>
-                </p>
-              )}
+              <p className="mt-1 text-xs text-green-600">
+                The order state was refreshed. Confirm the shipment and label URL before closing support follow-up.
+              </p>
             </div>
           )}
 
+          <div
+            className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+              processReadiness.canProcess
+                ? "border-blue-100 bg-blue-50 text-blue-800"
+                : order.status === "label_purchased"
+                  ? "border-green-100 bg-green-50 text-green-800"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+            }`}
+          >
+            <p className="font-bold">{processReadiness.title}</p>
+            <p className="mt-1 leading-6">{processReadiness.note}</p>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3">
-            {canProcessLabelOrder(order.status) && !order.labelId && !order.shipmentId && !order.trackingNumber && (
+            {canProcessLabelOrder(order.status) && (
               <button
                 type="button"
-                disabled={mutating}
+                disabled={mutating || !processReadiness.canProcess}
                 onClick={handleProcessLabel}
-                title="Requires ENABLE_REAL_LABEL_PURCHASE=true on the server"
+                title={
+                  processReadiness.canProcess
+                    ? "Requires ENABLE_REAL_LABEL_PURCHASE=true on the server"
+                    : processReadiness.note
+                }
                 className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700 disabled:opacity-40"
               >
                 {mutating ? "Processing…" : "Process label"}
@@ -696,6 +784,7 @@ export function AdminLabelOrdersView() {
           configFeatures={configFeatures}
           onClose={() => setSelectedOrder(null)}
           onMutated={handleMutated}
+          onRefresh={load}
         />
       )}
 

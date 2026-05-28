@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.47)
+Last updated: 2026-05-28 (FASE 5.48)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -100,6 +100,20 @@ Expected PASS criteria:
 - If sandbox returns placeholder tracking, fallback metadata is present.
 - User success page shows label ready, tracking, and "View in My Shipments".
 - Refunds, voids, and webhook auto-processing remain disabled.
+
+## FASE 5.48 Manual Admin Processing Hardening Checklist
+
+- [x] `Process label` cannot be double-submitted from the modal UI.
+- [x] `Process label` shows `Processing…` while the request is in flight.
+- [x] `Process label` is disabled while processing.
+- [x] `label_purchased` orders show a completed-state explanation and cannot be processed again from the UI.
+- [x] `paid_waiting_label_purchase` orders can be processed only when no label/shipment/tracking data exists yet.
+- [x] `action_required` retry is visible only when no `label_id`, `shipment_id`, or `tracking_number` exists.
+- [x] Unsafe `action_required` retry explains that manual review is required to avoid duplicate carrier purchase.
+- [x] Successful processing refreshes the order detail and reloads the admin list.
+- [x] Processing failures remain visible in the existing admin error panel.
+- [x] No Stripe webhook behavior changed.
+- [x] No env files, migrations, refunds, voids, wallet, or process-in-webhook flags changed.
 
 ## 1. Local Pre-Check
 

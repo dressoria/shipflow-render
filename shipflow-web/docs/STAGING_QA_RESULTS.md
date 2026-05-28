@@ -1,6 +1,45 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.47 clean run preparation)
+Last updated: 2026-05-28 (FASE 5.48 manual processing hardening)
+
+---
+
+## FASE 5.48 — Manual Admin Label Processing Hardening
+
+Run timestamp: 2026-05-28 12:38 America/Guayaquil
+
+Scope: make the admin manual `Process label` flow safer and clearer for controlled beta operation without changing Stripe webhook behavior, provider purchase logic, refunds, voids, env files, or migrations.
+
+### Changes
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Double-submit prevention | PASS | `Process label` now uses both disabled UI state and an in-flight ref guard before calling the admin process endpoint. |
+| Loading state | PASS | Button shows `Processing…` and all modal actions are disabled while processing. |
+| `paid_waiting_label_purchase` | PASS | Button is enabled only when no `label_id`, `shipment_id`, or `tracking_number` is already saved. |
+| `action_required` retry | PASS | Retry is enabled only for clean retries with no `label_id`, no `shipment_id`, and no `tracking_number`. |
+| Unsafe retry explanation | PASS | Admin sees an explicit `Retry blocked` / manual review explanation when label/shipment/tracking data already exists. |
+| `label_purchased` | PASS | Admin sees `Label already purchased`; process action is not active. |
+| Processing success | PASS | Success message includes tracking/shipment/label-ready signal returned by the endpoint. |
+| Processing failure | PASS | Existing error panel remains visible and receives the endpoint error message. |
+| Local refresh | PASS | Detail state refreshes from the order endpoint and the list is reloaded after successful processing. |
+
+### Safety
+
+| Safety item | Result | Note |
+| --- | --- | --- |
+| Env files touched | PASS | No env files changed. |
+| Migrations added | PASS | No migrations added. |
+| Stripe webhook behavior changed | PASS | No webhook files changed. |
+| Provider purchase business logic changed | PASS | No processor/provider files changed. |
+| Refunds/voids enabled | PASS | No flags touched; no refund/void code path changed. |
+| Public landing changed | PASS | No landing/public marketing files changed. |
+
+### Decision
+
+**Final decision: PASS for hardening scope**
+
+Reason: the manual admin processing UI now blocks duplicate clicks, communicates safe retry rules, disables unsafe processing states, and refreshes after success. FASE 5.47 clean browser run remains dependent on interactive beta-user/admin/Supabase access.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.47)
+Última revisión: 2026-05-28 (FASE 5.48)
 
 ---
 
@@ -77,6 +77,10 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Lista de `pending_label_orders` accesible para admin sin exponer secrets (FASE 5.39C)
 - [x] Filtros por status, provider, y búsqueda por session/PI/tracking (FASE 5.39C)
 - [x] Detalle de orden con snapshots JSON colapsables, sin secrets (FASE 5.39C)
+- [x] `Process label` manual protegido contra doble click/doble submit desde admin UI (FASE 5.48)
+- [x] Retry de `action_required` visible solo cuando no existe label/shipment/tracking guardado (FASE 5.48)
+- [x] Estados `label_purchased` y retries inseguros explican por qué no se debe procesar otra vez (FASE 5.48)
+- [x] Admin list/detail se refrescan tras process exitoso (FASE 5.48)
 - [x] Acciones admin: mark_action_required, mark_refund_needed, mark_expired (FASE 5.39C)
 - [x] Error message visible en detalle sin exponer API keys (FASE 5.39C)
 - [x] Expiry sweep manual: POST /api/admin/label-orders/expire-stale (FASE 5.39C)
