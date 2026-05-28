@@ -1,6 +1,227 @@
 # Staging QA Results
 
-Last updated: 2026-05-24 (FASE 5.46)
+Last updated: 2026-05-28 (FASE 5.46 duplicate tracking closure)
+
+---
+
+## FASE 5.46 — Duplicate Tracking Fix Closure Attempt
+
+Run timestamp: 2026-05-28 11:33 America/Guayaquil
+
+Scope: close QA after sandbox duplicate tracking fix for direct label payment + manual admin label purchase retry.
+
+Commits checked locally:
+
+- `d1293ac` — Refine SendiFlash landing visuals and branding clarity
+- `4559d27` — Handle sandbox duplicate tracking during label persistence
+
+### Local pre-check
+
+| Item | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Root `git status --short` | PASS | Working tree clean before docs update | None | Continue |
+| Root `git log --oneline -10` | PASS | `d1293ac` is HEAD; `4559d27` is present in history | None | Continue |
+| Root `git diff --check` | PASS | No whitespace errors | None | Continue |
+| Env files not staged/tracked | PASS | No `.env.local` or `.env.production` changes in git status; only `.env.example` files are tracked | None | Keep env files untracked |
+| `npm run lint` | PASS with warnings | 0 errors; existing unused-variable warnings in `MockAdapter.ts` and `trackingService.ts` | None for FASE 5.46 | Clean warnings later |
+| `npx tsc --noEmit` | PASS | No TypeScript errors | None | Continue |
+| `npm run build` | PASS | Next build completed; all 41 static pages generated | None | Continue |
+| App `git diff --check` | PASS | No whitespace errors | None | Continue |
+| Legacy localStorage search | PASS with expected references | Found only docs test instructions plus `lib/storage.ts` constants and `legacyAuthCleanup` cleanup list | None | Keep production legacy auth blocked |
+| Eval/CSP search | PASS with expected references | Found documentation references only; no app code hit | None | Continue |
+
+### Runtime flag check
+
+Checked public status endpoint:
+
+```text
+https://sendiflash.com/api/config/status
+```
+
+| Flag / status | Result | Observed value |
+| --- | --- | --- |
+| `buildEnvOk` | PASS | `true` |
+| `directLabelPaymentEnabled` | PASS | `true` |
+| `realLabelPurchaseEnabled` | PASS | `true` |
+| `processLabelInWebhookEnabled` | PASS | `false` |
+| `labelVoidEnabled` | PASS | `false` |
+| `labelPaymentRefundsEnabled` | PASS | `false` |
+| Supabase / service role configured | PASS | `true` / `true` |
+| Stripe recharge configured/enabled | PASS | `true` / `true` |
+| App URL host | PASS | `sendiflash.com` |
+
+### VM redeploy runbook for operator
+
+Codex did not modify `.env.production` and did not run destructive deploy commands on the VM. Operator should run:
+
+```bash
+cd /home/ubuntu/appsolux-apps/shipflow/shipflow
+
+git fetch origin main
+git reset --hard origin/main
+git log --oneline -10
+
+set -a
+source shipflow-web/.env.production
+set +a
+
+docker compose build --no-cache shipflow-web
+docker compose up -d shipflow-web
+docker network connect appsolux-network shipflow-web || true
+
+sleep 5
+
+curl -s http://localhost:3003/api/config/status
+```
+
+Expected VM result:
+
+- `d1293ac` or newer at the top of `git log`.
+- `4559d27` present in history.
+- `buildEnvOk=true`.
+- `directLabelPaymentEnabled=true`.
+- `realLabelPurchaseEnabled=true`.
+- `processLabelInWebhookEnabled=false`.
+- `labelVoidEnabled=false`.
+- `labelPaymentRefundsEnabled=false`.
+
+### Retry target
+
+Pending label order:
+
+```text
+08ff529a-f140-46e0-bcef-629cb355f604
+```
+
+Expected pre-retry state:
+
+- `status=action_required`
+- `label_id is null`
+- `shipment_id is null`
+- `tracking_number is null`
+- `error_message` contains duplicate tracking error for `1ZXXXXXXXXXXXXXXXX`
+
+Required manual action:
+
+1. Open `https://sendiflash.com/admin/label-orders`.
+2. Find order `08ff529a-f140-46e0-bcef-629cb355f604`.
+3. Confirm `Process label` is visible because the order is a clean `action_required` retry.
+4. Click `Process label` exactly once.
+5. Do not retry repeatedly if it fails.
+
+Expected result after retry:
+
+- Order transitions to `label_purchased`.
+- A new shipment is created.
+- If provider returns sandbox placeholder `1ZXXXXXXXXXXXXXXXX` again, shipment stores unique internal tracking such as `1ZXXXXXXXXXXXXXXXX-08ff529a`.
+- `pending_label_orders.error_message` is cleared.
+- Original provider tracking is preserved in shipment metadata.
+
+### Supabase verification queries
+
+Run after the admin retry:
+
+```sql
+select id, user_id, status, amount_cents, currency,
+       stripe_checkout_session_id,
+       stripe_payment_intent_id,
+       paid_at,
+       label_id,
+       tracking_number,
+       shipment_id,
+       processed_at,
+       error_message,
+       created_at,
+       updated_at
+from pending_label_orders
+where id = '08ff529a-f140-46e0-bcef-629cb355f604';
+```
+
+Expected:
+
+- `status = 'label_purchased'`
+- `label_id` has a value
+- `tracking_number` has the persisted tracking value, using fallback if needed
+- `shipment_id` has a value
+- `processed_at` has a value
+- `error_message is null`
+
+Then:
+
+```sql
+select id,
+       user_id,
+       tracking_number,
+       provider,
+       provider_label_id,
+       provider_shipment_id,
+       label_url,
+       status,
+       label_status,
+       metadata,
+       created_at
+from shipments
+order by created_at desc
+limit 10;
+```
+
+Expected new shipment metadata when fallback applies:
+
+```json
+{
+  "provider_tracking_number_original": "1ZXXXXXXXXXXXXXXXX",
+  "tracking_number_was_placeholder": true,
+  "tracking_number_internal_fallback": true
+}
+```
+
+### User status verification
+
+Open:
+
+```text
+https://sendiflash.com/crear-guia?labelPayment=success&order_id=08ff529a-f140-46e0-bcef-629cb355f604
+```
+
+Expected:
+
+- Banner shows label ready / `label_purchased`.
+- Tracking is visible.
+- Label/PDF action is visible only if `label_url` exists.
+- Old duplicate-tracking error is not shown.
+- Page does not show "payment has not been completed yet".
+
+### Safety checks
+
+| Safety item | Result | Note |
+| --- | --- | --- |
+| `processLabelInWebhook` remains disabled | PASS | Public `/api/config/status` shows `false` |
+| Label void remains disabled | PASS | Public `/api/config/status` shows `false` |
+| Label payment refunds remain disabled | PASS | Public `/api/config/status` shows `false` |
+| Refund executed by Codex | PASS | No refund command/API call run |
+| Void executed by Codex | PASS | No void command/API call run |
+| DB unique constraint removed | PASS | No migration/schema change made in this QA pass |
+| Env files touched by Codex | PASS | No env file changes |
+| Secrets exposed | PASS | No secrets printed or committed |
+| Double purchase risk | NOT RUN | Requires single admin retry and DB verification |
+
+### Final result for this closure attempt
+
+| QA target | Result | Evidence / note |
+| --- | --- | --- |
+| Stripe Checkout test | PREVIOUSLY PASSED | Existing FASE 5.46 context says test checkout created pending order |
+| Stripe webhook | PREVIOUSLY PASSED | Existing FASE 5.46 context says webhook updated order to `paid_waiting_label_purchase` |
+| Admin Process label retry after `4559d27` | NOT RUN BY CODEX | Requires authenticated admin click |
+| `pending_label_orders` final state | NOT RUN BY CODEX | Requires Supabase query after retry |
+| Shipment final state | NOT RUN BY CODEX | Requires Supabase query after retry |
+| User banner/status | NOT RUN BY CODEX | Requires authenticated/real order status after retry |
+| Sandbox duplicate tracking fallback | READY TO VERIFY | Fix commit `4559d27` is present locally; runtime retry pending |
+
+**Final decision: PARTIAL**
+
+Reason: local validation and runtime flag checks pass, but the actual admin retry and Supabase verification for order `08ff529a-f140-46e0-bcef-629cb355f604` were not executed by Codex because they require production admin/Supabase access. Promote to PASS only after the single admin retry creates a shipment and verifies the fallback metadata above.
+
+Next recommended step: Operator redeploys latest `main` on VM if not already deployed, clicks `Process label` once for order `08ff529a-f140-46e0-bcef-629cb355f604`, runs the two Supabase queries, and records the final PASS/PARTIAL/FAIL outcome here.
 
 ---
 
