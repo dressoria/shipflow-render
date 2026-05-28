@@ -1,6 +1,155 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.46 duplicate tracking closure)
+Last updated: 2026-05-28 (FASE 5.47 clean run preparation)
+
+---
+
+## FASE 5.47 — Clean End-to-End Label Purchase Test
+
+Run timestamp: 2026-05-28 12:25 America/Guayaquil
+
+Goal: create one new clean direct label payment order from `/crear-guia`, pay with Stripe test card, process the label once from admin, verify `pending_label_orders`, `shipments`, and the user success banner.
+
+### Production config pre-check
+
+Checked:
+
+```text
+https://sendiflash.com/api/config/status
+```
+
+| Flag / status | Result | Observed value |
+| --- | --- | --- |
+| `buildEnvOk` | PASS | `true` |
+| `directLabelPaymentEnabled` | PASS | `true` |
+| `realLabelPurchaseEnabled` | PASS | `true` |
+| `processLabelInWebhookEnabled` | PASS | `false` |
+| `labelVoidEnabled` | PASS | `false` |
+| `labelPaymentRefundsEnabled` | PASS | `false` |
+| `appUrlHost` | PASS | `sendiflash.com` |
+
+### Execution status
+
+| Step | Result | Evidence / note | Bug found | Required action |
+| --- | --- | --- | --- | --- |
+| Open `/crear-guia` as allowed test user | NOT RUN BY CODEX | Requires authenticated allowlisted user session | None | Operator must run in browser |
+| Create test guide New York, NY → Chicago, IL, 1 lb, 1x1x1 in | NOT RUN BY CODEX | Requires authenticated browser flow | None | Operator must run |
+| Get rates and select one rate | NOT RUN BY CODEX | Requires authenticated browser flow | None | Operator must run |
+| Pay with Stripe test card | NOT RUN BY CODEX | Requires interactive Stripe Checkout | None | Operator must run |
+| Verify webhook state `paid_waiting_label_purchase` | NOT RUN BY CODEX | Requires new order id and Supabase query | None | Operator must run |
+| Admin `Process label` once | NOT RUN BY CODEX | Requires admin session; do not double-click | None | Operator must run |
+| Verify `pending_label_orders` final row | NOT RUN BY CODEX | Requires Supabase query after processing | None | Operator must run |
+| Verify newest shipment | NOT RUN BY CODEX | Requires Supabase query after processing | None | Operator must run |
+| Verify user success URL | NOT RUN BY CODEX | Requires new `order_id` and browser session | None | Operator must run |
+
+### Expected verification queries after clean run
+
+```sql
+select id, user_id, status, amount_cents, currency,
+       stripe_checkout_session_id,
+       stripe_payment_intent_id,
+       paid_at,
+       label_id,
+       tracking_number,
+       shipment_id,
+       processed_at,
+       error_message,
+       created_at,
+       updated_at
+from pending_label_orders
+order by created_at desc
+limit 5;
+```
+
+Expected newest order:
+
+- `status = 'label_purchased'`
+- `label_id` has a value
+- `tracking_number` has a value
+- `shipment_id` has a value
+- `processed_at` has a value
+- `error_message is null`
+
+```sql
+select id,
+       user_id,
+       tracking_number,
+       provider,
+       provider_label_id,
+       provider_shipment_id,
+       label_url,
+       status,
+       label_status,
+       metadata,
+       created_at
+from shipments
+order by created_at desc
+limit 5;
+```
+
+Expected newest shipment:
+
+- Belongs to the new clean pending label order.
+- `label_status = 'purchased'`.
+- `label_url` has a provider PDF value when sandbox returns one.
+- If sandbox returns placeholder tracking, internal fallback is applied.
+- `metadata.pending_label_order_id` is present.
+- `metadata.stripe_payment_intent_id` is present.
+
+### Safety checks
+
+| Safety item | Result | Note |
+| --- | --- | --- |
+| Refunds enabled | PASS | `labelPaymentRefundsEnabled=false` |
+| Voids enabled | PASS | `labelVoidEnabled=false` |
+| Webhook auto-processing enabled | PASS | `processLabelInWebhookEnabled=false` |
+| Refund executed by Codex | PASS | No refund command/API call run |
+| Void executed by Codex | PASS | No void command/API call run |
+| Env files touched by Codex | PASS | No env file changes |
+| Migrations run by Codex | PASS | No migration commands run |
+| Secrets exposed | PASS | No secrets printed |
+
+### Decision
+
+**Final decision: PARTIAL / NOT RUN BY CODEX**
+
+Reason: production flags are correct and FASE 5.46 is PASS, but the clean FASE 5.47 browser + Stripe Checkout + admin processing flow requires an authenticated allowlisted user session, an interactive Stripe Checkout, admin UI access, and Supabase verification output. Codex did not have those credentials/session artifacts in this environment.
+
+Next required operator action: run the browser flow once, record the new `pending_label_order.id`, `shipment.id`, tracking value, fallback metadata if applied, label PDF availability, and user banner result. If all expectations above are met, update this section to **PASS**.
+
+---
+
+## FASE 5.46 — Final PASS Evidence
+
+Run timestamp: 2026-05-28
+
+Result: **PASS**
+
+Evidence provided after manual retry:
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| Retried order | PASS | `08ff529a-f140-46e0-bcef-629cb355f604` |
+| Final pending order status | PASS | `label_purchased` |
+| Shipment created | PASS | `shipment_id = 281839b8-65d4-468e-8c22-0d82b1d156ad` |
+| Provider label id | PASS | `label_id = se-154184403` |
+| Tracking persisted | PASS | `tracking_number = 1ZXXXXXXXXXXXXXXXX-08ff529a` |
+| Error cleared | PASS | `error_message = null` |
+| Original provider tracking preserved | PASS | `metadata.provider_tracking_number_original = 1ZXXXXXXXXXXXXXXXX` |
+| Placeholder tracking marked | PASS | `metadata.tracking_number_was_placeholder = true` |
+| Internal fallback marked | PASS | `metadata.tracking_number_internal_fallback = true` |
+| User success page | PASS | Shows "Your label is ready.", tracking, `UPS Next Day Air® via shipstation`, and "View in My Shipments" |
+| Duplicate tracking fix | PASS | Sandbox placeholder duplicate no longer blocks shipment persistence |
+
+Safety confirmations:
+
+- `ENABLE_PROCESS_LABEL_IN_WEBHOOK` remains off.
+- `ENABLE_REAL_LABEL_VOID` remains off.
+- `ENABLE_LABEL_PAYMENT_REFUNDS` remains off.
+- No refund was executed.
+- No void was executed.
+- No DB uniqueness constraint was removed.
+- No secrets were exposed in docs.
 
 ---
 

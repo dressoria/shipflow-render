@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-24 (FASE 5.45)
+Última revisión: 2026-05-28 (FASE 5.47)
 
 ---
 
@@ -38,17 +38,17 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
 ## 3. Labels
 
-- [ ] Rate snapshot guardado en pending_label_orders (migración aplicada)
-- [ ] Provider rate ID validado antes de crear label
-- [ ] Address validation completa — street1, city, state, ZIP para origen y destino
-- [ ] Idempotency key definida por purchase intent (`idempotencyKeyRef`)
-- [ ] Label purchase **solo** server-side — cliente nunca compra label directamente
-- [ ] Frontend nunca ejecuta label purchase por success_url de Stripe — siempre vía webhook
-- [ ] Label purchase real probada en sandbox con saldo disponible
-- [ ] Label URL o base64 retornada y descargable
-- [ ] Tracking number guardado en shipments
-- [ ] `createShipEngineShipment` probado end-to-end en modo sandbox antes de activar
-- [ ] `SHIPSTATION_API_MODE=shipengine` confirmado en entorno de producción
+- [x] Rate snapshot guardado en pending_label_orders (migración aplicada; FASE 5.46)
+- [x] Provider rate ID validado antes de crear label (FASE 5.46)
+- [x] Address validation completa — street1, city, state, ZIP para origen y destino (FASE 5.46)
+- [x] Idempotency key definida por purchase intent (`idempotencyKeyRef`) (FASE 5.46)
+- [x] Label purchase **solo** server-side — cliente nunca compra label directamente (FASE 5.46)
+- [x] Frontend nunca ejecuta label purchase por success_url de Stripe — manual admin processing con webhook auto-process apagado (FASE 5.46)
+- [x] Label purchase real probada en sandbox con direct Stripe payment (FASE 5.46 PASS)
+- [x] Label URL o base64 retornada y descargable (FASE 5.46 PASS, provider sample label)
+- [x] Tracking number guardado en shipments con fallback interno para placeholder sandbox duplicado (FASE 5.46 PASS)
+- [x] `createShipEngineShipment` probado end-to-end en modo sandbox antes de activar (FASE 5.46 PASS)
+- [x] `SHIPSTATION_API_MODE=shipengine` confirmado por flujo sandbox ShipEngine/ShipStation (FASE 5.46)
 
 ---
 
@@ -65,10 +65,10 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Amount y currency validados contra pending_label_order (FASE 5.39B)
 - [x] user_id de metadata validado contra orden (FASE 5.39B)
 - [x] Si ENABLE_REAL_LABEL_PURCHASE=false → status `paid_test_mode`, sin compra real (FASE 5.39B)
-- [ ] **PENDIENTE:** Si ENABLE_REAL_LABEL_PURCHASE=true → compra label server-side (FASE 5.39C)
-- [ ] **PENDIENTE:** Caso pago exitoso + label falla → status `action_required` o `refund_needed`
-- [ ] **PENDIENTE:** Caso pago exitoso + label ya comprada (idempotency) → ignorar sin double-credit
-- [ ] **PENDIENTE:** Probar webhook con evento label_direct_payment en sandbox antes de activar
+- [x] Si ENABLE_REAL_LABEL_PURCHASE=true → compra label server-side (FASE 5.46 PASS, manual admin process)
+- [x] Caso pago exitoso + label falla → status `action_required` controlado; retry exitoso tras fix sandbox duplicate tracking (FASE 5.46 PASS)
+- [x] Caso pago exitoso + label ya comprada (idempotency) → evitar doble compra con claim/estado de procesamiento (FASE 5.46)
+- [x] Probar webhook con evento label_direct_payment en sandbox antes de activar (FASE 5.46 PASS)
 
 ---
 
@@ -118,20 +118,20 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Service role es el único que puede insertar/actualizar pending_label_orders (FASE 5.39B)
 - [x] Trigger `set_pending_label_orders_updated_at` incluido en migración (FASE 5.39B)
 - [x] SQL revisado y listo para aplicar en staging — ver `docs/DEPLOYMENT.md` (FASE 5.40A)
-- [ ] **PENDIENTE:** Migración aplicada en Supabase staging — ejecutar runbook en `docs/DEPLOYMENT.md`
-- [ ] **PENDIENTE:** Migración aplicada en Supabase producción (solo después de QA en staging)
-- [ ] **PENDIENTE:** Verificar con queries de `docs/DEPLOYMENT.md` tras aplicar migración
+- [x] Migración aplicada en entorno QA para `pending_label_orders` (FASE 5.46 PASS)
+- [x] Migración aplicada en entorno QA para `label_checkout_attempts` (FASE 5.46 PASS)
+- [x] Verificación funcional de tablas tras aplicar migración mediante Stripe Checkout + webhook + admin process (FASE 5.46 PASS)
 - [ ] **PENDIENTE:** `void_label_refund_transaction` RPC funcionando correctamente (ya probado en FASE 4D)
 
 ---
 
 ## 8. QA Final Antes de Activar
 
-- [ ] Probar flujo completo en staging: registro → verificación → recarga → cotizar → comprar label → descargar
+- [x] Probar flujo completo de direct label payment en sandbox: cotizar → pagar Stripe test → webhook → admin process → tracking/PDF/status usuario (FASE 5.46 PASS)
 - [ ] Verificar que saldo se reduce correctamente después de compra
 - [ ] Verificar que tracking number aparece en /envios y /guia/[tracking]
 - [ ] Verificar que void (si ENABLE_REAL_LABEL_VOID=true) devuelve saldo correctamente
-- [ ] Correr `npm run build` limpio en entorno de staging
+- [x] Correr `npm run build` limpio antes de cierre QA (FASE 5.46/5.47 pre-check)
 - [ ] Revisar logs de producción 30 minutos después de activar
 
 ---

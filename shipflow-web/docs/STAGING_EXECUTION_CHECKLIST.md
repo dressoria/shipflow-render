@@ -1,10 +1,105 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-24 (FASE 5.46)
+Last updated: 2026-05-28 (FASE 5.47)
 
-Purpose: first controlled VM/staging QA for ShipFlow / SendiFlash after phases 5.38D through 5.41C, with auth routing fixes deployed and all dangerous label flags still off.
+Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
 Do not deploy production-wide. Do not apply migrations automatically. Do not print secrets. Do not buy real labels or execute real refunds without explicit confirmation.
+
+## FASE 5.46 Final PASS Snapshot
+
+- [x] Existing order `08ff529a-f140-46e0-bcef-629cb355f604` retried successfully after `4559d27`.
+- [x] `pending_label_orders.status = label_purchased`.
+- [x] `shipment_id = 281839b8-65d4-468e-8c22-0d82b1d156ad`.
+- [x] `label_id = se-154184403`.
+- [x] `tracking_number = 1ZXXXXXXXXXXXXXXXX-08ff529a`.
+- [x] `error_message = null`.
+- [x] Shipment metadata preserves `provider_tracking_number_original = 1ZXXXXXXXXXXXXXXXX`.
+- [x] Shipment metadata marks `tracking_number_was_placeholder = true`.
+- [x] Shipment metadata marks `tracking_number_internal_fallback = true`.
+- [x] User success page shows label ready, tracking, `UPS Next Day Air® via shipstation`, and "View in My Shipments".
+
+## FASE 5.47 Clean E2E Test Runbook
+
+Current required flags:
+
+- `directLabelPaymentEnabled=true`
+- `realLabelPurchaseEnabled=true`
+- `processLabelInWebhookEnabled=false`
+- `labelVoidEnabled=false`
+- `labelPaymentRefundsEnabled=false`
+
+Pre-check:
+
+```bash
+curl -s https://sendiflash.com/api/config/status
+```
+
+Clean browser flow:
+
+1. Sign in as the allowed verified test user.
+2. Open `https://sendiflash.com/crear-guia`.
+3. Create a New York, NY → Chicago, IL test shipment.
+4. Package: 1 lb, 1x1x1 in.
+5. Get rates.
+6. Select one rate.
+7. Pay with Stripe test card.
+8. After redirect, verify the new order reaches `paid_waiting_label_purchase`.
+9. Open `https://sendiflash.com/admin/label-orders`.
+10. Find the new paid order.
+11. Click `Process label` exactly once.
+12. Verify the order reaches `label_purchased`.
+13. Verify a shipment is created.
+14. Verify the user success URL shows label ready and tracking.
+
+Post-run pending order query:
+
+```sql
+select id, user_id, status, amount_cents, currency,
+       stripe_checkout_session_id,
+       stripe_payment_intent_id,
+       paid_at,
+       label_id,
+       tracking_number,
+       shipment_id,
+       processed_at,
+       error_message,
+       created_at,
+       updated_at
+from pending_label_orders
+order by created_at desc
+limit 5;
+```
+
+Post-run shipment query:
+
+```sql
+select id,
+       user_id,
+       tracking_number,
+       provider,
+       provider_label_id,
+       provider_shipment_id,
+       label_url,
+       status,
+       label_status,
+       metadata,
+       created_at
+from shipments
+order by created_at desc
+limit 5;
+```
+
+Expected PASS criteria:
+
+- New clean order reaches `label_purchased`.
+- `stripe_payment_intent_id`, `paid_at`, `label_id`, `shipment_id`, `tracking_number`, and `processed_at` are populated.
+- `error_message = null`.
+- Newest shipment has `label_status = purchased`.
+- `label_url` is available if sandbox returns a PDF.
+- If sandbox returns placeholder tracking, fallback metadata is present.
+- User success page shows label ready, tracking, and "View in My Shipments".
+- Refunds, voids, and webhook auto-processing remain disabled.
 
 ## 1. Local Pre-Check
 
