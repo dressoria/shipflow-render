@@ -11,6 +11,7 @@ const nav = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
+  { label: "Support", href: "/support" },
 ];
 
 export function Header() {
@@ -26,13 +27,13 @@ export function Header() {
 
         <nav className="hidden items-center gap-7 text-sm font-semibold text-[#64748B] md:flex">
           {nav.map((item) => (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className="transition hover:text-[#2563EB]"
             >
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -59,14 +60,14 @@ export function Header() {
         <div className="mx-auto mt-2 max-w-7xl rounded-3xl border border-white/80 bg-white/95 px-4 py-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl md:hidden">
           <nav className="grid gap-1">
             {nav.map((item) => (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className="rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2563EB]"
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
           </nav>
           <div className="mt-4 grid gap-3">

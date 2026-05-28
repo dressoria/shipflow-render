@@ -124,8 +124,16 @@ function LabelPaymentSuccessBanner({
     Icon = AlertTriangle;
     colorClass = "border-amber-200 bg-amber-50 text-amber-800";
     if (status === "action_required") {
-      title = "Support review required.";
-      body = getUserFacingLabelOrderMessage(status);
+      title = "Payment confirmed. Review needed.";
+      body = (
+        <>
+          {getUserFacingLabelOrderMessage(status)}{" "}
+          <Link href="/support" className="underline font-medium">
+            See what happens next
+          </Link>
+          .
+        </>
+      );
     } else if (status === "refund_needed") {
       title = "Label could not be generated.";
       body = getUserFacingLabelOrderMessage(status);
@@ -636,7 +644,7 @@ export function CreateGuideForm() {
       if (lowerMsg.includes("insufficient") || lowerMsg.includes("balance")) {
         setInsufficientBalance(true);
         setErrors({
-          form: "Your balance is not enough for this label.",
+          form: "Your wallet balance is not enough for this label. Add funds or pay by card if card checkout is available.",
         });
       } else if (lowerMsg.includes("no longer available") || lowerMsg.includes("refresh rates") || lowerMsg.includes("expired")) {
         setErrors({
@@ -743,7 +751,7 @@ export function CreateGuideForm() {
         router.push("/verifica-tu-correo");
         return;
       } else {
-        setErrors({ form: "Could not start card payment. Please try again or add funds to your wallet." });
+        setErrors({ form: "Could not start card payment. Please try again, add funds to your wallet, or contact support if it keeps happening." });
       }
       setPayByCardLoading(false);
     }
@@ -808,6 +816,8 @@ export function CreateGuideForm() {
           server-side integration to show rates.
         </ConfigAlert>
       )}
+
+      <FirstShipmentGuide />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="grid min-w-0 gap-5">
@@ -999,6 +1009,45 @@ function ConfigAlert({ type, children }: { type: "error" | "warning"; children: 
       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
       <div>{children}</div>
     </div>
+  );
+}
+
+function FirstShipmentGuide() {
+  const steps = [
+    "Enter origin and destination",
+    "Compare available rates",
+    "Pay with wallet or card",
+    "Get your label automatically",
+  ];
+
+  return (
+    <section className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-widest text-[#F97316]">First shipment guide</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Four steps from rate to label</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            SendiFlash currently supports domestic shipments within selected countries. International shipping is coming later.
+          </p>
+        </div>
+        <Link
+          href="/support"
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#2563EB]"
+        >
+          Help and FAQ
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step, index) => (
+          <div key={step} className="flex min-w-0 items-center gap-3 rounded-2xl bg-slate-50 p-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#2563EB] text-sm font-black text-white">
+              {index + 1}
+            </span>
+            <span className="text-sm font-bold text-slate-700">{step}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

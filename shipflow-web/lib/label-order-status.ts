@@ -111,9 +111,9 @@ const USER_FACING_MESSAGES: Record<PendingLabelOrderStatus, string> = {
   label_purchase_pending: "We're preparing your label with the carrier.",
   label_purchased: "Your label is ready.",
   action_required:
-    "Your payment was received, but this shipment needs support review before a label can be generated.",
+    "Payment confirmed. Our support team needs to review this shipment before the label is completed.",
   refund_needed:
-    "Your payment was received, but the label could not be generated. Support will review this order.",
+    "Payment confirmed, but the label could not be generated. Support will review the order and next steps.",
   refund_pending: "Refund is being processed.",
   refunded: "Refund completed.",
   expired: "This payment attempt expired.",

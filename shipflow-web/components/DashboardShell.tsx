@@ -13,6 +13,7 @@ import {
   Truck,
   LogOut,
   ShieldCheck,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { BrandName } from "@/components/BrandName";
@@ -25,6 +26,7 @@ const menu = [
   { label: "Shipments", href: "/envios", icon: Truck },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
   { label: "Balance", href: "/saldo", icon: CreditCard },
+  { label: "Help", href: "/support", icon: HelpCircle },
 ];
 
 type DashboardShellProps = {
@@ -43,12 +45,12 @@ export function DashboardShell({ title, description, children }: DashboardShellP
       <header className="sticky top-0 z-40 border-b border-white/40 bg-white/70 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
-            <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF1493,#FF4FB3_58%,#FF73C6)] text-white">
+            <span className="brand-glow grid h-10 w-10 place-items-center rounded-2xl bg-[#2563EB] text-white">
               <PackageCheck className="h-5 w-5" />
             </span>
             <BrandName />
           </Link>
-          <div className="hidden h-11 min-w-72 items-center gap-3 rounded-2xl border border-pink-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm md:flex">
+          <div className="hidden h-11 min-w-72 items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm md:flex">
             <Search className="h-4 w-4" />
             Search shipment, customer, or city
           </div>
@@ -58,7 +60,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           {isAdmin ? (
             <Link
               href="/admin"
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-pink-950/20 transition hover:-translate-y-0.5 hover:bg-slate-900"
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white shadow-xl shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-slate-900"
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
               Admin
@@ -67,7 +69,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           <button
             type="button"
             onClick={logout}
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-pink-100 bg-white/85 px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-pink-50"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-blue-100 bg-white/85 px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-blue-50"
           >
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
@@ -96,7 +98,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
                   href={item.href}
                   className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition ${
                     pathname === item.href
-                      ? "bg-[#FF1493] text-white shadow-lg shadow-[#FF1493]/30"
+                      ? "bg-[#2563EB] text-white shadow-lg shadow-[#2563EB]/30"
                       : "text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
@@ -110,7 +112,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
                 href="/admin"
                 className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition ${
                   pathname.startsWith("/admin")
-                    ? "bg-[#FF1493] text-white shadow-lg shadow-[#FF1493]/30"
+                    ? "bg-[#2563EB] text-white shadow-lg shadow-[#2563EB]/30"
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
               >
@@ -123,7 +125,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
         <main className="min-w-0">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#FF1493]">
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#F97316]">
                 Dashboard
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">

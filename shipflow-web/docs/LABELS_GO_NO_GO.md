@@ -723,3 +723,35 @@ A selected domestic market should be treated as commercially usable only after a
 ### Provider setup expectation
 
 Passing SendiFlash validation does not guarantee the connected provider/carrier account can rate or buy labels in that country. If no rates return, the correct beta behavior is to show the market setup message and prevent checkout.
+
+---
+
+## FASE 5.57 — Controlled Beta Readiness
+
+### Release posture
+
+SendiFlash is ready for **controlled beta onboarding** after operator verification. The product now includes onboarding guidance, support/FAQ copy, and beta policy placeholders so invited users have a clear path from signup to first label.
+
+### Go conditions
+
+- Dashboard welcome panel is visible after login.
+- `/crear-guia` explains the four-step shipment flow and domestic-only rule.
+- `/support` explains wallet vs card, label download, label under review, domestic markets, and manual support review.
+- `/terms`, `/privacy`, and `/support-policy` exist as beta placeholders.
+- Automatic label processing remains controlled by `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`.
+- Refunds and voids remain disabled by default flags and are support/admin-reviewed.
+
+### No-go conditions
+
+- Any raw provider/Stripe error is shown to normal users.
+- Support/legal pages are missing or inaccessible.
+- International/customs/duties/taxes are implied as supported.
+- Refunds or voids become automatic.
+- Env files, credentials, or provider setup are changed in code.
+
+### Known beta limitations to communicate
+
+- Selected domestic markets only.
+- Provider/account setup may still limit non-US rate availability.
+- USD-only pricing and payments.
+- Manual support review for label exceptions, refunds, and voids.

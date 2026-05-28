@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, CircleDollarSign, PackageCheck, Truck } from "lucide-react";
+import { Activity, ArrowRight, CircleDollarSign, HelpCircle, PackageCheck, PlusCircle, Truck, Wallet } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
@@ -59,6 +61,56 @@ export function DashboardOverview() {
 
   return (
     <>
+      <section className="mb-6 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm shadow-slate-950/5">
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
+          <div className="min-w-0">
+            <Badge tone="blue">Controlled beta</Badge>
+            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950">
+              Welcome to SendiFlash
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Create a domestic shipment, compare available rates, pay with wallet or card, and receive your label automatically after payment is confirmed.
+            </p>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Button href="/crear-guia" variant="action" icon={<PlusCircle className="h-4 w-4" />}>
+                Create your first shipment
+              </Button>
+              <Button href="/saldo" variant="secondary" icon={<Wallet className="h-4 w-4" />}>
+                Add wallet balance
+              </Button>
+              <Button href="/envios" variant="ghost" icon={<Truck className="h-4 w-4" />}>
+                My Shipments
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">How beta shipping works</p>
+            <div className="mt-4 grid gap-3 text-sm">
+              {[
+                "Enter a domestic route in a supported country.",
+                "Choose a carrier rate with clear pricing.",
+                "Pay securely and let SendiFlash prepare the label.",
+                "Download the label from My Shipments.",
+              ].map((step, index) => (
+                <div key={step} className="flex items-start gap-3">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#2563EB] text-xs font-black text-white">
+                    {index + 1}
+                  </span>
+                  <span className="text-slate-600">{step}</span>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/support"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-black text-[#2563EB] hover:text-[#1D4ED8]"
+            >
+              Beta help center
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Shipments created" value={shipments.length.toString()} detail="No comparison" icon={PackageCheck} />
         <StatCard label="Estimated cost" value={formatCurrency(total)} detail="Total" icon={CircleDollarSign} tone="green" />
@@ -125,7 +177,22 @@ export function DashboardOverview() {
         </div>
 
         <div className="grid gap-6">
-          <LoadingState />
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-orange-50 text-[#F97316]">
+                <HelpCircle className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-black text-slate-950">Need help shipping?</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Review beta support notes for labels under review, wallet/card payments, and domestic market availability.
+                </p>
+                <Link href="/support" className="mt-3 inline-flex text-sm font-black text-[#2563EB] hover:text-[#1D4ED8]">
+                  Open support guide
+                </Link>
+              </div>
+            </div>
+          </div>
           <EmptyState
             icon={Truck}
             title="No open issues"

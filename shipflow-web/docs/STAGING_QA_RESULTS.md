@@ -1371,10 +1371,13 @@ None. All columns (`provider_cost`, `platform_markup`, `payment_fee`, `pricing_s
 
 | Command | Result |
 |---|---|
-| `npm run lint` | Pending |
-| `npx tsc --noEmit` | Pending |
-| `npm run build` | Pending |
-| `git diff --check` | Pending |
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; new routes `/support`, `/terms`, `/privacy`, and `/support-policy` generated |
+| `git diff --check` | Passed |
+| legacy localStorage grep | Expected docs/storage cleanup references only |
+| unsafe eval grep | Documentation reference only |
+| secret diff grep | No secret-like values found in code/docs diff |
 
 ---
 
@@ -1475,6 +1478,62 @@ This is stored in card order snapshots and wallet shipment metadata where availa
 | `git diff --check` | Passed |
 | `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
 | `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
+
+---
+
+## FASE 5.57 — Beta Release Hardening and Onboarding
+
+Date: 2026-05-28
+
+### Scope
+
+Prepared the public and authenticated product experience for controlled beta onboarding. No provider/payment logic, env values, migrations, customs, international shipping, automatic refunds, or automatic voids were added.
+
+### UX updates
+
+| Area | Result |
+|---|---|
+| Dashboard onboarding | Added a controlled-beta welcome panel with first shipment, wallet balance, My Shipments, and support CTAs. |
+| Create guide | Added a concise four-step first-shipment guide and domestic-only note. |
+| User-facing status copy | Improved action-required, insufficient wallet, and card checkout failure messages to be friendlier and support-oriented. |
+| Support/FAQ | Added `/support` with shipping, payment, label, domestic-market, and review guidance. |
+| Policy placeholders | Added `/terms`, `/privacy`, and `/support-policy` beta placeholders. |
+| Navigation | Added support/legal links in public header/footer and Help in the dashboard sidebar. |
+
+### Beta operating notes
+
+Current intended flags:
+- `ENABLE_DIRECT_LABEL_PAYMENT=true`
+- `ENABLE_REAL_LABEL_PURCHASE=true`
+- `ENABLE_PROCESS_LABEL_IN_WEBHOOK=true`
+- `ENABLE_REAL_LABEL_VOID=false`
+- `ENABLE_LABEL_PAYMENT_REFUNDS=false`
+
+Known limitations remain:
+- International/cross-border shipping is not supported.
+- Customs, duties, taxes, and export documents are not implemented.
+- Multi-currency conversion is not implemented.
+- Refunds and voids remain manual/admin-reviewed and disabled by default flags.
+- Non-US selected domestic markets may require provider/carrier account setup before rates return.
+
+### Operator checks before inviting beta users
+
+- [ ] `/support`, `/terms`, `/privacy`, and `/support-policy` load in production.
+- [ ] New user sees dashboard onboarding after login.
+- [ ] `/crear-guia` shows the first-shipment guide and domestic-only note.
+- [ ] US domestic create-guide flow still returns rates and reaches `label_purchased`.
+- [ ] My Shipments shows the purchased label/tracking.
+- [ ] Action-required user banner shows support review copy without raw provider errors.
+- [ ] Refund/void/process-in-webhook flags match intended production config.
+
+### Validation results (2026-05-28)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Pending |
+| `npx tsc --noEmit` | Pending |
+| `npm run build` | Pending |
+| `git diff --check` | Pending |
 
 ---
 

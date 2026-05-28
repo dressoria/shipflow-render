@@ -20,15 +20,19 @@ export function Footer() {
             <Link href="/crear-guia" className="hover:text-white transition">Get rates</Link>
             <Link href="/envios" className="hover:text-white transition">Shipments</Link>
             <Link href="/tracking" className="hover:text-white transition">Tracking</Link>
+            <Link href="/support" className="hover:text-white transition">Support</Link>
           </div>
         </div>
         <div>
-          <p className="text-sm font-bold">Contact</p>
+          <p className="text-sm font-bold">Company</p>
           <div className="mt-4 grid gap-3 text-sm text-slate-400">
             <a href="mailto:support@sendiflash.app" className="hover:text-white transition">
               support@sendiflash.app
             </a>
             <Link href="/registro" className="hover:text-white transition">Create account</Link>
+            <Link href="/terms" className="hover:text-white transition">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
+            <Link href="/support-policy" className="hover:text-white transition">Support policy</Link>
           </div>
         </div>
       </div>

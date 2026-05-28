@@ -1337,3 +1337,47 @@ No-go if any of the following:
 Current local decision: **PARTIAL / CODE PASS**.
 
 Move to PASS only after deployed operator QA confirms at least the US flow remains fully working and each selected non-US market has an explicit provider result: rates returned, or no-rates due to provider/account setup.
+
+---
+
+## FASE 5.57 — Beta Release Hardening Checklist
+
+### 1. Onboarding
+- [ ] New or returning user lands on `/dashboard`
+- [ ] Dashboard welcome panel explains automatic label flow
+- [ ] "Create your first shipment" opens `/crear-guia`
+- [ ] "Add wallet balance" opens `/saldo`
+- [ ] "My Shipments" opens `/envios`
+- [ ] Help link opens `/support`
+
+### 2. First shipment guidance
+- [ ] `/crear-guia` shows four steps: enter addresses, compare rates, pay, get label automatically
+- [ ] Domestic-only rule is visible
+- [ ] International shipping is described as coming later
+- [ ] No long or confusing instructional copy blocks the main form
+
+### 3. Support and policy pages
+- [ ] `/support` loads
+- [ ] `/terms` loads
+- [ ] `/privacy` loads
+- [ ] `/support-policy` loads
+- [ ] Footer links reach the support/legal pages
+- [ ] Header support link works on desktop and mobile
+
+### 4. User-facing exception copy
+- [ ] No-rates message is friendly and actionable
+- [ ] Unsupported country message is friendly
+- [ ] Cross-border message is clear
+- [ ] Payment confirmed/action_required banner says support review, not raw provider error
+- [ ] Insufficient wallet balance message points to add funds or card if available
+
+### 5. Safety
+- [ ] No env files changed
+- [ ] No secrets printed
+- [ ] No provider credentials changed
+- [ ] No migrations added
+- [ ] No customs/export/international flow added
+- [ ] No automatic refunds added
+- [ ] No automatic voids added
+- [ ] Wallet/card/direct label payment still compile
+- [ ] Multi-country domestic validation still compiles
