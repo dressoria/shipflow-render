@@ -2103,3 +2103,64 @@ The domestic rule implementation and safety guards pass local QA. Full market us
 | `git diff --check` | Passed |
 | `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
 | `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
+
+---
+
+## FASE 5.68 — Public Homepage Two-Service Positioning
+
+### Purpose
+
+Redesign the public homepage hero and add new sections to clearly communicate SendiFlash's two services: Shipping Labels and SendiFlash Prep (managed Amazon FBA prep).
+
+### Changes
+
+| File | Change |
+|---|---|
+| `app/page.tsx` | New hero headline/subheadline, `DashboardHeroVisual` (browser UI preview replacing SVG hero), two hero CTAs, `TwoServicesSection`, `SellerToolsSection`, updated trust strip, features, use cases, TrustMetricsSection, and final CTA |
+| `components/Header.tsx` | Added "Services" nav item linking to `#services` |
+| `components/Footer.tsx` | Added "FBA Prep" link in Product column |
+| `data/site.ts` | Added 2 Prep-related FAQ items |
+
+### Hero
+
+- New headline: "Ship faster. Prep smarter. Scale your logistics."
+- New badge: "Shipping Labels · Amazon FBA Prep · One account"
+- New subheadline: "Compare rates, create shipping labels, request Amazon FBA prep, and track every order from a single SendiFlash account."
+- Primary CTA: "Start shipping" → `/registro`
+- Secondary CTA: "Explore FBA Prep" → `/registro?service=prep`
+- Hero visual: `DashboardHeroVisual` — browser chrome with two mini-card UI preview (Shipping Labels left / Prep right) + status chip strip (Wallet · Card payment · Tracking · FBA Prep · Seller tools)
+
+### Two-service section (`#services`)
+
+- Card 1: SendiFlash Shipping — Truck icon, blue gradient, 4 bullet features, CTA "Create a label" → `/crear-guia`
+- Card 2: SendiFlash Prep — Package icon, orange gradient, 4 bullet features, disclaimer about manual management and quote variability, CTA "Request FBA prep" → `/registro?service=prep`
+
+### Seller tools hub section (`#seller-tools`)
+
+Six tool cards: Shipping Label Generator (`/crear-guia`), FBA Prep Request (`/registro?service=prep`), Wallet & Balance (`/saldo`), Shipment Tracking (`/envios`), Prep Orders (`/prep/orders`), Seller Workspace (`/dashboard`). All link to existing authenticated routes; auth guard handles unauthenticated access.
+
+### Copy rules observed
+
+- "SendiFlash Shipping" and "SendiFlash Prep" used consistently.
+- "Managed Amazon FBA prep service" — not "AI-automated" or "AMZ Prep".
+- "Services may be performed by SendiFlash or logistics partners."
+- "Final prep quote may vary after review."
+- "Domestic shipping in selected markets."
+- No guarantee of lowest price, no international shipping promise.
+
+### Safety / not touched
+
+- No `.env` files, secrets, Stripe keys, Supabase keys, or provider credentials.
+- No migrations.
+- No label purchase, label pricing, or label order processing logic.
+- No Prep payment, wallet, refund, or void logic.
+- No auth/captcha logic.
+
+### Validation results (2026-05-29)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 6 pre-existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; `/` and all other routes build cleanly |
+| `git diff --check` | Passed |

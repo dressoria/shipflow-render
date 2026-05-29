@@ -17,7 +17,8 @@ export function Footer() {
         <div>
           <p className="text-sm font-bold">Product</p>
           <div className="mt-4 grid gap-3 text-sm text-slate-400">
-            <Link href="/crear-guia" className="hover:text-white transition">Get rates</Link>
+            <Link href="/crear-guia" className="hover:text-white transition">Shipping labels</Link>
+            <Link href="/registro?service=prep" className="hover:text-white transition">FBA Prep</Link>
             <Link href="/envios" className="hover:text-white transition">Shipments</Link>
             <Link href="/tracking" className="hover:text-white transition">Tracking</Link>
             <Link href="/support" className="hover:text-white transition">Support</Link>

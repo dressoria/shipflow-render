@@ -84,6 +84,16 @@ export const faqs = [
     answer:
       "Yes. SendiFlash uses secure payment processing with industry-standard encryption. Your card details are never stored on our servers.",
   },
+  {
+    question: "What is SendiFlash Prep?",
+    answer:
+      "SendiFlash Prep is a managed Amazon FBA prep service. You submit a prep request with unit counts and required services — such as FNSKU labeling, poly bagging, bundling, or case forwarding. Our team reviews your request, provides a final quote, and you accept and pay before work begins. Prep services are manually managed and may be performed by SendiFlash or logistics partners.",
+  },
+  {
+    question: "How does the FBA prep quote work?",
+    answer:
+      "After you submit a prep request, our team reviews the details and sends you a final quote. The quote may vary from any initial estimate based on actual unit counts and services required. You review the quote in your account, then accept and pay with your wallet balance or a card. There is no automatic charge before you accept.",
+  },
 ];
 
 export const shipments = [

@@ -1830,3 +1830,59 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No n8n automation
 - [ ] No Amazon SP-API
 - [ ] No partner API integration
+
+---
+
+## FASE 5.68 — Public Homepage Two-Service Positioning
+
+### Pre-deploy
+
+- [ ] No migration required (homepage-only changes)
+- [ ] Verify `NEXT_PUBLIC_*` env vars if any new public env references were added (none in this phase)
+
+### Hero
+
+- [ ] `/` loads without error
+- [ ] Hero headline shows "Ship faster. Prep smarter. Scale your logistics."
+- [ ] "Start shipping" CTA links to `/registro`
+- [ ] "Explore FBA Prep" CTA links to `/registro?service=prep`
+- [ ] `DashboardHeroVisual` renders the two mini-cards (Shipping Labels + FBA Prep) on desktop
+- [ ] `DashboardHeroVisual` renders below the hero text on mobile without overflow
+- [ ] Trust badges show: Shipping labels, Amazon FBA Prep, Wallet & card payments, Rate comparison, Shipment tracking
+
+### Two-service section
+
+- [ ] `#services` anchor scrolls to the two-service section
+- [ ] Shipping card shows 4 features, CTA → `/crear-guia`
+- [ ] Prep card shows 4 features, disclaimer about manual management, CTA → `/registro?service=prep`
+- [ ] Both cards visible and readable on mobile (stacked)
+
+### Seller tools section
+
+- [ ] `#seller-tools` anchor scrolls to section
+- [ ] 6 tool cards visible
+- [ ] Each "Open tool" link points to correct route
+- [ ] Cards responsive on mobile (2-col tablet, 3-col desktop)
+
+### Navigation
+
+- [ ] Header shows "Services" in desktop nav
+- [ ] Header mobile menu shows "Services"
+- [ ] "Services" link scrolls to `#services`
+- [ ] Footer "FBA Prep" link → `/registro?service=prep`
+
+### FAQ
+
+- [ ] "What is SendiFlash Prep?" FAQ visible
+- [ ] "How does the FBA prep quote work?" FAQ visible
+
+### Final CTA
+
+- [ ] "Start shipping" → `/registro`
+- [ ] "Request FBA prep" → `/registro?service=prep`
+
+### Safety checks
+
+- [ ] No payment, wallet, label, or Prep backend logic changed
+- [ ] No migration applied
+- [ ] No secrets or provider credentials touched

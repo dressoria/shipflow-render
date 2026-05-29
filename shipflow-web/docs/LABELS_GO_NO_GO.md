@@ -1039,3 +1039,31 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - AI assistant.
 - Partner API integration.
 - Amazon SP-API.
+
+---
+
+## FASE 5.68 — Public Homepage Two-Service Positioning
+
+### Go conditions
+
+- Homepage hero clearly communicates two services: SendiFlash Shipping and SendiFlash Prep.
+- `DashboardHeroVisual` replaces SVG hero with a professional UI preview card.
+- `TwoServicesSection` explains each service with accurate feature bullets and honest copy.
+- `SellerToolsSection` links to existing authenticated routes (auth guard handles redirects).
+- Header nav includes "Services" link.
+- Footer includes "FBA Prep" link.
+- Copy is honest: manual-managed prep, final quote may vary, domestic shipping in selected markets.
+- No payment/shipping/Prep logic changed.
+
+### No-go conditions
+
+- Homepage claims AI automation, international shipping, or guaranteed lowest prices.
+- Homepage exposes partner name, partner cost, or internal admin fields.
+- Any migration, secret, provider credential, or auth logic is changed.
+- Label or Prep payment logic is changed.
+
+### Deferred
+
+- Public Prep landing page with full service details (dedicated `/prep-info` page).
+- Pricing calculator for Prep services.
+- International shipping expansion.

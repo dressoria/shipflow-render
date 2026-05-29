@@ -7,6 +7,7 @@ import { BrandName } from "@/components/BrandName";
 import { Button } from "@/components/Button";
 
 const nav = [
+  { label: "Services", href: "#services" },
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
