@@ -484,6 +484,20 @@ export async function apiGetPrepOrder(id: string): Promise<{ order: import("@/li
   return apiFetch<{ order: import("@/lib/types").PrepOrder }>(`/api/prep-orders/${encodeURIComponent(id)}`);
 }
 
+export async function apiPayPrepOrderWithWallet(id: string): Promise<{ order: import("@/lib/types").PrepOrder; movementId: string }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder; movementId: string }>(`/api/prep-orders/${encodeURIComponent(id)}/pay-wallet`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function apiCreatePrepOrderCheckout(id: string): Promise<{ checkoutUrl: string; order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ checkoutUrl: string; order: import("@/lib/types").PrepOrder }>(`/api/prep-orders/${encodeURIComponent(id)}/checkout`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export async function apiGetAdminPrepOrders(params?: {
   status?: string;
   search?: string;

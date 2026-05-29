@@ -11,7 +11,15 @@ import {
   apiGetAdminPrepOrders,
   apiUpdateAdminPrepOrder,
 } from "@/lib/services/apiClient";
-import { getPrepNextStep, getPrepStatusEventTitle, getPrepStatusLabel, getPrepStatusTone, PREP_STATUSES } from "@/lib/prep";
+import {
+  getPrepNextStep,
+  getPrepPaymentStatusLabel,
+  getPrepPaymentTone,
+  getPrepStatusEventTitle,
+  getPrepStatusLabel,
+  getPrepStatusTone,
+  PREP_STATUSES,
+} from "@/lib/prep";
 import { formatDate } from "@/lib/forms";
 import { formatCurrency } from "@/lib/utils";
 import type { PrepOrder } from "@/lib/types";
@@ -99,7 +107,7 @@ function AdminPrepOrderList() {
               <Link
                 key={order.id}
                 href={`/admin/prep-orders/${order.id}`}
-                className="grid gap-3 p-4 transition hover:bg-slate-50 xl:grid-cols-[minmax(0,1.25fr)_130px_120px_120px_120px_32px]"
+                className="grid gap-3 p-4 transition hover:bg-slate-50 xl:grid-cols-[minmax(0,1.25fr)_130px_120px_120px_120px_120px_32px]"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -111,6 +119,7 @@ function AdminPrepOrderList() {
                   </p>
                 </div>
                 <Badge tone={getPrepStatusTone(order.status)}>{getPrepStatusLabel(order.status)}</Badge>
+                <Badge tone={getPrepPaymentTone(order.paymentStatus)}>{getPrepPaymentStatusLabel(order.paymentStatus)}</Badge>
                 <p className="text-sm font-bold text-slate-600">{formatDate(order.createdAt)}</p>
                 <p className="font-black text-slate-950 xl:text-right">{formatCurrency(order.finalTotal ?? order.estimatedTotal ?? 0)}</p>
                 <p className="font-black text-green-700 xl:text-right">{order.finalTotal || order.partnerCostTotal ? formatCurrency(margin) : "TBD"}</p>
@@ -258,7 +267,10 @@ function AdminPrepOrderDetail({ orderId }: { orderId: string }) {
           <div className="rounded-3xl bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Current quote</p>
             <p className="mt-2 text-2xl font-black text-slate-950">{formatCurrency(finalQuote || estimate || 0)}</p>
-            <p className="mt-1 text-sm text-slate-500">Final quote is manual and not charged in this phase.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge tone={getPrepPaymentTone(order.paymentStatus)}>{getPrepPaymentStatusLabel(order.paymentStatus)}</Badge>
+              {order.paymentMethod ? <Badge tone="slate">{order.paymentMethod}</Badge> : null}
+            </div>
           </div>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-4">
@@ -277,6 +289,10 @@ function AdminPrepOrderDetail({ orderId }: { orderId: string }) {
               <Summary label="Email" value={order.contactEmail} />
               <Summary label="Phone" value={order.contactPhone || "Not provided"} />
               <Summary label="Marketplace" value="Amazon FBA" />
+              <Summary label="Payment" value={getPrepPaymentStatusLabel(order.paymentStatus)} />
+              <Summary label="Paid amount" value={order.paidAmount != null ? formatCurrency(order.paidAmount) : "Not paid"} />
+              <Summary label="Paid at" value={order.paidAt ? formatDate(order.paidAt) : "Not paid"} />
+              <Summary label="Payment ref" value={order.paymentReference || order.stripePaymentIntentId || order.stripeCheckoutSessionId || "N/A"} />
             </div>
             <div className="mt-3 rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-black uppercase tracking-widest text-slate-400">Customer notes</p>

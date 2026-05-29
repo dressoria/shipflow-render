@@ -171,6 +171,8 @@ export type PrepOrderStatus =
   | "cancelled";
 
 export type PrepOrderVisibility = "customer" | "internal";
+export type PrepOrderPaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "refunded_manual";
+export type PrepOrderPaymentMethod = "wallet" | "card" | "manual";
 
 export type PrepOrderItem = {
   id: string;
@@ -231,6 +233,15 @@ export type PrepOrder = {
   partnerNameInternal?: string | null;
   partnerReferenceInternal?: string | null;
   receivingReference?: string | null;
+  paymentStatus?: PrepOrderPaymentStatus | null;
+  paymentMethod?: PrepOrderPaymentMethod | null;
+  paidAmount?: number | null;
+  paidAt?: string | null;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paymentReference?: string | null;
+  quoteAcceptedAt?: string | null;
+  quoteExpiresAt?: string | null;
   metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;

@@ -93,3 +93,29 @@ export function calculatePrepEstimateCents(totalUnits: number, unitPriceCents = 
 export function isPrepTerminalStatus(status: PrepOrder["status"]) {
   return status === "completed" || status === "cancelled";
 }
+
+export function getPrepPaymentStatusLabel(status?: string | null) {
+  if (!status || status === "unpaid") return "Unpaid";
+  if (status === "pending") return "Payment pending";
+  if (status === "paid") return "Paid";
+  if (status === "failed") return "Payment failed";
+  if (status === "refunded_manual") return "Refunded manually";
+  return status.replaceAll("_", " ");
+}
+
+export function getPrepPaymentTone(status?: string | null): "blue" | "green" | "amber" | "slate" {
+  if (status === "paid") return "green";
+  if (status === "pending") return "amber";
+  if (status === "failed") return "amber";
+  return "slate";
+}
+
+export function canPayPrepOrder(order: Pick<PrepOrder, "status" | "finalTotal" | "paymentStatus">) {
+  const finalTotal = Number(order.finalTotal ?? 0);
+  return (
+    finalTotal > 0 &&
+    order.status !== "cancelled" &&
+    order.status !== "completed" &&
+    (order.paymentStatus === "unpaid" || order.paymentStatus === "failed" || !order.paymentStatus)
+  );
+}

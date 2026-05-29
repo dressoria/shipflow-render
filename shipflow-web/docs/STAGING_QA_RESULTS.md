@@ -1,6 +1,6 @@
 # Staging QA Results
 
-Last updated: 2026-05-29 (FASE 5.66 Prep admin operations)
+Last updated: 2026-05-29 (FASE 5.67 Prep quote payment)
 
 ---
 
@@ -1625,6 +1625,42 @@ Date/time: 2026-05-29 12:37 -05
 - Email change is not implemented.
 - Avatar upload is not implemented.
 - Wider profile/admin profile management remains deferred.
+
+---
+
+## FASE 5.67 — Prep Quote Acceptance and Payment
+
+Date/time: 2026-05-29 America/Guayaquil
+
+### Scope implemented
+
+- Added proposed migration `20260529_add_prep_payments.sql` for Prep payment tracking fields on `prep_orders`.
+- Added customer quote acceptance/payment UI on `/prep/orders/[id]`.
+- Added wallet payment endpoint `POST /api/prep-orders/[id]/pay-wallet`.
+- Added card checkout endpoint `POST /api/prep-orders/[id]/checkout`.
+- Extended Stripe webhook for `metadata.type=prep_order` / `metadata.purpose=prep_order`.
+- Added payment status visibility to customer Prep order list/detail and admin Prep list/detail.
+
+### Prep payment behavior
+
+- Customer can pay only their own Prep order.
+- Payment is blocked when final quote is missing, final quote is zero, order is cancelled/completed, or payment is already paid/pending.
+- Wallet payment debits `balance_movements` with `reference_type=prep_order` and idempotency key `prep-wallet:{prep_order_id}`.
+- Card payment creates Stripe Checkout with metadata:
+  - `type=prep_order`
+  - `purpose=prep_order`
+  - `prep_order_id`
+  - `user_id`
+- Stripe webhook marks Prep order paid, stores payment intent/session references, records paid amount/date, and adds customer-visible "Payment received" event.
+
+### Still intentionally out of scope
+
+- No Prep refunds.
+- No automatic partner submission.
+- No AI automation.
+- No n8n automation.
+- No Amazon SP-API.
+- No partner API integration.
 
 ---
 

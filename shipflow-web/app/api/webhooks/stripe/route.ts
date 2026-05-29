@@ -38,6 +38,19 @@ type PaymentRechargeRow = {
   metadata?: Record<string, unknown> | null;
 };
 
+type PrepOrderPaymentRow = {
+  id: string;
+  user_id: string;
+  status: string;
+  final_total: number | null;
+  payment_status: string | null;
+  payment_method: string | null;
+  paid_amount: number | null;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 // ── Shared utilities ──────────────────────────────────────────────────────────
 
 function paymentIntentId(value: Stripe.Checkout.Session["payment_intent"] | Stripe.PaymentIntent["id"] | null | undefined) {
@@ -268,6 +281,164 @@ async function handleWalletRechargeCompleted(event: Stripe.Event, session: Strip
   }, serviceSupabase);
 
   return { credited: true };
+}
+
+// ── Prep quote payment handler ───────────────────────────────────────────────
+
+async function handlePrepOrderCheckoutCompleted(event: Stripe.Event, session: Stripe.Checkout.Session) {
+  const serviceSupabase = createServiceSupabaseClient();
+  const metadata = session.metadata ?? {};
+  const prepOrderId = metadata.prep_order_id;
+  const expectedUserId = metadata.user_id;
+  const stripePaymentIntentId = paymentIntentId(session.payment_intent);
+  const amountTotal = session.amount_total ?? 0;
+  const currency = session.currency?.toLowerCase() ?? "";
+
+  await createAuditLog({
+    eventType: "prep_payment_webhook_received",
+    severity: "info",
+    entityType: "prep_order",
+    entityId: typeof prepOrderId === "string" ? prepOrderId : undefined,
+    requestId: event.id,
+    message: "Stripe Prep checkout.session.completed received.",
+    metadata: {
+      stripeEventId: event.id,
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId,
+      amountTotal,
+      currency,
+      paymentStatus: session.payment_status,
+    },
+  }, serviceSupabase);
+
+  if (session.payment_status !== "paid") {
+    return { ignored: true };
+  }
+
+  if (!prepOrderId || typeof prepOrderId !== "string") {
+    await createReconciliationEvent({
+      eventType: "prep_payment_missing_metadata",
+      entityType: "prep_order",
+      requestId: event.id,
+      message: "Prep payment session missing prep_order_id metadata.",
+      metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id },
+    }, serviceSupabase);
+    throw new Error("Prep payment session is missing prep_order_id.");
+  }
+
+  const { data: order, error } = await serviceSupabase
+    .from("prep_orders")
+    .select("id,user_id,status,final_total,payment_status,payment_method,paid_amount,stripe_checkout_session_id,stripe_payment_intent_id,metadata")
+    .eq("id", prepOrderId)
+    .maybeSingle<PrepOrderPaymentRow>();
+  if (error) throw error;
+  if (!order) {
+    await createReconciliationEvent({
+      eventType: "prep_payment_order_not_found",
+      entityType: "prep_order",
+      requestId: event.id,
+      message: "Stripe Prep payment succeeded but prep_order was not found.",
+      metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id, prepOrderId },
+    }, serviceSupabase);
+    throw new Error("Prep order not found for this Stripe session.");
+  }
+
+  if (expectedUserId && expectedUserId !== order.user_id) {
+    await createReconciliationEvent({
+      userId: order.user_id,
+      eventType: "prep_payment_user_mismatch",
+      entityType: "prep_order",
+      entityId: order.id,
+      requestId: event.id,
+      message: "Prep payment user_id in Stripe metadata does not match order user_id.",
+      metadata: { stripeEventId: event.id, prepOrderId: order.id },
+    }, serviceSupabase);
+    throw new Error("User ID mismatch on Prep payment.");
+  }
+
+  if (order.payment_status === "paid") {
+    await createAuditLog({
+      userId: order.user_id,
+      eventType: "prep_payment_duplicate_ignored",
+      severity: "warning",
+      entityType: "prep_order",
+      entityId: order.id,
+      requestId: event.id,
+      message: "Duplicate Prep payment webhook ignored.",
+      metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id, prepOrderId: order.id },
+    }, serviceSupabase);
+    return { duplicate: true };
+  }
+
+  if (currency !== "usd" || amountTotal !== (order.final_total ?? 0)) {
+    await createReconciliationEvent({
+      userId: order.user_id,
+      eventType: "prep_payment_amount_mismatch",
+      entityType: "prep_order",
+      entityId: order.id,
+      requestId: event.id,
+      message: "Stripe Prep payment amount or currency did not match final quote.",
+      metadata: {
+        stripeEventId: event.id,
+        expectedAmountCents: order.final_total,
+        receivedAmountCents: amountTotal,
+        receivedCurrency: currency,
+      },
+    }, serviceSupabase);
+    throw new Error("Prep payment amount mismatch.");
+  }
+
+  const nextStatus = order.status === "quote_requested" || order.status === "under_review"
+    ? "awaiting_inventory"
+    : order.status;
+  const now = new Date().toISOString();
+  const { error: updateError } = await serviceSupabase
+    .from("prep_orders")
+    .update({
+      status: nextStatus,
+      payment_status: "paid",
+      payment_method: "card",
+      paid_amount: amountTotal,
+      paid_at: now,
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: stripePaymentIntentId,
+      payment_reference: stripePaymentIntentId ?? session.id,
+      quote_accepted_at: now,
+      metadata: {
+        ...(order.metadata ?? {}),
+        prepPayment: {
+          source: "stripe_webhook",
+          stripeEventId: event.id,
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId,
+        },
+      },
+    })
+    .eq("id", order.id)
+    .neq("payment_status", "paid");
+  if (updateError) throw updateError;
+
+  await serviceSupabase.from("prep_order_events").insert({
+    prep_order_id: order.id,
+    visibility: "customer",
+    status: nextStatus,
+    title: "Payment received",
+    message: "Your Prep quote has been paid by card. SendiFlash will continue managing the prep process.",
+    created_by: order.user_id,
+  });
+
+  await createAuditLog({
+    userId: order.user_id,
+    eventType: "prep_payment_succeeded",
+    severity: "info",
+    entityType: "prep_order",
+    entityId: order.id,
+    requestId: event.id,
+    message: "Prep card payment recorded.",
+    metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id, stripePaymentIntentId, amountTotal },
+  }, serviceSupabase);
+
+  return { paid: true };
 }
 
 // ── Label direct payment handler ──────────────────────────────────────────────
@@ -595,9 +766,14 @@ async function handleLabelDirectPaymentCompleted(event: Stripe.Event, session: S
 
 async function handleCompletedCheckout(event: Stripe.Event, session: Stripe.Checkout.Session) {
   const purpose = session.metadata?.purpose;
+  const type = session.metadata?.type;
 
   if (purpose === "label_direct_payment") {
     return handleLabelDirectPaymentCompleted(event, session);
+  }
+
+  if (type === "prep_order" || purpose === "prep_order") {
+    return handlePrepOrderCheckoutCompleted(event, session);
   }
 
   // Default: wallet recharge (no purpose, or purpose=wallet_recharge for future).
@@ -609,6 +785,7 @@ async function handleCompletedCheckout(event: Stripe.Event, session: Stripe.Chec
 async function handleExpiredCheckout(event: Stripe.Event, session: Stripe.Checkout.Session) {
   const serviceSupabase = createServiceSupabaseClient();
   const purpose = session.metadata?.purpose;
+  const type = session.metadata?.type;
 
   if (purpose === "label_direct_payment") {
     // Mark the pending label order as expired.
@@ -623,6 +800,36 @@ async function handleExpiredCheckout(event: Stripe.Event, session: Stripe.Checko
       requestId: event.id,
       message: "Stripe label checkout expired before payment.",
       metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id, orderId: order?.id },
+    }, serviceSupabase);
+    return;
+  }
+
+  if (type === "prep_order" || purpose === "prep_order") {
+    const prepOrderId = session.metadata?.prep_order_id;
+    if (prepOrderId) {
+      const { error } = await serviceSupabase
+        .from("prep_orders")
+        .update({
+          payment_status: "failed",
+          metadata: {
+            source: "stripe_webhook",
+            stripeEventId: event.id,
+            stripeCheckoutSessionId: session.id,
+            reason: "checkout_expired",
+          },
+        })
+        .eq("id", prepOrderId)
+        .eq("payment_status", "pending");
+      if (error) throw error;
+    }
+    await createAuditLog({
+      eventType: "prep_payment_expired",
+      severity: "warning",
+      entityType: "prep_order",
+      entityId: typeof prepOrderId === "string" ? prepOrderId : undefined,
+      requestId: event.id,
+      message: "Stripe Prep checkout expired before payment.",
+      metadata: { stripeEventId: event.id, stripeCheckoutSessionId: session.id, prepOrderId },
     }, serviceSupabase);
     return;
   }
@@ -659,6 +866,37 @@ async function handleExpiredCheckout(event: Stripe.Event, session: Stripe.Checko
 async function handlePaymentFailed(event: Stripe.Event, paymentIntent: Stripe.PaymentIntent) {
   const serviceSupabase = createServiceSupabaseClient();
   const id = paymentIntent.id;
+  if (paymentIntent.metadata?.type === "prep_order" || paymentIntent.metadata?.purpose === "prep_order") {
+    const prepOrderId = paymentIntent.metadata?.prep_order_id;
+    if (prepOrderId) {
+      const { error } = await serviceSupabase
+        .from("prep_orders")
+        .update({
+          payment_status: "failed",
+          stripe_payment_intent_id: id,
+          metadata: {
+            source: "stripe_webhook",
+            stripeEventId: event.id,
+            stripePaymentIntentId: id,
+            reason: "payment_intent_failed",
+          },
+        })
+        .eq("id", prepOrderId)
+        .eq("payment_status", "pending");
+      if (error) throw error;
+    }
+    await createAuditLog({
+      eventType: "prep_payment_failed",
+      severity: "warning",
+      entityType: "prep_order",
+      entityId: typeof prepOrderId === "string" ? prepOrderId : undefined,
+      requestId: event.id,
+      message: "Stripe Prep payment intent failed.",
+      metadata: { stripeEventId: event.id, stripePaymentIntentId: id, prepOrderId },
+    }, serviceSupabase);
+    return;
+  }
+
   const rechargeId = typeof paymentIntent.metadata?.rechargeId === "string" ? paymentIntent.metadata.rechargeId : null;
   const query = serviceSupabase
     .from("payment_recharges")

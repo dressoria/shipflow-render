@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/DashboardShell";
 import { PrepOrderDetail } from "@/components/PrepOrderDetail";
+import { LoadingState } from "@/components/LoadingState";
 
 export default async function PrepOrderDetailPage({
   params,
@@ -12,7 +14,9 @@ export default async function PrepOrderDetailPage({
       title="Prep Order"
       description="Customer-visible status, items, and next steps for this SendiFlash Prep request."
     >
-      <PrepOrderDetail id={id} />
+      <Suspense fallback={<LoadingState />}>
+        <PrepOrderDetail id={id} />
+      </Suspense>
     </DashboardShell>
   );
 }

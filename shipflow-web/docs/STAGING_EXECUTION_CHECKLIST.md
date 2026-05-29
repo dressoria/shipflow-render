@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-29 (FASE 5.66)
+Last updated: 2026-05-29 (FASE 5.67)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -1781,3 +1781,52 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No Amazon SP-API
 - [ ] No partner API integration
 - [ ] No label/payment/wallet/refund/void/provider logic changed
+
+---
+
+## FASE 5.67 — Prep Quote Payment Checklist
+
+### 1. Migration review
+- [ ] Review `20260529_add_prep_payments.sql` manually before applying
+- [ ] `payment_status` defaults to `unpaid`
+- [ ] Payment statuses are constrained to `unpaid`, `pending`, `paid`, `failed`, `refunded_manual`
+- [ ] Payment methods are constrained to `wallet`, `card`, `manual`
+- [ ] Stripe checkout session index exists
+
+### 2. Customer payment UI
+- [ ] `/prep/orders/[id]` shows final quote when available
+- [ ] No final quote shows "quote under review"
+- [ ] Paid orders show paid amount, method, and paid date
+- [ ] Cancelled/completed orders cannot be paid
+- [ ] Wallet button is disabled when balance is insufficient
+- [ ] Card checkout opens through Stripe Checkout
+
+### 3. Wallet payment
+- [ ] `POST /api/prep-orders/[id]/pay-wallet` requires verified user
+- [ ] User can only pay own Prep order
+- [ ] Wallet balance must cover final quote
+- [ ] Balance movement uses `reference_type=prep_order`
+- [ ] Duplicate wallet payment is blocked/idempotent
+- [ ] Customer-visible "Payment received" event is added
+
+### 4. Card payment and webhook
+- [ ] `POST /api/prep-orders/[id]/checkout` requires verified user
+- [ ] Checkout metadata includes `type=prep_order`, `prep_order_id`, and `user_id`
+- [ ] `checkout.session.completed` marks Prep order paid
+- [ ] `checkout.session.expired` marks pending Prep payment failed
+- [ ] `payment_intent.payment_failed` marks pending Prep payment failed
+- [ ] Existing wallet recharge webhook still works
+- [ ] Existing label direct payment webhook still works
+
+### 5. Admin visibility
+- [ ] `/admin/prep-orders` shows payment status
+- [ ] `/admin/prep-orders/[id]` shows payment status, method, paid amount/date, and references
+- [ ] Admin cannot expose partner/internal fields to customer
+
+### 6. Deferred scope
+- [ ] No Prep refunds
+- [ ] No automatic partner submission
+- [ ] No AI automation
+- [ ] No n8n automation
+- [ ] No Amazon SP-API
+- [ ] No partner API integration

@@ -33,6 +33,15 @@ export type PrepOrderRow = {
   partner_name_internal: string | null;
   partner_reference_internal: string | null;
   receiving_reference: string | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  paid_amount?: number | null;
+  paid_at?: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  payment_reference?: string | null;
+  quote_accepted_at?: string | null;
+  quote_expires_at?: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -124,6 +133,15 @@ export function fromPrepOrderRow(row: PrepOrderRow, opts?: {
     partnerNameInternal: opts?.includeInternal ? row.partner_name_internal : null,
     partnerReferenceInternal: opts?.includeInternal ? row.partner_reference_internal : null,
     receivingReference: row.receiving_reference,
+    paymentStatus: (row.payment_status ?? "unpaid") as PrepOrder["paymentStatus"],
+    paymentMethod: row.payment_method as PrepOrder["paymentMethod"],
+    paidAmount: centsToDollars(row.paid_amount),
+    paidAt: row.paid_at,
+    stripeCheckoutSessionId: opts?.includeInternal ? row.stripe_checkout_session_id : null,
+    stripePaymentIntentId: opts?.includeInternal ? row.stripe_payment_intent_id : null,
+    paymentReference: row.payment_reference,
+    quoteAcceptedAt: row.quote_accepted_at,
+    quoteExpiresAt: row.quote_expires_at,
     metadata: opts?.includeInternal ? row.metadata : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

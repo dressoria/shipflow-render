@@ -2,23 +2,39 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, HelpCircle, PackageCheck } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { LoadingState } from "@/components/LoadingState";
-import { apiGetPrepOrder } from "@/lib/services/apiClient";
-import { getPrepNextStep, getPrepStatusLabel, getPrepStatusTone, shouldShowReceivingReference } from "@/lib/prep";
+import { apiCreatePrepOrderCheckout, apiGetBalance, apiGetPrepOrder, apiPayPrepOrderWithWallet } from "@/lib/services/apiClient";
+import {
+  canPayPrepOrder,
+  getPrepNextStep,
+  getPrepPaymentStatusLabel,
+  getPrepPaymentTone,
+  getPrepStatusLabel,
+  getPrepStatusTone,
+  shouldShowReceivingReference,
+} from "@/lib/prep";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/forms";
 import type { PrepOrder } from "@/lib/types";
 
 export function PrepOrderDetail({ id }: { id: string }) {
+  const searchParams = useSearchParams();
   const [order, setOrder] = useState<PrepOrder | null>(null);
+  const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [paying, setPaying] = useState<"wallet" | "card" | null>(null);
 
   useEffect(() => {
-    apiGetPrepOrder(id)
-      .then((result) => setOrder(result.order))
+    Promise.all([apiGetPrepOrder(id), apiGetBalance().catch(() => null)])
+      .then(([result, balanceResult]) => {
+        setOrder(result.order);
+        setBalance(balanceResult?.availableBalance ?? balanceResult?.balance ?? 0);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "We could not load this Prep order."))
       .finally(() => setLoading(false));
   }, [id]);
@@ -27,8 +43,47 @@ export function PrepOrderDetail({ id }: { id: string }) {
   if (error) return <div className="rounded-3xl border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-700">{error}</div>;
   if (!order) return null;
 
-  const nextStep = getPrepNextStep(order.status, order.receivingReference);
-  const showReceiving = shouldShowReceivingReference(order.status) && Boolean(order.receivingReference);
+  const currentOrder = order;
+  const nextStep = getPrepNextStep(currentOrder.status, currentOrder.receivingReference);
+  const showReceiving = shouldShowReceivingReference(currentOrder.status) && Boolean(currentOrder.receivingReference);
+  const payable = canPayPrepOrder(currentOrder);
+  const finalQuote = currentOrder.finalTotal ?? 0;
+  const walletShortfall = Math.max(finalQuote - balance, 0);
+  const paymentParam = searchParams.get("payment");
+
+  async function payWallet() {
+    setPaying("wallet");
+    setPaymentMessage("");
+    try {
+      const result = await apiPayPrepOrderWithWallet(currentOrder.id);
+      setOrder(result.order);
+      setBalance((current) => Number(Math.max(current - finalQuote, 0).toFixed(2)));
+      setPaymentMessage("Payment received from wallet balance.");
+    } catch (err) {
+      setPaymentMessage(err instanceof Error ? err.message : "Wallet payment failed.");
+    } finally {
+      setPaying(null);
+    }
+  }
+
+  async function payCard() {
+    setPaying("card");
+    setPaymentMessage("");
+    try {
+      const result = await apiCreatePrepOrderCheckout(currentOrder.id);
+      setOrder(result.order);
+      const opened = window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      setPaymentMessage("Checkout opened in a new tab. Keep this page open for status updates.");
+    } catch (err) {
+      setPaymentMessage(err instanceof Error ? err.message : "Card checkout failed.");
+    } finally {
+      setPaying(null);
+    }
+  }
 
   return (
     <div className="grid gap-5">
@@ -51,7 +106,7 @@ export function PrepOrderDetail({ id }: { id: string }) {
             <p className="mt-1 text-2xl font-black text-slate-950">
               {order.finalTotal != null ? formatCurrency(order.finalTotal) : "Final quote pending"}
             </p>
-            <p className="mt-2 text-xs font-bold text-slate-500">Final quote may vary after review. No Prep payment is collected in this MVP.</p>
+            <p className="mt-2 text-xs font-bold text-slate-500">Final quote may vary after review. Payment is available after SendiFlash publishes the final quote.</p>
           </div>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-4">
@@ -65,6 +120,16 @@ export function PrepOrderDetail({ id }: { id: string }) {
       <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid gap-5">
           <Card title="Next step">
+            {paymentParam === "success" ? (
+              <div className="mb-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                Payment completed. Your order will update after Stripe confirms the payment.
+              </div>
+            ) : null}
+            {paymentParam === "cancelled" ? (
+              <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                Checkout was cancelled. You can pay the final quote when you are ready.
+              </div>
+            ) : null}
             <p className="text-sm leading-6 text-slate-700">{nextStep}</p>
             {showReceiving ? (
               <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -75,6 +140,60 @@ export function PrepOrderDetail({ id }: { id: string }) {
                 </p>
               </div>
             ) : null}
+          </Card>
+
+          <Card title="Quote acceptance and payment">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={getPrepPaymentTone(order.paymentStatus)}>{getPrepPaymentStatusLabel(order.paymentStatus)}</Badge>
+              {order.paymentMethod ? <Badge tone="slate">{order.paymentMethod}</Badge> : null}
+            </div>
+            {order.paymentStatus === "paid" ? (
+              <div className="mt-4 rounded-2xl bg-green-50 p-4">
+                <p className="font-black text-green-800">Paid</p>
+                <p className="mt-1 text-sm text-green-700">
+                  {formatCurrency(order.paidAmount ?? order.finalTotal ?? 0)}
+                  {order.paidAt ? ` · ${formatDate(order.paidAt)}` : ""}
+                </p>
+              </div>
+            ) : order.finalTotal == null ? (
+              <p className="mt-4 text-sm leading-6 text-slate-600">Your quote is under review. SendiFlash will publish a final quote when ready.</p>
+            ) : payable ? (
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">Final quote</p>
+                  <p className="mt-2 text-2xl font-black text-slate-950">{formatCurrency(finalQuote)}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Payment confirms your Prep order and allows SendiFlash to continue processing.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={payWallet}
+                    disabled={paying !== null || balance < finalQuote}
+                    className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black text-[#2563EB] disabled:opacity-50"
+                  >
+                    {paying === "wallet" ? "Paying..." : "Pay with wallet"}
+                    <span className="mt-1 block text-xs font-bold text-slate-500">
+                      Balance {formatCurrency(balance)}
+                      {walletShortfall > 0 ? ` · short ${formatCurrency(walletShortfall)}` : ""}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={payCard}
+                    disabled={paying !== null}
+                    className="rounded-2xl bg-[#F97316] px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-500/25 disabled:opacity-60"
+                  >
+                    {paying === "card" ? "Opening checkout..." : "Pay by card"}
+                    <span className="mt-1 block text-xs font-bold text-orange-100">Stripe Checkout</span>
+                  </button>
+                </div>
+                {paymentMessage ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">{paymentMessage}</p> : null}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-6 text-slate-600">This Prep order is not payable in its current status.</p>
+            )}
           </Card>
 
           <Card title="Items">

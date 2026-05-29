@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-29 (FASE 5.66)
+Última revisión: 2026-05-29 (FASE 5.67)
 
 ---
 
@@ -1009,3 +1009,33 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Prep payment is collected before the dedicated Prep payment phase.
 - AI, n8n, Amazon SP-API, or partner API automation is presented as active.
 - Existing shipping label, wallet, payment, refund, void, or provider behavior changes.
+
+---
+
+## FASE 5.67 — Prep Quote Acceptance and Payment
+
+### Go conditions
+
+- `prep_orders` has payment tracking fields for status, method, paid amount/date, Stripe references, payment reference, and quote acceptance time.
+- Customer can pay a final Prep quote by wallet when balance is sufficient.
+- Customer can pay a final Prep quote by Stripe Checkout card.
+- Prep card checkout uses Stripe metadata `type=prep_order` and `prep_order_id`.
+- Stripe webhook handles Prep payments without breaking wallet recharge or label direct payment handlers.
+- Paid Prep orders show `payment_status=paid`, method, paid amount, and paid date.
+- Customer endpoints never return partner cost, margin, partner reference, admin notes, or internal events.
+
+### No-go conditions
+
+- Prep refunds are presented as supported.
+- Prep payment changes label checkout, label processing, wallet recharge, refunds, voids, or provider behavior.
+- Customer can pay an order that is cancelled, completed, missing a final quote, or already paid.
+- Stripe secret, Supabase service role, or provider credentials are exposed.
+
+### Deferred
+
+- Prep refunds/manual adjustments.
+- Prep invoice/accounting workflow.
+- n8n automation.
+- AI assistant.
+- Partner API integration.
+- Amazon SP-API.
