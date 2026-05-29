@@ -128,10 +128,22 @@ const sellerTools: Array<{ icon: LucideIcon; title: string; text: string; href: 
     href: "/crear-guia",
   },
   {
+    icon: Truck,
+    title: "Shipping Labels Guide",
+    text: "Learn how SendiFlash Shipping works — rates, payment, label downloads, and tracking.",
+    href: "/shipping-labels",
+  },
+  {
     icon: Package,
     title: "FBA Prep Request",
     text: "Submit a managed Amazon FBA prep request — labeling, poly bag, bundling, and forwarding.",
     href: "/registro?service=prep",
+  },
+  {
+    icon: Tag,
+    title: "FBA Prep Guide",
+    text: "Learn how SendiFlash Prep works — services, workflow, quotes, and payment.",
+    href: "/fba-prep",
   },
   {
     icon: CreditCard,
@@ -144,18 +156,6 @@ const sellerTools: Array<{ icon: LucideIcon; title: string; text: string; href: 
     title: "Shipment Tracking",
     text: "Follow every shipment from label creation to carrier delivery.",
     href: "/envios",
-  },
-  {
-    icon: History,
-    title: "Prep Orders",
-    text: "View and manage all your FBA prep requests, quotes, and payments in one place.",
-    href: "/prep/orders",
-  },
-  {
-    icon: Building2,
-    title: "Seller Workspace",
-    text: "Your complete ecommerce logistics hub — shipping, prep, balance, and tracking in one account.",
-    href: "/dashboard",
   },
 ];
 
@@ -352,15 +352,21 @@ function TwoServicesSection() {
                 </li>
               ))}
             </ul>
-            <div className="mt-8">
+            <div className="mt-8 flex flex-col gap-3">
               <Button
-                href="/crear-guia"
+                href="/shipping-labels"
                 variant="secondary"
                 icon={<ArrowRight className="h-4 w-4" />}
-                className="rounded-2xl border-blue-200 text-[#2563EB] hover:border-[#2563EB] hover:bg-blue-50"
+                className="self-start rounded-2xl border-blue-200 text-[#2563EB] hover:border-[#2563EB] hover:bg-blue-50"
               >
-                Create a label
+                See Shipping Labels
               </Button>
+              <Link
+                href="/crear-guia"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-[#2563EB]"
+              >
+                Create a label <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </MotionCard>
 
@@ -387,15 +393,21 @@ function TwoServicesSection() {
             <p className="mt-4 text-xs leading-5 text-slate-400">
               Prep services are manually managed. Final quote may vary after review. Services may be performed by SendiFlash or logistics partners.
             </p>
-            <div className="mt-6">
+            <div className="mt-6 flex flex-col gap-3">
               <Button
-                href="/registro?service=prep"
+                href="/fba-prep"
                 variant="action"
                 icon={<ArrowRight className="h-4 w-4" />}
-                className="rounded-2xl"
+                className="self-start rounded-2xl"
               >
-                Request FBA prep
+                See FBA Prep
               </Button>
+              <Link
+                href="/registro?service=prep"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-[#F97316]"
+              >
+                Request FBA prep <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </MotionCard>
         </div>
@@ -536,7 +548,7 @@ export default function Home() {
                     Start shipping
                   </Button>
                   <Button
-                    href="/registro?service=prep"
+                    href="/fba-prep"
                     variant="secondary"
                     icon={<ArrowRight className="h-4 w-4" />}
                     className="rounded-2xl border-blue-100 bg-white text-[#0F172A] hover:border-[#F97316]/40 hover:bg-orange-50 hover:text-[#F97316] sm:min-w-44"

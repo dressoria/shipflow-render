@@ -2164,3 +2164,39 @@ Six tool cards: Shipping Label Generator (`/crear-guia`), FBA Prep Request (`/re
 | `npx tsc --noEmit` | Passed |
 | `npm run build` | Passed; `/` and all other routes build cleanly |
 | `git diff --check` | Passed |
+
+---
+
+## FASE 5.69 — Dedicated service pages and absolute anchor navigation
+
+**Date:** 2026-05-29
+
+### Changes
+
+| Area | Change |
+|---|---|
+| Header nav | All anchor links changed to absolute paths (`/#services`, `/#features`, `/#how-it-works`, `/#pricing`, `/#faq`). Correct from all pages including `/support`, `/shipping-labels`, `/fba-prep`, `/login`, `/registro`. |
+| Homepage hero | Secondary CTA changed from `/registro?service=prep` → `/fba-prep`. |
+| Homepage `TwoServicesSection` | Shipping card: primary CTA → `/shipping-labels` ("See Shipping Labels"), secondary text link → `/crear-guia` ("Create a label"). Prep card: primary CTA → `/fba-prep` ("See FBA Prep"), secondary text link → `/registro?service=prep` ("Request FBA prep"). |
+| Homepage `sellerTools` | Replaced "Prep Orders" and "Seller Workspace" with "Shipping Labels Guide" → `/shipping-labels` and "FBA Prep Guide" → `/fba-prep`. Still 6 tools in clean 2×3 grid. |
+| Footer | Product column updated: Shipping Labels → `/shipping-labels`, FBA Prep → `/fba-prep`, Create a label → `/crear-guia`, Prep orders → `/prep/orders`. "Tracking" link removed (accessible from dashboard). |
+| `/shipping-labels` | New public marketing page: hero + QuotePreview, 6 benefit cards, 4 how-it-works steps, carrier comparison, NationwideRoute tracking visual, domestic scope notice, CTA. |
+| `/fba-prep` | New public marketing page: hero + prep request preview, "What is SendiFlash Prep" section, 8 service cards, 5-step workflow, transparency notice, CTA. |
+
+### Safety confirmation
+
+- No `.env` files, secrets, Stripe/Supabase keys, or provider credentials changed.
+- No migrations.
+- No label purchase, label pricing, or label order processing logic touched.
+- No Prep payment, wallet, refund, or void logic touched.
+- No auth/captcha logic touched.
+- No admin logic touched.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `npm run lint` | 0 errors |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; `/`, `/shipping-labels`, `/fba-prep`, and all other routes build cleanly |
+| `git diff --check` | Passed |

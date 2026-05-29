@@ -1886,3 +1886,69 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No payment, wallet, label, or Prep backend logic changed
 - [ ] No migration applied
 - [ ] No secrets or provider credentials touched
+
+---
+
+## FASE 5.69 — QA Checklist: Dedicated service pages and absolute anchor navigation
+
+**Date:** 2026-05-29
+
+### Header navigation (from multiple pages)
+
+- [ ] From `/support`: click "Services" → navigates to `/#services` (not `/support#services`)
+- [ ] From `/shipping-labels`: all nav anchor links resolve to `/#…`
+- [ ] From `/fba-prep`: all nav anchor links resolve to `/#…`
+- [ ] From `/login`: all nav anchor links resolve to `/#…`
+- [ ] Mobile nav: same absolute paths on all pages
+
+### Homepage
+
+- [ ] Hero secondary CTA "Explore FBA Prep" → `/fba-prep`
+- [ ] TwoServicesSection Shipping card "See Shipping Labels" → `/shipping-labels`
+- [ ] TwoServicesSection Shipping card "Create a label" text link → `/crear-guia`
+- [ ] TwoServicesSection Prep card "See FBA Prep" → `/fba-prep`
+- [ ] TwoServicesSection Prep card "Request FBA prep" text link → `/registro?service=prep`
+- [ ] Seller tools hub "Shipping Labels Guide" → `/shipping-labels`
+- [ ] Seller tools hub "FBA Prep Guide" → `/fba-prep`
+- [ ] Seller tools hub still shows 6 cards in clean 2×3 grid on desktop
+
+### `/shipping-labels` page
+
+- [ ] Page loads without error
+- [ ] Hero "Create a label" CTA → `/crear-guia`
+- [ ] Hero "Create free account" CTA → `/registro`
+- [ ] Benefits section: 6 cards visible on desktop
+- [ ] How it works: 4 steps in grid layout
+- [ ] QuotePreview visible in hero (desktop) and below hero (mobile)
+- [ ] NationwideRoute animation renders
+- [ ] Domestic scope notice visible ("Domestic shipping in selected markets")
+- [ ] Final CTA: "Create free account" → `/registro`, "Create a label" → `/crear-guia`
+- [ ] Header and Footer render correctly
+
+### `/fba-prep` page
+
+- [ ] Page loads without error
+- [ ] Hero "Request FBA prep" CTA → `/registro?service=prep`
+- [ ] Hero "Sign in" CTA → `/login`
+- [ ] Prep request preview renders (browser chrome with quote-ready state)
+- [ ] "What is SendiFlash Prep" section visible
+- [ ] 8 prep service cards in 4-col grid on desktop
+- [ ] 5-step workflow in 5-col grid on desktop
+- [ ] Transparency notice visible (quote variation, manual management, no auto-charge)
+- [ ] Final CTA: "Request FBA prep" → `/registro?service=prep`, "Sign in" → `/login`
+- [ ] No mention of AMZ Prep, partner cost, margin, internal workflow, or AI/API automation
+- [ ] Header and Footer render correctly
+
+### Footer
+
+- [ ] "Shipping Labels" link → `/shipping-labels`
+- [ ] "FBA Prep" link → `/fba-prep`
+- [ ] "Create a label" link → `/crear-guia`
+- [ ] "Prep orders" link → `/prep/orders`
+
+### Safety checks
+
+- [ ] No payment, wallet, label, or Prep backend logic changed
+- [ ] No migration applied
+- [ ] No secrets or provider credentials touched
+- [ ] `/crear-guia`, `/login`, `/registro`, `/support`, `/prep`, `/dashboard` still build

@@ -1067,3 +1067,28 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Public Prep landing page with full service details (dedicated `/prep-info` page).
 - Pricing calculator for Prep services.
 - International shipping expansion.
+
+---
+
+## FASE 5.69 — Go/No-Go: Dedicated service pages and absolute anchor navigation
+
+**Date:** 2026-05-29
+
+### Go conditions
+
+- [x] Header anchor links are absolute (`/#services`, etc.) — work from all public pages.
+- [x] `/shipping-labels` route builds and renders without errors.
+- [x] `/fba-prep` route builds and renders without errors.
+- [x] Homepage hero secondary CTA points to `/fba-prep`.
+- [x] TwoServicesSection service cards link to `/shipping-labels` and `/fba-prep` with secondary tool actions.
+- [x] Footer Product column includes `/shipping-labels` and `/fba-prep`.
+- [x] `/fba-prep` page includes transparency disclaimer about manual management and quote variation.
+- [x] `/shipping-labels` page includes domestic-scope notice ("selected markets", no international).
+- [x] No AI automation, SP-API, AMZ Prep, partner cost, or internal workflow exposed.
+- [x] No payment/wallet/label/Prep business logic changed.
+
+### No-Go conditions
+
+- [ ] Any of the new pages expose partner cost, margin, internal notes, or third-party branding.
+- [ ] Any business logic in `/api/*`, Prep payment, wallet, label purchase, or auth changed.
+- [ ] Lint or build fails.
