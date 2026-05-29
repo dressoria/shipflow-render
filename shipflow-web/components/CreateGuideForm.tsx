@@ -877,6 +877,9 @@ export function CreateGuideForm() {
   const showNoRatesWarning =
     configStatus !== null && configStatus.supabaseConfigured && !configStatus.ratesConfigured;
   const compactDetails = (fetchingRates || apiRates.length > 0) && !detailsExpanded;
+  const workspaceGridClass = summary
+    ? "grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]"
+    : "grid min-w-0 gap-5";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -901,7 +904,7 @@ export function CreateGuideForm() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4">
       {labelPaymentStatus === "success" && (
         <LabelPaymentSuccessBanner
           order={labelOrderStatus}
@@ -933,10 +936,10 @@ export function CreateGuideForm() {
 
       <FirstShipmentGuide />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid min-w-0 gap-5">
+      <div className={workspaceGridClass}>
+        <div className="grid min-w-0 gap-4">
           {compactDetails ? (
-            <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+            <div className="rounded-3xl border border-blue-100 bg-white p-3 shadow-sm shadow-slate-950/5 sm:p-4">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
@@ -981,7 +984,7 @@ export function CreateGuideForm() {
           ) : (
           <form
             onSubmit={handleFetchRates}
-            className="grid min-w-0 gap-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-6"
+            className="grid min-w-0 gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5"
             noValidate
           >
             <div>
@@ -1003,7 +1006,7 @@ export function CreateGuideForm() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-3xl border border-blue-100 bg-blue-50/40 p-4">
+              <div className="rounded-3xl border border-blue-100 bg-blue-50/40 p-3 sm:p-4">
                 <SectionHeader icon={<User className="h-4 w-4" />} title="From" />
                 <div className="mt-4">
                   <AddressInput
@@ -1017,7 +1020,7 @@ export function CreateGuideForm() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-orange-100 bg-orange-50/40 p-4">
+              <div className="rounded-3xl border border-orange-100 bg-orange-50/40 p-3 sm:p-4">
                 <SectionHeader icon={<MapPin className="h-4 w-4" />} title="To" />
                 <div className="mt-4">
                   <AddressInput
@@ -1033,7 +1036,7 @@ export function CreateGuideForm() {
             </div>
 
             <SectionHeader icon={<Package className="h-4 w-4" />} title="Package" />
-            <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4">
               <div className="grid gap-4 md:grid-cols-[1fr_140px_1.4fr]">
                 <NumberField label="Weight" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
                 <SelectField label="Unit" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
@@ -1089,7 +1092,7 @@ export function CreateGuideForm() {
           {apiRates.length > 0 && (
             <form
               onSubmit={handleRequestOnlineLabel}
-              className="grid gap-4 rounded-3xl border border-cyan-200 bg-cyan-50/40 p-4 shadow-sm sm:p-5"
+              className="grid gap-3 rounded-3xl border border-cyan-200 bg-cyan-50/40 p-4 shadow-sm"
               noValidate
             >
               <div className="flex items-start gap-3">
@@ -1218,12 +1221,12 @@ function FirstShipmentGuide() {
   ];
 
   return (
-    <section className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <section className="rounded-3xl border border-blue-100 bg-white p-3 shadow-sm shadow-slate-950/5 sm:p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-widest text-[#F97316]">First shipment guide</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Four steps from rate to label</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          <h2 className="mt-1 text-lg font-black text-slate-950">Four steps from rate to label</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
             SendiFlash currently supports domestic shipments within selected countries. International shipping is coming later.
           </p>
         </div>
@@ -1234,10 +1237,10 @@ function FirstShipmentGuide() {
           Help and FAQ
         </Link>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step} className="flex min-w-0 items-center gap-3 rounded-2xl bg-slate-50 p-3">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#2563EB] text-sm font-black text-white">
+          <div key={step} className="flex min-w-0 items-center gap-2 rounded-2xl bg-slate-50 p-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-[#2563EB] text-xs font-black text-white">
               {index + 1}
             </span>
             <span className="text-sm font-bold text-slate-700">{step}</span>

@@ -19,13 +19,13 @@ export function CreateGuideWorkspace() {
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-950/5">
+    <div className="grid gap-4">
+      <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm shadow-slate-950/5">
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => setNextMode("single")}
-            className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+            className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition ${
               mode === "single"
                 ? "bg-[#2563EB] text-white shadow-lg shadow-blue-500/20"
                 : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-[#2563EB]"
@@ -37,7 +37,7 @@ export function CreateGuideWorkspace() {
           <button
             type="button"
             onClick={() => setNextMode("batch")}
-            className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+            className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition ${
               mode === "batch"
                 ? "bg-[#F97316] text-white shadow-lg shadow-orange-500/20"
                 : "bg-slate-50 text-slate-600 hover:bg-orange-50 hover:text-[#F97316]"
