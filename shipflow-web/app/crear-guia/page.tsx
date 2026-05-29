@@ -1,4 +1,4 @@
-import { CreateGuideForm } from "@/components/CreateGuideForm";
+import { CreateGuideWorkspace } from "@/components/CreateGuideWorkspace";
 import { DashboardShell } from "@/components/DashboardShell";
 
 export default function CreateGuidePage() {
@@ -7,7 +7,7 @@ export default function CreateGuidePage() {
       title="Get rates"
       description="Compare rates using From, To, and package details."
     >
-      <CreateGuideForm />
+      <CreateGuideWorkspace />
     </DashboardShell>
   );
 }

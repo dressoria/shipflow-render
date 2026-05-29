@@ -1506,3 +1506,58 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] International/customs remains deferred
 - [ ] Automatic refunds/voids remain deferred
 - [ ] Full accounting remains deferred
+
+---
+
+## FASE 5.60 — Batch / Multi-Label Checklist
+
+### 1. Entry and draft
+- [ ] `/crear-guia` shows `Single shipment` and `Multiple shipments`
+- [ ] Single shipment flow still works as the default
+- [ ] Batch draft persists origin, rows, packages, product type, and mode
+- [ ] Batch draft does not persist card/payment data
+- [ ] Clear batch draft resets the local draft
+
+### 2. Batch setup
+- [ ] Batch limit is 5 shipments
+- [ ] One shared origin applies to all rows
+- [ ] Rows can be added and removed
+- [ ] Shared package mode works
+- [ ] Per-row package mode works
+- [ ] Product type `Other` requires product description
+
+### 3. Domestic market validation
+- [ ] US→US row can request rates
+- [ ] ES→ES/DE→DE rows pass validation and attempt rates if provider/account supports them
+- [ ] Cross-border rows are blocked before rates
+- [ ] Unsupported countries are blocked before rates
+- [ ] No customs/international fields are shown
+
+### 4. Rates
+- [ ] Batch rates run row by row with visible status
+- [ ] Each row can select one valid rate
+- [ ] No-rates rows show the friendly carrier setup message
+- [ ] Checkout stays disabled until every row has a ready selected rate
+
+### 5. Payment
+- [ ] Wallet option is visible
+- [ ] Wallet option is disabled with shortfall when balance is insufficient
+- [ ] Wallet batch purchase processes one row at a time
+- [ ] Successful wallet rows remain saved if a later row fails
+- [ ] Card option is visible when direct payment is available
+- [ ] Card batch opens one Checkout tab per shipment
+- [ ] Popup blocked card checkout falls back safely
+
+### 6. Results/admin
+- [ ] Successful rows link to shipment detail
+- [ ] Successful rows link to My Shipments
+- [ ] Card-created orders carry shared `batchId`
+- [ ] Batch index/size are visible in stored metadata/pricing breakdown where available
+- [ ] Admin exception flow still handles action_required per shipment
+
+### 7. Deferred scope
+- [ ] CSV/Excel import remains deferred
+- [ ] Larger bulk operations remain deferred
+- [ ] Combined single Stripe batch checkout remains deferred
+- [ ] International/customs remains deferred
+- [ ] Automatic refunds/voids remain deferred

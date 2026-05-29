@@ -841,3 +841,38 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Wallet-specific no-card-fee pricing.
 - Full accounting dashboard.
 - Automatic refunds/voids.
+
+---
+
+## FASE 5.60 — Controlled Multi-Label Beta Flow
+
+### Go conditions
+
+- `/crear-guia` shows both `Single shipment` and `Multiple shipments`.
+- Single shipment remains the default path.
+- Batch mode allows up to 5 shipments with one shared origin.
+- Each batch row validates domestic-only country rules before rates.
+- Each batch row can fetch rates and select one valid rate.
+- Checkout remains blocked until every row has a selected ready rate.
+- Wallet batch purchase keeps successful rows saved and stops on first failed row.
+- Card batch checkout opens one Stripe Checkout tab per shipment under a shared `batchId`.
+- Admin/order metadata can identify batch-created labels.
+- User result links point to shipment detail and My Shipments when labels are ready.
+
+### No-go conditions
+
+- Cross-border routes reach provider rates.
+- Unsupported countries reach provider rates.
+- Batch checkout trusts a client-only final price.
+- Batch draft stores card/payment data.
+- A failed wallet row silently charges remaining rows.
+- Card batch is presented as a single combined Stripe payment.
+- CSV import, customs, or international shipment copy appears as supported.
+
+### Known beta limitations
+
+- Batch limit is 5 shipments.
+- Card batch payment is multiple per-shipment Checkout sessions, not one consolidated payment.
+- Wallet batch purchase is sequential and not a full all-or-nothing database transaction.
+- CSV/Excel import and larger bulk workflows remain deferred.
+- International/customs remains intentionally unsupported.

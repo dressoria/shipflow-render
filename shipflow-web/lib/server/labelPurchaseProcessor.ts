@@ -278,6 +278,27 @@ async function resolveTrackingNumberForShipment(
   };
 }
 
+function getSnapshotString(order: PendingLabelOrder, key: string, maxLength = 160): string | null {
+  const value = order.rateSnapshot.pricingBreakdown?.[key];
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, maxLength) : null;
+}
+
+function getSnapshotNumber(order: PendingLabelOrder, key: string): number | null {
+  const value = order.rateSnapshot.pricingBreakdown?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getBatchMetadata(order: PendingLabelOrder): Record<string, unknown> {
+  const batchId = getSnapshotString(order, "batchId", 120);
+  if (!batchId) return {};
+
+  return {
+    batch_id: batchId,
+    batch_index: getSnapshotNumber(order, "batchIndex"),
+    batch_size: getSnapshotNumber(order, "batchSize"),
+  };
+}
+
 // Persists a successfully purchased label as a shipments row.
 // Direct insert via service_role — no wallet debit, no RPC.
 // Stores pending_label_order_id in metadata for reconciliation.
@@ -300,6 +321,14 @@ async function persistShipmentFromPurchasedLabel(
     ? calculateCustomerPrice(snapshotProviderCost)
     : null;
   const customerPriceUsd = order.amountCents / 100;
+  const productDescription = getSnapshotString(order, "productDescription");
+  const batchMetadata = getBatchMetadata(order);
+  const snapshotBatchPricing = {
+    batchId: getSnapshotString(order, "batchId", 120),
+    batchIndex: getSnapshotNumber(order, "batchIndex"),
+    batchSize: getSnapshotNumber(order, "batchSize"),
+    productDescription,
+  };
 
   const { error } = await serviceSupabase.from("shipments").insert({
     id: shipmentId,
@@ -313,7 +342,7 @@ async function persistShipmentFromPurchasedLabel(
     destination_city: order.destination.city,
     destination_address: order.destination.street1?.trim() || "",
     weight: order.parcel.weight,
-    product_type: "Package",
+    product_type: productDescription || "Package",
     courier: labelResult.rate.courierName || labelResult.rate.courierId,
     shipping_subtotal: snapshotProviderCost > 0 ? snapshotProviderCost : customerPriceUsd,
     total: customerPriceUsd,
@@ -337,11 +366,20 @@ async function persistShipmentFromPurchasedLabel(
     idempotency_key: `direct-label-${order.id}`,
     currency: "USD",
     pricing_model: "direct_label_payment",
-    pricing_breakdown: pricing ? { ...pricing, paymentMethod: "card" } : null,
+    pricing_breakdown: pricing
+      ? {
+          ...pricing,
+          paymentMethod: "card",
+          ...Object.fromEntries(
+            Object.entries(snapshotBatchPricing).filter(([, value]) => value !== null),
+          ),
+        }
+      : null,
     metadata: {
       source: "direct_label_payment",
       pending_label_order_id: order.id,
       stripe_payment_intent_id: order.stripePaymentIntentId ?? null,
+      ...batchMetadata,
       phase: "5.54",
       provider_tracking_number_original:
         trackingResolution.providerTrackingNumberOriginal ?? null,

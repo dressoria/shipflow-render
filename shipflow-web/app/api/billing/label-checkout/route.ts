@@ -90,6 +90,27 @@ function isValidParcel(v: unknown): v is PendingLabelOrderParcel {
   );
 }
 
+function getSafeBatchMetadata(snapshot: PendingLabelOrderRateSnapshot): Record<string, unknown> {
+  const breakdown = snapshot.pricingBreakdown;
+  if (!breakdown || typeof breakdown !== "object") return {};
+
+  const metadata: Record<string, unknown> = {};
+  if (typeof breakdown.batchId === "string" && breakdown.batchId.trim()) {
+    metadata.batchId = breakdown.batchId.trim().slice(0, 120);
+  }
+  if (typeof breakdown.batchIndex === "number" && Number.isInteger(breakdown.batchIndex) && breakdown.batchIndex > 0) {
+    metadata.batchIndex = breakdown.batchIndex;
+  }
+  if (typeof breakdown.batchSize === "number" && Number.isInteger(breakdown.batchSize) && breakdown.batchSize > 0) {
+    metadata.batchSize = breakdown.batchSize;
+  }
+  if (typeof breakdown.productDescription === "string" && breakdown.productDescription.trim()) {
+    metadata.productDescription = breakdown.productDescription.trim().slice(0, 160);
+  }
+
+  return metadata;
+}
+
 export async function POST(request: Request) {
   if (!isServerSupabaseConfigured || !isServiceRoleConfigured) {
     return apiError("Server is not configured correctly.", 503);
@@ -220,6 +241,7 @@ export async function POST(request: Request) {
     currency: "USD",
     pricingBreakdown: {
       ...(recomputedPricing as unknown as Record<string, unknown>),
+      ...getSafeBatchMetadata(body.rateSnapshot),
       originCountry: countryCode,
       destinationCountry: countryCode,
       domesticMarket: countryCode,

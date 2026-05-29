@@ -1481,6 +1481,64 @@ This is stored in card order snapshots and wallet shipment metadata where availa
 
 ---
 
+## FASE 5.60 — Controlled Multi-Label Shipment Flow
+
+Date/time: 2026-05-29 07:04 -05
+
+### Scope implemented
+
+- Added a `/crear-guia` mode switch for `Single shipment` and `Multiple shipments`.
+- Batch mode supports one shared origin and up to 5 domestic shipment rows.
+- Each row has its own destination, validation state, rate status, and selected rate.
+- Package data can be shared across the batch or customized per shipment.
+- Product type `Other` requires a customer-friendly product description.
+- Batch drafts persist locally without card/payment data.
+
+### Rates and validation
+
+- Every row validates selected domestic market rules before rates:
+  - origin country must equal destination country.
+  - country must be in the selected domestic allowlist.
+  - cross-border/international routes are blocked before provider calls.
+- Batch rates are requested sequentially for this controlled beta version.
+- Rows show `ready`, `loading`, `no rates`, `error`, `checkout opened`, or `purchased`.
+- No-rates rows show the existing friendly market/provider setup message.
+
+### Payment behavior
+
+- Wallet batch purchase processes labels one at a time using the existing safe wallet label endpoint.
+- Successful wallet rows are saved immediately; if a later row fails, the failed row remains visible for support review and remaining rows are not charged automatically.
+- Card batch checkout creates separate pending label orders and opens one Stripe Checkout tab per selected shipment.
+- Card orders share beta metadata through `batchId`, `batchIndex`, and `batchSize`; automatic webhook processing remains per pending order.
+- A combined one-payment Stripe batch checkout was intentionally deferred.
+
+### Metadata and admin visibility
+
+- Batch orders are identified with `batchId`, `batchIndex`, and `batchSize` in pricing/order metadata where available.
+- Direct card label persistence carries batch metadata into shipment metadata/pricing breakdown.
+- Shipment `product_type` uses the safe product description when provided.
+
+### Safety and limitations
+
+- Existing single-label flow remains available and unchanged as the default mode.
+- Existing duplicate label protections/idempotency remain in the wallet and card paths.
+- Batch limit: 5 shipments.
+- Deferred: CSV/Excel import, larger bulk operations, international/customs, combined card batch payment, and full all-or-nothing wallet batch atomicity.
+- No migrations, env changes, provider credential changes, refunds, voids, customs, or new carriers were added.
+
+### Local validation
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed; Next.js reported the existing multiple-lockfile workspace-root warning |
+| `git diff --check` | Passed |
+| `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
+| `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
+
+---
+
 ## FASE 5.58 — Final Controlled Beta Deployment Readiness
 
 Date: 2026-05-28
