@@ -1572,3 +1572,41 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] Rates render as responsive grid cards
 - [ ] Editing shipment details clears stale selected rate and old rates
 - [ ] Card checkout opens only the new Stripe tab when popup succeeds
+
+---
+
+## FASE 5.62 — Auth UX and Signup Data Checklist
+
+### 1. Login
+- [ ] `/login` renders professional SendiFlash auth layout
+- [ ] Email/password fields work
+- [ ] Login CTA shows loading state
+- [ ] Forgot password link works
+- [ ] Create account link works
+- [ ] Invalid credentials show clear error
+
+### 2. Signup
+- [ ] `/registro` renders matching professional auth layout
+- [ ] First name is required
+- [ ] Last name is required
+- [ ] Business/company name is required
+- [ ] Phone validates when provided
+- [ ] Default market selector works
+- [ ] Business type selector works
+- [ ] Password confirmation must match
+- [ ] Terms acceptance is required
+- [ ] Existing-account state offers login/resend verification
+- [ ] Already-signed-in state offers dashboard/sign out
+
+### 3. Captcha
+- [ ] Local/dev signup works without captcha keys
+- [ ] If `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` is configured, signup sends captcha token
+- [ ] `/api/auth/verify-captcha` verifies using server-side `RECAPTCHA_SECRET_KEY`
+- [ ] Captcha secret is not exposed to client
+- [ ] Production fails closed if captcha is configured incorrectly
+
+### 4. Scope safety
+- [ ] No env files changed
+- [ ] No migrations added
+- [ ] No payment/shipping/wallet/label logic changed
+- [ ] Profile module remains deferred

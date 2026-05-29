@@ -7,6 +7,12 @@ type AuthInput = {
   email: string;
   password: string;
   businessName?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  country?: string;
+  businessType?: string;
+  acceptedTerms?: boolean;
 };
 
 export class AccountMayExistError extends Error {
@@ -91,6 +97,13 @@ export async function createUser(input: AuthInput): Promise<Usuario> {
       options: {
         data: {
           business_name: input.businessName,
+          first_name: input.firstName,
+          last_name: input.lastName,
+          phone: input.phone,
+          country: input.country,
+          business_type: input.businessType,
+          accepted_terms: input.acceptedTerms === true,
+          accepted_terms_at: input.acceptedTerms === true ? new Date().toISOString() : undefined,
         },
         emailRedirectTo: getEmailRedirectUrl(),
       },

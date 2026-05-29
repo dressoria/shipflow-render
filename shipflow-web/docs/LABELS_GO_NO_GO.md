@@ -885,3 +885,29 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Rate search collapses into a compact From / To / Package summary bar.
 - Rates render as responsive grid cards instead of a long plain list.
 - Card checkout must keep `/crear-guia` open when the new Stripe tab opens successfully.
+
+---
+
+## FASE 5.62 — Auth Beta Readiness
+
+### Go conditions
+
+- Login and registration use the professional SendiFlash auth layout.
+- Signup collects first name, last name, company, phone, default market, business type, email, password, confirmation, and terms acceptance.
+- Additional signup fields are stored in Auth metadata without requiring a database migration.
+- Forgot password and verification links remain available.
+- Already-signed-in registration state shows dashboard and sign-out actions.
+- reCAPTCHA is verified server-side when configured.
+
+### No-go conditions
+
+- Captcha secret is exposed client-side.
+- Signup silently skips captcha in production when captcha is configured incorrectly.
+- Auth UX claims international/customs support.
+- Shipping, wallet, payment, label, refund, or void logic changes as part of auth polish.
+
+### Operator setup
+
+- Optional captcha public key: `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
+- Required server secret when captcha is enabled: `RECAPTCHA_SECRET_KEY`.
+- Profile module remains pending; only `business_name` is written to `profiles` in this phase.

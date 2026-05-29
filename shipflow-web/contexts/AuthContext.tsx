@@ -22,6 +22,12 @@ type AuthContextValue = {
     email: string;
     password: string;
     businessName?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    country?: string;
+    businessType?: string;
+    acceptedTerms?: boolean;
   }) => Promise<Usuario>;
   logout: () => Promise<void>;
 };
@@ -84,8 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(nextUser);
         return nextUser;
       },
-      register: async ({ email, password, businessName }) => {
-        const nextUser = await createUser({ email, password, businessName });
+      register: async (input) => {
+        const nextUser = await createUser(input);
         setUser(nextUser);
         return nextUser;
       },

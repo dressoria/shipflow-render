@@ -1553,6 +1553,48 @@ Date/time: 2026-05-29 08:05 -05
 
 ---
 
+## FASE 5.62 — Auth UX Pro
+
+Date/time: 2026-05-29 12:32 -05
+
+### Scope implemented
+
+- Redesigned `/login` and `/registro` with a professional SendiFlash auth layout.
+- Added a dark SaaS-style visual side panel with rate comparison, route, payment, and label-ready cues.
+- Improved loading, error, existing-account, and already-signed-in states.
+- Preserved forgot-password and verification links.
+
+### Signup data
+
+Registration now collects:
+- first name
+- last name
+- business / company name
+- phone
+- default domestic market
+- business type
+- email
+- password
+- confirm password
+- terms acceptance
+
+Existing `profiles.business_name` remains the only profile-table write. Additional signup data is stored in Supabase Auth user metadata, so no migration was required.
+
+### Anti-bot behavior
+
+- Signup supports Google reCAPTCHA v3 when `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` and `RECAPTCHA_SECRET_KEY` are configured.
+- The secret is verified server-side through `/api/auth/verify-captcha`.
+- No captcha secret is exposed to the browser.
+- Local/non-production environments can sign up without configured captcha keys.
+- Production signup shows a setup-required message when the public site key is missing; if a site key exists but server secret is missing, verification fails closed.
+
+### Pending
+
+- Full editable profile module remains pending.
+- Additional profile-table columns for signup data remain deferred until profile management is designed.
+
+---
+
 ## FASE 5.58 — Final Controlled Beta Deployment Readiness
 
 Date: 2026-05-28
