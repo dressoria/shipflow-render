@@ -8,12 +8,14 @@ import { LoadingState } from "@/components/LoadingState";
 import { StatCard } from "@/components/StatCard";
 import { formatDate } from "@/lib/forms";
 import { getAdminStats } from "@/lib/services/adminService";
+import { apiGetConfigStatus, type ConfigStatus } from "@/lib/services/apiClient";
 import type { AdminBalanceMovement, AdminShipment } from "@/lib/services/apiClient";
 import type { AdminAuditEvent } from "@/lib/services/apiClient";
 import type { Envio, MovimientoSaldo, Usuario } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 type AdminStats = Awaited<ReturnType<typeof getAdminStats>>;
+type ProfitRange = "today" | "7d" | "30d" | "all";
 
 function displayShipmentStatus(status: Envio["status"]) {
   if (status === "Entregado") return "Delivered";
@@ -56,6 +58,8 @@ function displayAuditEventType(eventType: string) {
 
 export function AdminOverview() {
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
+  const [profitRange, setProfitRange] = useState<ProfitRange>("30d");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,6 +67,7 @@ export function AdminOverview() {
       getAdminStats().then(setStats).catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "We could not load admin data.");
       });
+      apiGetConfigStatus().then(setConfigStatus).catch(() => setConfigStatus(null));
     }, 0);
   }, []);
 
@@ -98,6 +103,12 @@ export function AdminOverview() {
         <StatCard label="Refunds" value={formatCurrency(stats.totals.totalRefunded)} detail="void refunds" icon={RotateCcw} tone="green" />
         <StatCard label="Reconciliation" value={stats.reconciliation.pendingCount.toString()} detail="pending" icon={ShieldAlert} />
       </div>
+      <BetaModeNotice configStatus={configStatus} />
+      <ProfitabilityPanel
+        shipments={stats.shipments}
+        range={profitRange}
+        onRangeChange={setProfitRange}
+      />
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <RecentShipments shipments={stats.shipments.slice(0, 6)} />
         <RecentBalanceActivity movements={stats.movements.slice(0, 6)} />
@@ -149,6 +160,174 @@ function inferPaymentMethod(shipment: Envio): "Wallet" | "Card" | null {
   if (shipment.pricingModel === "direct_label_payment") return "Card";
   if (shipment.pricingModel === "shipflow_v1") return "Wallet";
   return null;
+}
+
+function shipmentAmount(shipment: Envio, key: "customer" | "provider" | "markup" | "fee") {
+  if (key === "customer") return shipment.customerPrice ?? shipment.total ?? shipment.value ?? 0;
+  if (key === "provider") return shipment.providerCost ?? 0;
+  if (key === "markup") return shipment.platformMarkup ?? 0;
+  return shipment.paymentFee ?? 0;
+}
+
+function isInProfitRange(shipment: Envio, range: ProfitRange) {
+  if (range === "all") return true;
+  const createdAt = new Date(shipment.date).getTime();
+  if (!Number.isFinite(createdAt)) return false;
+  const now = new Date();
+  if (range === "today") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return createdAt >= start;
+  }
+  const days = range === "7d" ? 7 : 30;
+  return createdAt >= now.getTime() - days * 24 * 60 * 60 * 1000;
+}
+
+function BetaModeNotice({ configStatus }: { configStatus: ConfigStatus | null }) {
+  return (
+    <div className="mt-6 rounded-3xl border border-blue-200 bg-blue-50 p-5 text-blue-950">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="font-black">Test/Beta label mode</h2>
+          <p className="mt-1 text-sm leading-6">
+            Labels remain enabled for beta. Keep provider credentials in the current sandbox/test setup until the real-label launch decision is made.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={configStatus?.realLabelPurchaseEnabled ? "green" : "amber"}>
+            Labels {configStatus?.realLabelPurchaseEnabled ? "enabled" : "disabled"}
+          </Badge>
+          <Badge tone={configStatus?.processLabelInWebhookEnabled ? "green" : "slate"}>
+            Auto process {configStatus?.processLabelInWebhookEnabled ? "on" : "off"}
+          </Badge>
+          <Badge tone="amber">Beta</Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfitabilityPanel({
+  shipments,
+  range,
+  onRangeChange,
+}: {
+  shipments: AdminShipment[];
+  range: ProfitRange;
+  onRangeChange: (range: ProfitRange) => void;
+}) {
+  const filtered = shipments.filter((shipment) => {
+    const purchased = shipment.labelStatus === "purchased";
+    return purchased && isInProfitRange(shipment, range);
+  });
+
+  const totals = filtered.reduce(
+    (acc, shipment) => {
+      const customer = shipmentAmount(shipment, "customer");
+      const provider = shipmentAmount(shipment, "provider");
+      const markup = shipmentAmount(shipment, "markup");
+      const fee = shipmentAmount(shipment, "fee");
+      const paymentMethod = inferPaymentMethod(shipment);
+      acc.customer += customer;
+      acc.provider += provider;
+      acc.markup += markup;
+      acc.fees += fee;
+      acc.margin += Math.max(0, customer - provider - fee);
+      acc.labels += 1;
+      if (paymentMethod === "Card") acc.card += 1;
+      if (paymentMethod === "Wallet") acc.wallet += 1;
+      return acc;
+    },
+    { customer: 0, provider: 0, markup: 0, fees: 0, margin: 0, labels: 0, card: 0, wallet: 0 },
+  );
+
+  const ranges: Array<{ value: ProfitRange; label: string }> = [
+    { value: "today", label: "Today" },
+    { value: "7d", label: "7 days" },
+    { value: "30d", label: "30 days" },
+    { value: "all", label: "All time" },
+  ];
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
+      <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="font-black text-slate-950">Profitability snapshot</h2>
+          <p className="text-sm text-slate-500">
+            Estimate based on purchased labels with pricing fields populated. Refund/void accounting remains manual during beta.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {ranges.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => onRangeChange(item.value)}
+              className={`rounded-xl px-3 py-2 text-xs font-black transition ${
+                range === item.value
+                  ? "bg-[#2563EB] text-white"
+                  : "border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-[#2563EB]"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-6">
+        <MiniMetric label="Customer charged" value={formatCurrency(totals.customer)} />
+        <MiniMetric label="Provider cost" value={formatCurrency(totals.provider)} />
+        <MiniMetric label="Platform markup" value={formatCurrency(totals.markup)} />
+        <MiniMetric label="Est. payment fees" value={formatCurrency(totals.fees)} />
+        <MiniMetric label="Gross margin" value={formatCurrency(totals.margin)} tone="green" />
+        <MiniMetric label="Labels" value={String(totals.labels)} />
+      </div>
+      <div className="border-t border-slate-100 px-5 py-4">
+        <p className="text-sm font-bold text-slate-700">
+          Payment split: {totals.wallet} wallet · {totals.card} card · {Math.max(0, totals.labels - totals.wallet - totals.card)} unknown
+        </p>
+      </div>
+      <div className="overflow-x-auto border-t border-slate-100">
+        <div className="grid min-w-[900px] grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] gap-4 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+          <span>Shipment</span>
+          <span>Payment</span>
+          <span>Charged</span>
+          <span>Cost</span>
+          <span>Fees</span>
+          <span>Margin</span>
+        </div>
+        {filtered.slice(0, 8).map((shipment) => {
+          const charged = shipmentAmount(shipment, "customer");
+          const cost = shipmentAmount(shipment, "provider");
+          const fee = shipmentAmount(shipment, "fee");
+          const margin = Math.max(0, charged - cost - fee);
+          return (
+            <div key={shipment.id} className="grid min-w-[900px] grid-cols-[1.2fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-t border-slate-100 px-5 py-3 text-sm">
+              <span className="break-words font-bold text-slate-950">{shipment.trackingNumber}</span>
+              <span className="text-slate-600">{inferPaymentMethod(shipment) ?? "Unknown"}</span>
+              <span>{formatCurrency(charged)}</span>
+              <span>{formatCurrency(cost)}</span>
+              <span>{formatCurrency(fee)}</span>
+              <span className="font-black text-[#15803d]">{formatCurrency(margin)}</span>
+            </div>
+          );
+        })}
+        {filtered.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-slate-500">No purchased labels in this range.</div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function MiniMetric({ label, value, tone }: { label: string; value: string; tone?: "green" }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-2 text-xl font-black ${tone === "green" ? "text-[#15803d]" : "text-slate-950"}`}>
+        {value}
+      </p>
+    </div>
+  );
 }
 
 export function AdminShipmentsTable({ shipments }: { shipments: AdminShipment[] | Envio[] }) {

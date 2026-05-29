@@ -17,6 +17,23 @@ const EMPTY_TOTALS: BalanceTotals = {
   totalFees: 0,
 };
 
+const PRESET_RECHARGE_AMOUNTS = [10, 25, 50, 100];
+const MIN_RECHARGE_AMOUNT = 5;
+const MAX_RECHARGE_AMOUNT = 500;
+
+function parseCustomAmount(value: string): { amount: number | null; error: string | null } {
+  const trimmed = value.trim();
+  if (!trimmed) return { amount: null, error: "Enter an amount." };
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return { amount: null, error: "Use numbers only, with up to two decimals." };
+  }
+  const amount = Number(trimmed);
+  if (!Number.isFinite(amount)) return { amount: null, error: "Enter a valid amount." };
+  if (amount < MIN_RECHARGE_AMOUNT) return { amount: null, error: `Minimum recharge is ${formatCurrency(MIN_RECHARGE_AMOUNT)}.` };
+  if (amount > MAX_RECHARGE_AMOUNT) return { amount: null, error: `Maximum recharge is ${formatCurrency(MAX_RECHARGE_AMOUNT)}.` };
+  return { amount: Number(amount.toFixed(2)), error: null };
+}
+
 function movementTone(movement: MovimientoSaldo) {
   if (movement.type === "refund" || movement.amount > 0) return "text-[#15803d]";
   return "text-slate-700";
@@ -41,6 +58,7 @@ export function BalancePanel() {
   const [checkoutLoadingAmount, setCheckoutLoadingAmount] = useState<number | null>(null);
   const [rechargeMessage, setRechargeMessage] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [customAmount, setCustomAmount] = useState("");
 
   async function refresh() {
     const summary = await getBalanceSummary();
@@ -88,6 +106,15 @@ export function BalancePanel() {
       setCheckoutError(checkoutErrorMessage(error));
       setCheckoutLoadingAmount(null);
     }
+  }
+
+  function startCustomCheckout() {
+    const parsed = parseCustomAmount(customAmount);
+    if (parsed.error || parsed.amount == null) {
+      setCheckoutError(parsed.error ?? "Enter a valid amount.");
+      return;
+    }
+    startCheckout(parsed.amount);
   }
 
   return (
@@ -159,20 +186,16 @@ export function BalancePanel() {
                 aria-label="Close add funds modal"
               >
                 <X className="h-4 w-4" />
-        </button>
-        {!stripeRechargeConfigured ? (
-          <p className="mt-3 text-center text-xs font-semibold text-slate-300">
-            Online recharge is not available yet.
-          </p>
-        ) : null}
-      </div>
+              </button>
+            </div>
             <p className="mt-4 text-sm leading-6 text-slate-600">
               Funds are added after payment confirmation from Stripe.
             </p>
 
             {stripeRechargeConfigured ? (
+              <>
               <div className="mt-5 grid grid-cols-2 gap-3">
-                {[10, 25, 50, 100].map((amount) => (
+                {PRESET_RECHARGE_AMOUNTS.map((amount) => (
                   <button
                     key={amount}
                     type="button"
@@ -184,6 +207,37 @@ export function BalancePanel() {
                   </button>
                 ))}
               </div>
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <label className="grid gap-2 text-sm font-bold text-slate-700">
+                  Custom amount
+                  <div className="flex gap-2">
+                    <span className="grid h-11 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500">$</span>
+                    <input
+                      value={customAmount}
+                      onChange={(event) => {
+                        setCustomAmount(event.target.value);
+                        setCheckoutError(null);
+                      }}
+                      inputMode="decimal"
+                      placeholder="75.00"
+                      disabled={checkoutLoadingAmount != null}
+                      className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-blue-500/10 disabled:opacity-60"
+                    />
+                    <button
+                      type="button"
+                      onClick={startCustomCheckout}
+                      disabled={checkoutLoadingAmount != null}
+                      className="h-11 rounded-xl bg-[#2563EB] px-4 text-sm font-black text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {checkoutLoadingAmount !== null && Number(customAmount) === checkoutLoadingAmount ? "Loading..." : "Add"}
+                    </button>
+                  </div>
+                </label>
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  Choose {formatCurrency(MIN_RECHARGE_AMOUNT)} to {formatCurrency(MAX_RECHARGE_AMOUNT)}. Two decimals max.
+                </p>
+              </div>
+              </>
             ) : (
               <div className="mt-5 rounded-2xl bg-slate-100 px-4 py-3 text-sm leading-6 text-slate-600">
                 Online recharge is not available yet.

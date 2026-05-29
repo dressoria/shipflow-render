@@ -7,6 +7,7 @@ import type { LogisticsProvider, RateInput, RateResult } from "@/lib/logistics/t
 
 // Providers eligible for aggregation — internal/mock are excluded (fallback only).
 const AGGREGATION_PROVIDERS: LogisticsProvider[] = ["shipstation", "shippo", "easypost", "easyship"];
+const PROVIDER_RATE_TIMEOUT_MS = 15000;
 
 type ProviderOutcome =
   | { provider: LogisticsProvider; rates: RateResult[]; ok: true }
@@ -49,7 +50,21 @@ function isCustomerVisibleRate(rate: RateResult): boolean {
   return !/\b(dummy|mock|internal|demo|test carrier)\b/.test(haystack);
 }
 
+function withProviderTimeout<T>(provider: LogisticsProvider, promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`${provider} timed out after ${PROVIDER_RATE_TIMEOUT_MS}ms.`));
+    }, PROVIDER_RATE_TIMEOUT_MS);
+
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timeoutId));
+  });
+}
+
 export async function aggregateRates(input: RateInput): Promise<AggregatedRatesResult> {
+  const startedAt = Date.now();
   const eligible = AGGREGATION_PROVIDERS.filter((p) => {
     const caps = getProviderCapabilities(p);
     return caps.configured && caps.supportsRates;
@@ -57,8 +72,14 @@ export async function aggregateRates(input: RateInput): Promise<AggregatedRatesR
 
   const settled = await Promise.allSettled(
     eligible.map(async (provider) => {
+      const providerStartedAt = Date.now();
       const adapter = getLogisticsAdapter(provider);
-      const rates = await adapter.getRates(input);
+      const rates = await withProviderTimeout(provider, adapter.getRates(input));
+      console.info("[RateAggregatorProviderTiming]", {
+        provider,
+        durationMs: Date.now() - providerStartedAt,
+        ratesCount: rates.length,
+      });
       return { provider, rates };
     }),
   );
@@ -83,6 +104,13 @@ export async function aggregateRates(input: RateInput): Promise<AggregatedRatesR
   const priced = rawRates.map(repriceRate);
   const deduped = deduplicateRates(priced);
   const ranked = rankRates(deduped);
+
+  console.info("[RateAggregatorTiming]", {
+    durationMs: Date.now() - startedAt,
+    configuredCount: eligible.length,
+    rawRatesCount: rawRates.length,
+    returnedRatesCount: ranked.length,
+  });
 
   return {
     rates: ranked,

@@ -1607,6 +1607,63 @@ Core production config is healthy and routes currently deployed are not returnin
 
 ---
 
+## FASE 5.59 — Create Guide, Payments, Recharge, Performance, and Profit Reporting
+
+Date: 2026-05-29
+
+### Scope
+
+Improved beta usability around create-guide, wallet recharge, payment choices, pricing fee recovery, rates perceived speed, and admin earnings visibility. Multilabel purchase remains intentionally deferred.
+
+### Changes implemented
+
+| Area | Result |
+|---|---|
+| Test/Beta mode visibility | Admin overview now shows a Test/Beta label mode notice with label/auto-process badges. Operators must keep provider/test credentials unchanged until real launch. |
+| Wallet recharge | Presets remain `$10`, `$25`, `$50`, `$100`; custom amount input added with `$5` minimum, `$500` maximum, numeric/two-decimal validation. |
+| Create guide layout | From/To are grouped into cleaner cards; package fields are compacted into weight/unit/product and dimensions/unit rows. |
+| Product type `Other` | Requires a user-friendly product description before rates; description is used for wallet label `productType` and preserved in card pricing snapshot metadata. |
+| Compact rate search summary | During loading and after rates, shipment details collapse to a summary card with an edit button. |
+| Draft persistence | `/crear-guia` saves non-sensitive shipment draft data to `localStorage` and restores it after returning from Stripe; clear draft button added. |
+| Card checkout | Card checkout opens in a new tab when possible; if blocked, falls back to same-tab redirect with a clear notice. |
+| Payment options | Confirm modal always shows wallet and card actions. Wallet can be disabled for insufficient balance while card remains visible/enabled when account gating allows it. |
+| Pricing fee formula | Payment fee now uses gross-up cents formula: `ceil((pricingSubtotalCents + fixedFeeCents) / (1 - feePct)) - pricingSubtotalCents`. |
+| Rate performance | Aggregator already calls configured providers in parallel; added safe per-provider timing logs, total timing logs, and a 15s per-provider timeout. |
+| Admin profit | Admin overview now includes profitability snapshot with date filters, customer charged, provider cost, markup, estimated fees, gross margin, label count, wallet/card split, and recent margin rows. |
+
+### Pricing decision
+
+The gross-up payment fee remains applied to the shared customer price used by both card and wallet paths for this phase. This preserves consistency across displayed price, Stripe charge, wallet debit, `pending_label_orders.amount_cents`, shipment pricing fields, and admin profit reporting. A future phase can introduce wallet-specific discounting if desired.
+
+### Performance observations
+
+- `aggregateRates()` already queries configured providers with `Promise.allSettled`.
+- Inactive/unconfigured providers are filtered out by provider capabilities.
+- New logs are metadata-only: provider name, duration, counts. No addresses, secrets, or provider credentials are logged.
+- A slow provider can now time out after 15 seconds rather than blocking indefinitely.
+
+### Known limitations
+
+- Multilabel/batch purchase is deferred.
+- Profitability is an operational estimate, not a full accounting ledger.
+- Refund/void accounting remains manual/admin-reviewed.
+- Wallet still uses the same customer price as card.
+- Stripe popup behavior depends on browser settings; same-tab fallback remains.
+
+### Validation results (2026-05-29)
+
+| Command | Result |
+|---|---|
+| `npm run lint` | Passed with existing warnings in `MockAdapter.ts` and `trackingService.ts` |
+| `npx tsc --noEmit` | Passed |
+| `npm run build` | Passed |
+| `git diff --check` | Passed |
+| legacy localStorage grep | Expected docs/storage cleanup references only |
+| unsafe eval grep | Documentation reference only |
+| secret diff grep | No secret-like values found in code/docs diff |
+
+---
+
 ## FASE 5.57 — Beta Release Hardening and Onboarding
 
 Date: 2026-05-28

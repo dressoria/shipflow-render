@@ -1437,3 +1437,72 @@ Move to PASS only after deployed operator QA confirms at least the US flow remai
 Current decision: **PARTIAL**.
 
 Release can move to PASS after latest main is deployed, support/legal routes return 200, and one clean card or wallet label purchase is verified end-to-end in production/staging.
+
+---
+
+## FASE 5.59 — Create Guide, Payments, Recharge, and Profit Checklist
+
+### 1. Test/Beta mode
+- [ ] `/api/config/status` still shows label purchase enabled
+- [ ] Provider credentials remain in current sandbox/test configuration
+- [ ] Admin overview shows Test/Beta label mode notice
+- [ ] Void/refund flags remain disabled
+
+### 2. Wallet custom recharge
+- [ ] Preset amounts `$10`, `$25`, `$50`, `$100` still work
+- [ ] Custom amount `$5.00` works
+- [ ] Custom amount `$500.00` works
+- [ ] Amount below `$5` is blocked
+- [ ] Amount above `$500` is blocked
+- [ ] Negative/zero/non-numeric values are blocked
+- [ ] More than two decimals are blocked
+- [ ] Stripe Checkout receives the selected custom amount
+- [ ] Webhook/idempotency behavior remains unchanged
+
+### 3. Create guide UX
+- [ ] From and To render as clean cards on desktop/mobile
+- [ ] Weight/unit/product fields are compact
+- [ ] Dimensions/unit fields are compact
+- [ ] Product type `Other` shows product description input
+- [ ] Product description is required for `Other`
+- [ ] Get rates collapses details into summary while loading/displaying rates
+- [ ] Edit shipment details re-expands form without losing data
+- [ ] Clear draft resets saved draft
+
+### 4. Draft and checkout behavior
+- [ ] Draft restores after page reload
+- [ ] Draft restores after returning from Stripe
+- [ ] Draft does not store payment/card data
+- [ ] Card checkout opens in new tab when allowed
+- [ ] Popup-blocked card checkout falls back to same-tab redirect
+- [ ] Wallet payment stays in-app
+
+### 5. Payment options
+- [ ] Wallet button is visible
+- [ ] Card button is visible
+- [ ] Wallet disabled with shortfall when balance is insufficient
+- [ ] Card remains available when wallet balance is insufficient and card gate allows it
+- [ ] Wallet and card both remain visible when wallet has enough balance
+
+### 6. Pricing
+- [ ] Gross-up card fee formula is used
+- [ ] Integer cents avoid floating money drift
+- [ ] Displayed price matches Stripe checkout amount
+- [ ] Displayed price matches wallet debit
+- [ ] `pending_label_orders.amount_cents` matches displayed price
+- [ ] Admin shipment pricing matches displayed/charged price
+
+### 7. Performance and admin profit
+- [ ] Rates show loading/progress copy
+- [ ] Double-click Get rates is prevented
+- [ ] Rate provider timing logs contain no secrets
+- [ ] Slow provider timeout does not block forever
+- [ ] Admin profitability snapshot loads
+- [ ] Date filters work: today, 7 days, 30 days, all time
+- [ ] Recent margin rows show charged/cost/fees/margin
+
+### 8. Deferred scope
+- [ ] Batch/multilabel remains deferred
+- [ ] International/customs remains deferred
+- [ ] Automatic refunds/voids remain deferred
+- [ ] Full accounting remains deferred

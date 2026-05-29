@@ -68,6 +68,7 @@ type FormState = {
   destination: StructuredAddress;
   weight: string;
   productType: string;
+  productDescription: string;
   weightUnit: "lb" | "oz";
   length: string;
   width: string;
@@ -80,6 +81,7 @@ const initialState: FormState = {
   destination: { ...EMPTY_ADDRESS, city: "Chicago", state: "IL", country: "US" },
   weight: "1",
   productType: "Apparel and accessories",
+  productDescription: "",
   weightUnit: "lb",
   length: "1",
   width: "1",
@@ -97,6 +99,41 @@ const productTypes = [
 ];
 
 const LABELS_NOT_IMPLEMENTED_PROVIDERS = new Set(["shippo", "easypost", "easyship"]);
+const SHIPMENT_DRAFT_KEY = "sendiflash-create-guide-draft-v1";
+
+function restoreDraftForm(): FormState {
+  if (typeof window === "undefined") return initialState;
+  try {
+    const raw = window.localStorage.getItem(SHIPMENT_DRAFT_KEY);
+    if (!raw) return initialState;
+    const parsed = JSON.parse(raw) as Partial<FormState>;
+    return {
+      ...initialState,
+      ...parsed,
+      origin: { ...initialState.origin, ...(parsed.origin ?? {}) },
+      destination: { ...initialState.destination, ...(parsed.destination ?? {}) },
+      weightUnit: parsed.weightUnit === "oz" ? "oz" : "lb",
+      dimensionUnit: parsed.dimensionUnit === "cm" ? "cm" : "in",
+    };
+  } catch {
+    return initialState;
+  }
+}
+
+function shipmentSummary(form: FormState) {
+  const origin = [form.origin.city, form.origin.state].filter(Boolean).join(", ") || "Origin";
+  const destination = [form.destination.city, form.destination.state].filter(Boolean).join(", ") || "Destination";
+  const dimensions = `${form.length || "?"}x${form.width || "?"}x${form.height || "?"} ${form.dimensionUnit}`;
+  const product = form.productType === "Other" && form.productDescription.trim()
+    ? form.productDescription.trim()
+    : form.productType || "Package";
+  return `From: ${origin} -> To: ${destination} · ${form.weight || "?"} ${form.weightUnit} · ${dimensions} · ${product}`;
+}
+
+function resolvedProductType(form: FormState) {
+  if (form.productType === "Other") return form.productDescription.trim();
+  return form.productType;
+}
 
 function LabelPaymentSuccessBanner({
   order,
@@ -217,8 +254,10 @@ export function CreateGuideForm() {
   const router = useRouter();
   const { emailVerified, loading: authLoading } = useAuth();
 
-  const [form, setForm] = useState<FormState>(initialState);
+  const [form, setForm] = useState<FormState>(restoreDraftForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   // Server config status — fetched once on mount
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
@@ -254,6 +293,10 @@ export function CreateGuideForm() {
 
   // Stable idempotency key per purchase intent
   const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
+
+  useEffect(() => {
+    window.localStorage.setItem(SHIPMENT_DRAFT_KEY, JSON.stringify(form));
+  }, [form]);
 
   useEffect(() => {
     apiGetConfigStatus().then(setConfigStatus);
@@ -318,20 +361,32 @@ export function CreateGuideForm() {
     setForm((current) => ({ ...current, origin: addr }));
     setApiRates([]);
     setSelectedApiRate(null);
+    setDetailsExpanded(true);
   }
 
   function updateDestination(addr: StructuredAddress) {
     setForm((current) => ({ ...current, destination: addr }));
     setApiRates([]);
     setSelectedApiRate(null);
+    setDetailsExpanded(true);
   }
 
   function updateField(name: keyof Omit<FormState, "origin" | "destination">, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
-    if (["weight", "weightUnit", "length", "width", "height", "dimensionUnit"].includes(name)) {
+    if (["weight", "weightUnit", "length", "width", "height", "dimensionUnit", "productType", "productDescription"].includes(name)) {
       setApiRates([]);
       setSelectedApiRate(null);
+      setDetailsExpanded(true);
     }
+  }
+
+  function clearDraft() {
+    window.localStorage.removeItem(SHIPMENT_DRAFT_KEY);
+    setForm(initialState);
+    setApiRates([]);
+    setSelectedApiRate(null);
+    setRatesError(null);
+    setDetailsExpanded(true);
   }
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -360,6 +415,9 @@ export function CreateGuideForm() {
       ...validateAddress(form.origin, "origin"),
       ...validateAddress(form.destination, "destination"),
       ...(!form.productType ? { productType: "Required field." } : {}),
+      ...(form.productType === "Other" && !form.productDescription.trim()
+        ? { productDescription: "Describe the product." }
+        : {}),
     };
     try {
       validateDomesticShipmentCountries(form.origin, form.destination);
@@ -416,7 +474,7 @@ export function CreateGuideForm() {
 
   function quoteValidationMessage(errs: ErrorMap) {
     const addressFields = Object.keys(errs).filter((key) => key.startsWith("origin.") || key.startsWith("destination."));
-    const packageFields = ["weight", "length", "width", "height"].filter((key) => errs[key]);
+    const packageFields = ["weight", "length", "width", "height", "productDescription"].filter((key) => errs[key]);
 
     if (addressFields.length > 0) {
       if (errs.form === INTERNATIONAL_SHIPPING_SOON_MESSAGE || errs.form === UNSUPPORTED_COUNTRY_MESSAGE) {
@@ -425,7 +483,7 @@ export function CreateGuideForm() {
       return "Complete street address, city, state/province, and postal code for both From and To before getting rates.";
     }
     if (packageFields.length > 0) {
-      return "Complete package weight, length, width, and height.";
+      return errs.productDescription ?? "Complete package weight, length, width, and height.";
     }
     return null;
   }
@@ -447,6 +505,7 @@ export function CreateGuideForm() {
 
   async function handleFetchRates(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (fetchingRates) return;
 
     if (configStatus && !configStatus.supabaseConfigured) {
       setRatesError(
@@ -469,6 +528,7 @@ export function CreateGuideForm() {
 
     setFetchingRates(true);
     setRatesError(null);
+    setCheckoutNotice(null);
     setApiRates([]);
     setSelectedApiRate(null);
     setErrors({});
@@ -508,6 +568,7 @@ export function CreateGuideForm() {
       } else {
         setApiRates(visibleRates);
         setSelectedApiRate(visibleRates[0]);
+        setDetailsExpanded(false);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "We could not get rates.";
@@ -627,7 +688,7 @@ export function CreateGuideForm() {
         senderPhone: form.origin.phone?.trim() || undefined,
         recipientName: form.destination.name?.trim() || undefined,
         recipientPhone: form.destination.phone?.trim() || undefined,
-        productType: form.productType || undefined,
+        productType: resolvedProductType(form) || undefined,
       });
 
       setSummary({
@@ -723,6 +784,7 @@ export function CreateGuideForm() {
             originCountry: countryCode,
             destinationCountry: countryCode,
             domesticMarket: countryCode,
+            productDescription: resolvedProductType(form),
           },
         },
         origin: { ...form.origin, country: countryCode },
@@ -737,7 +799,14 @@ export function CreateGuideForm() {
         },
       });
 
-      window.location.href = result.checkoutUrl;
+      const checkoutWindow = window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
+      if (checkoutWindow) {
+        setCheckoutNotice("Checkout opened in a new tab. Keep this page open while we prepare your label.");
+        setPayByCardLoading(false);
+      } else {
+        setCheckoutNotice("Popup blocked. Redirecting this tab to checkout.");
+        window.location.href = result.checkoutUrl;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       const lowerMsg = msg.toLowerCase();
@@ -768,6 +837,7 @@ export function CreateGuideForm() {
   const showConfigWarning = configStatus !== null && !configStatus.supabaseConfigured;
   const showNoRatesWarning =
     configStatus !== null && configStatus.supabaseConfigured && !configStatus.ratesConfigured;
+  const compactDetails = (fetchingRates || apiRates.length > 0) && !detailsExpanded;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -816,52 +886,115 @@ export function CreateGuideForm() {
           server-side integration to show rates.
         </ConfigAlert>
       )}
+      {checkoutNotice ? (
+        <ConfigAlert type="warning">
+          {checkoutNotice}
+        </ConfigAlert>
+      ) : null}
 
       <FirstShipmentGuide />
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="grid min-w-0 gap-5">
+          {compactDetails ? (
+            <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-widest text-[#2563EB]">
+                    {fetchingRates ? "Getting rates" : "Shipment details"}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-bold text-slate-800">{shipmentSummary(form)}</p>
+                  {fetchingRates ? (
+                    <p className="mt-1 text-sm text-slate-500">Checking configured providers in parallel. This can take a few seconds.</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsExpanded(true)}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#2563EB]"
+                >
+                  Edit shipment details
+                </button>
+              </div>
+            </div>
+          ) : (
           <form
             onSubmit={handleFetchRates}
-            className="grid min-w-0 gap-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-6"
+            className="grid min-w-0 gap-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-6"
             noValidate
           >
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">Get rates</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Compare rates with a From address, To address, and package details. We support domestic shipments within selected countries.
-              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#2563EB]">Get rates</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Compare rates with a From address, To address, and package details. We support domestic shipments within selected countries.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearDraft}
+                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                >
+                  Clear draft
+                </button>
+              </div>
             </div>
 
-            <SectionHeader icon={<User className="h-4 w-4" />} title="From" />
-            <AddressInput
-              sectionLabel="From"
-              value={form.origin}
-              onChange={updateOrigin}
-              requirePostal
-              errors={originErrors()}
-            />
-            <AddressSummary addr={form.origin} />
+            <div className="grid gap-4 2xl:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+                <SectionHeader icon={<User className="h-4 w-4" />} title="From" />
+                <div className="mt-4">
+                  <AddressInput
+                    sectionLabel="From"
+                    value={form.origin}
+                    onChange={updateOrigin}
+                    requirePostal
+                    errors={originErrors()}
+                  />
+                  <AddressSummary addr={form.origin} />
+                </div>
+              </div>
 
-            <SectionHeader icon={<MapPin className="h-4 w-4" />} title="To" />
-            <AddressInput
-              sectionLabel="To"
-              value={form.destination}
-              onChange={updateDestination}
-              requirePostal
-              errors={destinationErrors()}
-            />
-            <AddressSummary addr={form.destination} />
+              <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+                <SectionHeader icon={<MapPin className="h-4 w-4" />} title="To" />
+                <div className="mt-4">
+                  <AddressInput
+                    sectionLabel="To"
+                    value={form.destination}
+                    onChange={updateDestination}
+                    requirePostal
+                    errors={destinationErrors()}
+                  />
+                  <AddressSummary addr={form.destination} />
+                </div>
+              </div>
+            </div>
 
             <SectionHeader icon={<Package className="h-4 w-4" />} title="Package" />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <NumberField label="Weight" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
-              <SelectField label="Weight unit" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
-              <SelectField label="Product type" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
-              <NumberField label="Length" value={form.length} onChange={(v) => updateField("length", v)} placeholder="1" error={errors.length} />
-              <NumberField label="Width" value={form.width} onChange={(v) => updateField("width", v)} placeholder="1" error={errors.width} />
-              <NumberField label="Height" value={form.height} onChange={(v) => updateField("height", v)} placeholder="1" error={errors.height} />
-              <SelectField label="Dimension unit" value={form.dimensionUnit} options={["in", "cm"]} onChange={(v) => updateField("dimensionUnit", v)} />
+            <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="grid gap-4 md:grid-cols-[1fr_140px_1.4fr]">
+                <NumberField label="Weight" value={form.weight} onChange={(v) => updateField("weight", v)} placeholder="1" error={errors.weight} />
+                <SelectField label="Unit" value={form.weightUnit} options={["lb", "oz"]} onChange={(v) => updateField("weightUnit", v)} />
+                <SelectField label="Product type" value={form.productType} options={productTypes} onChange={(v) => updateField("productType", v)} error={errors.productType} />
+              </div>
+              {form.productType === "Other" ? (
+                <div className="mt-4">
+                  <InputField
+                    label="Describe the product"
+                    value={form.productDescription}
+                    onChange={(v) => updateField("productDescription", v)}
+                    placeholder="e.g. Handmade ceramic mug"
+                    error={errors.productDescription}
+                  />
+                </div>
+              ) : null}
+              <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_1fr_140px]">
+                <NumberField label="Length" value={form.length} onChange={(v) => updateField("length", v)} placeholder="1" error={errors.length} />
+                <NumberField label="Width" value={form.width} onChange={(v) => updateField("width", v)} placeholder="1" error={errors.width} />
+                <NumberField label="Height" value={form.height} onChange={(v) => updateField("height", v)} placeholder="1" error={errors.height} />
+                <SelectField label="Unit" value={form.dimensionUnit} options={["in", "cm"]} onChange={(v) => updateField("dimensionUnit", v)} />
+              </div>
             </div>
 
             <button
@@ -880,6 +1013,7 @@ export function CreateGuideForm() {
               </div>
             ) : null}
           </form>
+          )}
 
           {apiRates.length > 0 && (
             <form
@@ -1407,7 +1541,7 @@ function ConfirmModal({
         {/* Payment actions */}
         {supportsLabelPurchase ? (
           <div className="mt-4 grid gap-3">
-            {/* Wallet payment — primary when balance is sufficient */}
+            <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={onConfirm}
@@ -1426,17 +1560,21 @@ function ConfirmModal({
                   : `Insufficient balance (need ${formatCurrency(shortBy)} more)`}
             </button>
 
-            {/* Card payment — shown if feature is enabled */}
-            {directCardAvailable ? (
-              <button
-                type="button"
-                onClick={onPayByCard}
-                disabled={busy}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:border-[#F97316]/50 hover:bg-orange-50 hover:text-[#F97316] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <CreditCard className="h-4 w-4" />
-                {payByCardLoading ? "Redirecting to checkout..." : "Pay by card"}
-              </button>
+            <button
+              type="button"
+              onClick={onPayByCard}
+              disabled={busy || !directCardAvailable}
+              title={directCardAvailable ? "Open secure card checkout in a new tab." : "Card checkout is not available for this account yet."}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-800 transition hover:-translate-y-0.5 hover:border-[#F97316]/50 hover:bg-orange-50 hover:text-[#F97316] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CreditCard className="h-4 w-4" />
+              {payByCardLoading ? "Opening checkout..." : "Pay by card"}
+            </button>
+            </div>
+            {!directCardAvailable ? (
+              <p className="text-xs font-semibold text-slate-500">
+                Card checkout is visible for clarity, but it is not available for this account right now.
+              </p>
             ) : null}
 
             {/* Add funds shortcut when balance is insufficient */}
@@ -1492,6 +1630,26 @@ function NumberField({
         type="number"
         min="0"
         step="0.01"
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"
+      />
+      {error ? <span className="text-xs font-semibold text-red-600">{error}</span> : null}
+    </label>
+  );
+}
+
+function InputField({
+  label, value, onChange, placeholder, error,
+}: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: string;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-bold text-slate-700">
+      {label}
+      <input
+        value={value}
+        type="text"
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-500/10"

@@ -793,3 +793,51 @@ Do not invite beta users until these routes return 200 after redeploy.
 - `/api/config/status` still shows expected beta flags.
 - One card or wallet label purchase reaches `label_purchased`.
 - Admin exception panel remains accessible to admin only.
+
+---
+
+## FASE 5.59 — Commercial UX and Earnings Controls
+
+### Go conditions
+
+- `/crear-guia` draft persists across Stripe redirects without storing payment data.
+- Product type `Other` requires a clear product description.
+- Rates loading shows progress-oriented copy and compact summary.
+- Wallet recharge supports safe custom amounts from `$5` to `$500`.
+- Card checkout opens in a new tab or falls back safely.
+- Wallet and card options remain visible in the payment modal.
+- Pricing gross-up recovers the configured card processing fee on the final total.
+- Admin overview shows beta label mode and profitability snapshot.
+
+### No-go conditions
+
+- Negative, zero, or above-limit recharge reaches Stripe Checkout.
+- Custom recharge accepts more than two decimals.
+- Draft persistence stores secrets or payment/card data.
+- Card payment hides when wallet has balance.
+- Cross-border/customs/international claims are introduced.
+- Profit reporting is presented as final accounting rather than beta estimate.
+
+### Pricing invariant
+
+For FASE 5.59, the displayed customer price is still shared by wallet and card. It includes:
+
+```
+provider_cost + platform_markup + grossed_up_payment_fee
+```
+
+The gross-up is calculated in integer cents:
+
+```
+customer_total_cents = ceil((pricing_subtotal_cents + fixed_fee_cents) / (1 - fee_pct))
+payment_fee_cents = customer_total_cents - pricing_subtotal_cents
+```
+
+This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`, and admin shipment pricing aligned.
+
+### Deferred
+
+- Batch/multilabel purchase.
+- Wallet-specific no-card-fee pricing.
+- Full accounting dashboard.
+- Automatic refunds/voids.

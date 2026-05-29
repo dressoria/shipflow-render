@@ -10,7 +10,8 @@ import { getStripeClient, isStripeConfigured, isStripeWebhookConfigured } from "
 
 export const runtime = "nodejs";
 
-const ALLOWED_AMOUNTS = new Set([10, 25, 50, 100]);
+const MIN_RECHARGE_AMOUNT = 5;
+const MAX_RECHARGE_AMOUNT = 500;
 const CURRENCY = "usd";
 
 type CheckoutBody = {
@@ -27,6 +28,7 @@ type RechargeRow = {
 function parseAmount(value: unknown) {
   const amount = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(amount)) return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(String(value).trim())) return null;
   return Number(amount.toFixed(2));
 }
 
@@ -66,12 +68,12 @@ export async function POST(request: Request) {
     if (!body) return apiError("Invalid request body.", 400);
 
     const amount = parseAmount(body.amount);
-    if (amount == null || !ALLOWED_AMOUNTS.has(amount)) {
+    if (amount == null || amount < MIN_RECHARGE_AMOUNT || amount > MAX_RECHARGE_AMOUNT) {
       await auditPaymentEvent("payment_checkout_failed", "warning", "Stripe checkout rejected because amount was invalid.", {
         userId: user.id,
         amount,
       });
-      return apiError("Choose a valid recharge amount.", 400);
+      return apiError(`Choose a recharge amount between $${MIN_RECHARGE_AMOUNT} and $${MAX_RECHARGE_AMOUNT}.`, 400);
     }
 
     const serviceSupabase = createServiceSupabaseClient();

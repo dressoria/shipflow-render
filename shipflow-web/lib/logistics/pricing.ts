@@ -50,6 +50,14 @@ export function roundMoney(value: number): number {
   return Number(value.toFixed(2));
 }
 
+function dollarsToCents(value: number): number {
+  return Math.round(roundMoney(Math.max(0, value)) * 100);
+}
+
+function centsToDollars(value: number): number {
+  return roundMoney(value / 100);
+}
+
 // platform_markup = max(markupMinimum, providerCost * markupPercentage)
 export function calculatePlatformMarkup(providerCost: number, config?: PricingConfig): number {
   const cfg = config ?? getPricingConfig();
@@ -57,13 +65,24 @@ export function calculatePlatformMarkup(providerCost: number, config?: PricingCo
   return roundMoney(Math.max(cfg.markupMinimum, providerCost * cfg.markupPercentage));
 }
 
-// payment_fee = (subtotal * paymentFeePercentage) + paymentFeeFixed
+// Grossed-up payment_fee:
+// customer_total_cents = ceil((subtotal_cents + fixed_fee_cents) / (1 - fee_pct))
+// payment_fee = customer_total - subtotal
 // ShipFlow does NOT absorb this fee — it is passed through to the customer.
 export function calculatePaymentFee(subtotal: number, options?: PaymentFeeOptions): number {
   const cfg = getPricingConfig();
   const pct = options?.percentage ?? cfg.paymentFeePercentage;
   const fixed = options?.fixed ?? cfg.paymentFeeFixed;
-  return roundMoney(subtotal * pct + fixed);
+  const subtotalCents = dollarsToCents(subtotal);
+  const fixedCents = dollarsToCents(fixed);
+  const denominator = 1 - pct;
+
+  if (denominator <= 0) {
+    return centsToDollars(fixedCents);
+  }
+
+  const customerTotalCents = Math.ceil((subtotalCents + fixedCents) / denominator);
+  return centsToDollars(Math.max(0, customerTotalCents - subtotalCents));
 }
 
 // Full customer-facing price:
@@ -77,7 +96,7 @@ export function calculateCustomerPrice(
   const platformMarkup = calculatePlatformMarkup(safeProviderCost, cfg);
   const subtotal = roundMoney(safeProviderCost + platformMarkup);
   const paymentFee = calculatePaymentFee(subtotal, options?.paymentFee);
-  const customerPrice = roundMoney(subtotal + paymentFee);
+  const customerPrice = centsToDollars(dollarsToCents(subtotal) + dollarsToCents(paymentFee));
 
   return {
     providerCost: safeProviderCost,
