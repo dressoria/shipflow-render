@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-28 (FASE 5.55)
+Last updated: 2026-05-29 (FASE 5.64)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -1647,3 +1647,44 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] Sign out works
 - [ ] Email change is not offered
 - [ ] No secrets/payment data are stored
+
+---
+
+## FASE 5.64 — Dashboard UX Checklist
+
+### 1. Overview
+- [ ] `/dashboard` loads inside the compressed workspace shell
+- [ ] Welcome header uses business name when profile metadata is available
+- [ ] Controlled beta and automatic-label status are visible
+- [ ] Desktop layout uses available width without excessive empty space
+- [ ] Mobile layout stacks cards without horizontal clipping
+
+### 2. Quick actions
+- [ ] Create shipment opens `/crear-guia`
+- [ ] Multi-label beta opens `/crear-guia`
+- [ ] Add balance opens `/saldo`
+- [ ] My Shipments opens `/envios`
+- [ ] Profile opens `/perfil`
+- [ ] Support opens `/support`
+
+### 3. Metrics and activity
+- [ ] Shipment count renders gracefully when zero
+- [ ] Estimated spend renders with currency formatting
+- [ ] Active shipments count is visible
+- [ ] Available wallet balance is visible
+- [ ] Purchased label count is visible
+- [ ] Issue count is visible without exposing raw provider errors
+- [ ] Recent activity shows recent shipments and wallet movements when available
+- [ ] Empty state guides users to create a shipment or add balance
+
+### 4. Onboarding and status
+- [ ] New users see first-shipment guidance
+- [ ] Wallet balance prompt clears once balance exists
+- [ ] Profile completion prompt reflects available business metadata
+- [ ] Operational status explains automatic labels, selected domestic routes, wallet/card payments, and support review
+
+### 5. Scope safety
+- [ ] No payment/shipping/wallet/label provider logic changed
+- [ ] No env files changed
+- [ ] No migrations added
+- [ ] No secrets or raw metadata exposed to users

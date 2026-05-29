@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-28 (FASE 5.55)
+Última revisión: 2026-05-29 (FASE 5.64)
 
 ---
 
@@ -932,3 +932,29 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Profile edits touch shipping, payment, wallet, provider, refund, or void logic.
 - Profile data includes secrets or payment details.
 - A migration is added without a specific storage need.
+
+---
+
+## FASE 5.64 — Dashboard UX Redesign
+
+### Go conditions
+
+- `/dashboard` presents a compact SendiFlash operating cockpit.
+- Header greets the user with business name when available, otherwise email prefix.
+- Quick actions link to Create shipment, Multi-label beta, Add balance, My Shipments, Profile, and Support.
+- Dashboard metrics show shipments, estimated spend, active shipments, available balance, labels purchased, and issues.
+- Recent activity combines user shipments and wallet movements without exposing raw metadata.
+- New-user onboarding prompts highlight first shipment, wallet balance, profile completion, and support guide.
+- Operational status explains automatic labels, selected domestic routes, wallet/card payments, and support review.
+
+### No-go conditions
+
+- Dashboard widgets change payment, shipping, wallet, label, provider, refund, or void business logic.
+- Normal users see admin-only pending order metadata or raw provider errors.
+- The redesign reintroduces wide/marketing-style layout constraints inside the app shell.
+- A migration or new dashboard API is added without a storage/API requirement.
+
+### Data limitations
+
+- Dashboard issue count currently uses available shipment label statuses such as `failed` and `voided`.
+- Admin exception analytics and full pending-label-order review remain in `/admin/label-orders`.

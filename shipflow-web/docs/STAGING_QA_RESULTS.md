@@ -1,6 +1,6 @@
 # Staging QA Results
 
-Last updated: 2026-05-28 (FASE 5.55 controlled beta readiness QA)
+Last updated: 2026-05-29 (FASE 5.64 dashboard UX redesign)
 
 ---
 
@@ -1625,6 +1625,35 @@ Date/time: 2026-05-29 12:37 -05
 - Email change is not implemented.
 - Avatar upload is not implemented.
 - Wider profile/admin profile management remains deferred.
+
+---
+
+## FASE 5.64 — Dashboard UX Redesign
+
+Date/time: 2026-05-29 12:44 -05
+
+### Scope implemented
+
+- Redesigned `/dashboard` as a SendiFlash operating cockpit.
+- Added business-aware greeting using the authenticated user's business name or email prefix.
+- Added a compact beta/automatic-label status header.
+- Added visual quick actions for create shipment, multi-label beta, wallet balance, My Shipments, Profile, and Support.
+- Reworked metric cards for shipments, spend, active shipments, wallet balance, purchased labels, and issues.
+- Added a combined recent activity timeline using recent shipments and wallet movements.
+- Added operational status card for automatic labels, selected domestic markets, wallet/card payments, and support review.
+- Added onboarding next-step prompts for first shipment, wallet balance, profile completion, and support guide.
+
+### Data powering widgets
+
+- Shipments, labels, spend, active shipments, and issue counts use existing user shipment data.
+- Wallet balance and recent wallet activity use the existing balance summary endpoint/service.
+- Profile completion prompt uses currently available authenticated user/business name data.
+
+### Limitations
+
+- No new dashboard API was added.
+- Action-required label orders are inferred only from available shipment/label status data in this user dashboard phase.
+- Admin exception analytics remain in admin views.
 
 ---
 

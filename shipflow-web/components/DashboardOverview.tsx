@@ -1,17 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ArrowRight, CircleDollarSign, HelpCircle, PackageCheck, PlusCircle, Truck, Wallet } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/Button";
+import {
+  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
+  Boxes,
+  CircleDollarSign,
+  HelpCircle,
+  PackageCheck,
+  PlusCircle,
+  Settings,
+  ShieldCheck,
+  Truck,
+  Wallet,
+} from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
-import { StatCard } from "@/components/StatCard";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/forms";
-import { getAvailableBalance } from "@/lib/services/balanceService";
+import { getBalanceSummary } from "@/lib/services/balanceService";
 import { getShipments } from "@/lib/services/shipmentService";
-import type { Envio } from "@/lib/types";
+import type { Envio, MovimientoSaldo } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 const statusTone = {
@@ -20,186 +32,310 @@ const statusTone = {
   Pendiente: "amber",
 } as const;
 
-function displayStatus(status: Envio["status"]) {
-  if (status === "Entregado") return "Delivered";
-  if (status === "En tránsito") return "In transit";
-  if (status === "Pendiente") return "Pending";
-  return status;
+function displayLabelStatus(status?: string | null) {
+  if (!status) return "No label";
+  if (status === "purchased") return "Label ready";
+  if (status === "voided") return "Voided";
+  if (status === "failed") return "Failed";
+  if (status === "processing") return "Processing";
+  return status.replaceAll("_", " ");
 }
 
+function activityDate(value: string) {
+  try {
+    return formatDate(value);
+  } catch {
+    return "Recently";
+  }
+}
+
+type DashboardActivity =
+  | { id: string; kind: "shipment"; title: string; detail: string; amount: number; date: string; href: string; tone: "blue" | "green" | "amber" | "slate" }
+  | { id: string; kind: "wallet"; title: string; detail: string; amount: number; date: string; href: string; tone: "blue" | "green" | "amber" | "slate" };
+
 export function DashboardOverview() {
+  const { user } = useAuth();
   const [shipments, setShipments] = useState<Envio[]>([]);
+  const [movements, setMovements] = useState<MovimientoSaldo[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     window.setTimeout(() => {
-      Promise.all([getShipments(), getAvailableBalance()]).then(([nextShipments, nextBalance]) => {
+      Promise.all([getShipments(), getBalanceSummary()]).then(([nextShipments, balanceSummary]) => {
         setShipments(nextShipments);
-        setBalance(nextBalance);
+        setBalance(balanceSummary.availableBalance ?? balanceSummary.balance ?? 0);
+        setMovements(balanceSummary.recentMovements ?? balanceSummary.movements ?? []);
         setLoading(false);
       });
-    }, 250);
+    }, 200);
   }, []);
 
-  const total = useMemo(
-    () => shipments.reduce((sum, shipment) => sum + shipment.value, 0),
-    [shipments],
-  );
-  const inTransit = shipments.filter((shipment) => shipment.status === "En tránsito").length;
+  const stats = useMemo(() => {
+    const total = shipments.reduce((sum, shipment) => sum + (shipment.customerPrice ?? shipment.total ?? shipment.value ?? 0), 0);
+    const inTransit = shipments.filter((shipment) => shipment.status === "En tránsito").length;
+    const labelsPurchased = shipments.filter((shipment) => shipment.labelStatus === "purchased").length;
+    const issues = shipments.filter((shipment) => ["failed", "voided"].includes(shipment.labelStatus ?? "")).length;
+    return { total, inTransit, labelsPurchased, issues };
+  }, [shipments]);
+
+  const recentActivity = useMemo<DashboardActivity[]>(() => {
+    const shipmentActivity = shipments.slice(0, 5).map((shipment) => ({
+      id: `shipment-${shipment.id}`,
+      kind: "shipment" as const,
+      title: shipment.trackingNumber || shipment.id,
+      detail: `${shipment.recipientName} · ${displayLabelStatus(shipment.labelStatus)}`,
+      amount: shipment.customerPrice ?? shipment.total ?? shipment.value ?? 0,
+      date: shipment.date,
+      href: shipment.trackingNumber ? `/guia/${shipment.trackingNumber}` : "/envios",
+      tone: shipment.labelStatus === "purchased" ? "green" as const : statusTone[shipment.status],
+    }));
+    const walletActivity = movements.slice(0, 4).map((movement) => ({
+      id: `wallet-${movement.id}`,
+      kind: "wallet" as const,
+      title: movement.concept,
+      detail: movement.type ? movement.type.replaceAll("_", " ") : "Wallet activity",
+      amount: movement.amount,
+      date: movement.date,
+      href: "/saldo",
+      tone: movement.amount >= 0 ? "green" as const : "amber" as const,
+    }));
+    return [...shipmentActivity, ...walletActivity]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8);
+  }, [movements, shipments]);
+
+  const profileIncomplete = !user?.businessName;
+  const hasShipments = shipments.length > 0;
+  const greetingName = user?.businessName || user?.email?.split("@")[0] || "there";
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4">
         <LoadingState />
-        <LoadingState />
-        <LoadingState />
-        <LoadingState />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <LoadingState />
+          <LoadingState />
+          <LoadingState />
+          <LoadingState />
+        </div>
       </div>
     );
   }
 
   return (
-    <>
-      <section className="mb-6 overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm shadow-slate-950/5">
-        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
+    <div className="grid gap-5">
+      <section className="overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-sm shadow-slate-950/5">
+        <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
           <div className="min-w-0">
-            <Badge tone="blue">Controlled beta</Badge>
-            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950">
-              Welcome to SendiFlash
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="blue">Controlled beta</Badge>
+              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+                Automatic labels enabled
+              </span>
+            </div>
+            <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+              Good to see you, {greetingName}.
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Create a domestic shipment, compare available rates, pay with wallet or card, and receive your label automatically after payment is confirmed.
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Compare rates, pay with wallet or card, and manage domestic shipments from one operating workspace.
             </p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <Button href="/crear-guia" variant="action" icon={<PlusCircle className="h-4 w-4" />}>
-                Create your first shipment
-              </Button>
-              <Button href="/saldo" variant="secondary" icon={<Wallet className="h-4 w-4" />}>
-                Add wallet balance
-              </Button>
-              <Button href="/envios" variant="ghost" icon={<Truck className="h-4 w-4" />}>
-                My Shipments
-              </Button>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <QuickAction href="/crear-guia" icon={PlusCircle} label="Create shipment" detail="Single label flow" accent="orange" />
+              <QuickAction href="/crear-guia" icon={Boxes} label="Multi-label beta" detail="Up to 5 shipments" accent="blue" />
+              <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
+              <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
+              <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />
+              <QuickAction href="/support" icon={HelpCircle} label="Support" detail="Beta help center" accent="slate" />
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-black uppercase tracking-widest text-slate-500">How beta shipping works</p>
-            <div className="mt-4 grid gap-3 text-sm">
-              {[
-                "Enter a domestic route in a supported country.",
-                "Choose a carrier rate with clear pricing.",
-                "Pay securely and let SendiFlash prepare the label.",
-                "Download the label from My Shipments.",
-              ].map((step, index) => (
-                <div key={step} className="flex items-start gap-3">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#2563EB] text-xs font-black text-white">
-                    {index + 1}
-                  </span>
-                  <span className="text-slate-600">{step}</span>
-                </div>
-              ))}
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next best steps</p>
+            <div className="mt-4 grid gap-3">
+              <NextStep done={hasShipments} title="Create your first shipment" href="/crear-guia" />
+              <NextStep done={balance > 0} title="Add wallet balance" href="/saldo" />
+              <NextStep done={!profileIncomplete} title="Complete your profile" href="/perfil" />
+              <NextStep done={false} title="Read the beta support guide" href="/support" optional />
             </div>
-            <Link
-              href="/support"
-              className="mt-4 inline-flex items-center gap-1.5 text-sm font-black text-[#2563EB] hover:text-[#1D4ED8]"
-            >
-              Beta help center
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Shipments created" value={shipments.length.toString()} detail="No comparison" icon={PackageCheck} />
-        <StatCard label="Estimated cost" value={formatCurrency(total)} detail="Total" icon={CircleDollarSign} tone="green" />
-        <StatCard label="In transit" value={inTransit.toString()} detail="Active shipments" icon={Truck} />
-        <StatCard label="Balance" value={formatCurrency(balance)} detail="Available" icon={Activity} tone="green" />
-      </div>
+      <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-6">
+        <MetricCard label="Shipments" value={shipments.length.toString()} detail="Created" icon={PackageCheck} tone="blue" />
+        <MetricCard label="Spend" value={formatCurrency(stats.total)} detail="Estimated total" icon={CircleDollarSign} tone="green" />
+        <MetricCard label="Active" value={stats.inTransit.toString()} detail="In transit" icon={Truck} tone="blue" />
+        <MetricCard label="Balance" value={formatCurrency(balance)} detail="Available" icon={Wallet} tone="green" />
+        <MetricCard label="Labels" value={stats.labelsPurchased.toString()} detail="Purchased" icon={BadgeCheck} tone="blue" />
+        <MetricCard label="Issues" value={stats.issues.toString()} detail="Need review" icon={AlertTriangle} tone={stats.issues > 0 ? "amber" : "slate"} />
+      </section>
 
-      <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
-              <h2 className="font-black text-slate-950">Recent shipments</h2>
-              <p className="text-sm text-slate-500">Recent shipment activity.</p>
+              <h2 className="font-black text-slate-950">Recent activity</h2>
+              <p className="text-sm text-slate-500">Shipments and wallet movement in one timeline.</p>
             </div>
-            <Badge tone="blue">Updated now</Badge>
+            <Link href="/envios" className="inline-flex items-center gap-1 text-sm font-black text-[#2563EB]">
+              View all
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-          {shipments.length > 0 ? (
-            <>
-            <div className="grid gap-3 p-4 sm:hidden">
-              {shipments.slice(0, 5).map((shipment) => (
-                <div key={shipment.id} className="rounded-2xl bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="break-words font-black text-slate-950">{shipment.trackingNumber}</p>
-                      <p className="mt-1 text-sm text-slate-600">{shipment.recipientName}</p>
-                      <p className="text-xs text-slate-400">{formatDate(shipment.date)}</p>
+          {recentActivity.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {recentActivity.map((activity) => (
+                <Link
+                  key={activity.id}
+                  href={activity.href}
+                  className="grid gap-3 px-4 py-3 transition hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_140px_110px]"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={activity.tone}>{activity.kind === "shipment" ? "Shipment" : "Wallet"}</Badge>
+                      <p className="truncate font-black text-slate-950">{activity.title}</p>
                     </div>
-                    <Badge tone={statusTone[shipment.status]}>{displayStatus(shipment.status)}</Badge>
+                    <p className="mt-1 text-sm text-slate-500">{activity.detail}</p>
                   </div>
-                  <p className="mt-3 font-bold text-slate-950">{formatCurrency(shipment.value)}</p>
-                </div>
+                  <p className="font-black text-slate-950 md:text-right">{formatCurrency(activity.amount)}</p>
+                  <p className="text-sm text-slate-500 md:text-right">{activityDate(activity.date)}</p>
+                </Link>
               ))}
             </div>
-            <div className="hidden overflow-x-auto sm:block">
-              <div className="grid min-w-[800px] grid-cols-[1fr_1.3fr_1.1fr_1fr_0.8fr] gap-4 border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
-                <span>Shipment</span>
-                <span>Customer</span>
-                <span>Date</span>
-                <span>Status</span>
-                <span>Value</span>
-              </div>
-              {shipments.slice(0, 5).map((shipment) => (
-                <div key={shipment.id} className="grid min-w-[800px] grid-cols-[1fr_1.3fr_1.1fr_1fr_0.8fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
-                  <span className="font-black text-slate-950">{shipment.id}</span>
-                  <span className="text-slate-600">{shipment.recipientName}</span>
-                  <span className="text-slate-600">{formatDate(shipment.date)}</span>
-                  <span>
-                    <Badge tone={statusTone[shipment.status]}>{displayStatus(shipment.status)}</Badge>
-                  </span>
-                  <span className="font-bold text-slate-950">{formatCurrency(shipment.value)}</span>
-                </div>
-              ))}
-            </div>
-            </>
           ) : (
             <div className="p-5">
               <EmptyState
                 icon={Truck}
-                title="No shipments yet"
-                description="Create your first shipment to see activity here."
+                title="No activity yet"
+                description="Create a shipment or add wallet balance to start your activity timeline."
               />
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="grid gap-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+        <aside className="grid content-start gap-5">
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <div className="flex items-start gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-orange-50 text-[#F97316]">
-                <HelpCircle className="h-5 w-5" />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-blue-50 text-[#2563EB]">
+                <ShieldCheck className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="font-black text-slate-950">Need help shipping?</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
-                  Review beta support notes for labels under review, wallet/card payments, and domestic market availability.
-                </p>
-                <Link href="/support" className="mt-3 inline-flex text-sm font-black text-[#2563EB] hover:text-[#1D4ED8]">
-                  Open support guide
-                </Link>
+                <h3 className="font-black text-slate-950">Operational status</h3>
+                <div className="mt-3 grid gap-2 text-sm text-slate-600">
+                  <StatusLine label="Automatic labels" value="On after payment" />
+                  <StatusLine label="Markets" value="Selected domestic routes" />
+                  <StatusLine label="Payments" value="Wallet and card" />
+                  <StatusLine label="Exceptions" value="Support review" />
+                </div>
               </div>
             </div>
-          </div>
-          <EmptyState
-            icon={Truck}
-            title="No open issues"
-            description="Shipment updates and exceptions will appear here."
-          />
+          </section>
+
+          <section className="rounded-3xl border border-orange-100 bg-orange-50 p-5">
+            <p className="font-black text-slate-950">Need help shipping?</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700">
+              If a label needs review, payment is confirmed and support can retry safely.
+            </p>
+            <Link href="/support" className="mt-4 inline-flex items-center gap-1 text-sm font-black text-[#EA580C]">
+              Open support guide
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </section>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  icon: Icon,
+  label,
+  detail,
+  accent,
+}: {
+  href: string;
+  icon: typeof PlusCircle;
+  label: string;
+  detail: string;
+  accent: "blue" | "orange" | "green" | "slate";
+}) {
+  const colors = {
+    blue: "border-blue-100 bg-blue-50 text-[#2563EB]",
+    orange: "border-orange-100 bg-orange-50 text-[#F97316]",
+    green: "border-green-100 bg-green-50 text-green-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-600",
+  }[accent];
+
+  return (
+    <Link href={href} className="group rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+      <div className="flex items-center gap-3">
+        <span className={`grid h-10 w-10 place-items-center rounded-2xl border ${colors}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-slate-950">{label}</p>
+          <p className="truncate text-xs font-semibold text-slate-500">{detail}</p>
         </div>
       </div>
-    </>
+    </Link>
+  );
+}
+
+function NextStep({ done, title, href, optional = false }: { done: boolean; title: string; href: string; optional?: boolean }) {
+  return (
+    <Link href={href} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2.5 text-sm transition hover:bg-blue-50">
+      <span className="flex items-center gap-2 font-bold text-slate-700">
+        <span className={`grid h-6 w-6 place-items-center rounded-full text-xs font-black ${done ? "bg-green-100 text-green-700" : "bg-orange-100 text-[#EA580C]"}`}>
+          {done ? "✓" : optional ? "?" : "!"}
+        </span>
+        {title}
+      </span>
+      <ArrowRight className="h-4 w-4 text-slate-400" />
+    </Link>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: typeof PackageCheck;
+  tone: "blue" | "green" | "amber" | "slate";
+}) {
+  const colors = {
+    blue: "bg-blue-50 text-[#2563EB]",
+    green: "bg-green-50 text-green-700",
+    amber: "bg-amber-50 text-amber-700",
+    slate: "bg-slate-100 text-slate-600",
+  }[tone];
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-950/5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
+          <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{detail}</p>
+        </div>
+        <span className={`grid h-10 w-10 place-items-center rounded-2xl ${colors}`}>
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StatusLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-black text-slate-950">{value}</span>
+    </div>
   );
 }
