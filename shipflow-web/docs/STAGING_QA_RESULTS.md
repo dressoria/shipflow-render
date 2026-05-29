@@ -1,6 +1,6 @@
 # Staging QA Results
 
-Last updated: 2026-05-29 (FASE 5.64 dashboard UX redesign)
+Last updated: 2026-05-29 (FASE 5.65 SendiFlash Prep managed MVP)
 
 ---
 
@@ -1625,6 +1625,52 @@ Date/time: 2026-05-29 12:37 -05
 - Email change is not implemented.
 - Avatar upload is not implemented.
 - Wider profile/admin profile management remains deferred.
+
+---
+
+## FASE 5.65 — SendiFlash Prep Managed MVP
+
+Date/time: 2026-05-29 America/Guayaquil
+
+### Scope implemented
+
+- Added first manual-managed SendiFlash Prep module for Amazon FBA prep requests.
+- Added proposed Supabase migration for `prep_orders`, `prep_order_items`, `prep_order_events`, and `prep_order_documents`.
+- Added customer routes: `/prep`, `/prep/new`, `/prep/orders`, and `/prep/orders/[id]`.
+- Added admin routes: `/admin/prep-orders` and `/admin/prep-orders/[id]`.
+- Added authenticated APIs for users to create/list/view their own Prep orders.
+- Added admin-only APIs for listing all Prep orders, updating status/pricing/internal fields, and adding customer/internal events.
+- Added navigation entries for FBA Prep and admin Prep Orders.
+
+### Manual-managed posture
+
+- No AI automation.
+- No n8n automation.
+- No Amazon SP-API.
+- No partner API integration.
+- No Prep payment collection in this phase.
+- Final quote can be updated manually by admin after review.
+
+### Customer/admin separation
+
+- Customers can see their own order summary, item list, customer-visible events, receiving reference, status, and customer estimate/final quote.
+- Customers cannot see partner name, partner reference, partner cost, margin, admin notes, internal events, or internal documents.
+- Admin can manage internal partner/reference/cost/margin fields and add internal-only events.
+
+### Status workflow
+
+`quote_requested` → `under_review` → `awaiting_inventory` → `inventory_received` → `prep_in_progress` → `ready_to_ship_to_amazon` → `shipped_to_amazon` → `completed`.
+
+Exception statuses: `action_required`, `cancelled`.
+
+### Future phases intentionally deferred
+
+- Prep payments.
+- n8n operations automation.
+- AI assistant.
+- Amazon SP-API.
+- Partner API integration.
+- Document upload/storage UX.
 
 ---
 

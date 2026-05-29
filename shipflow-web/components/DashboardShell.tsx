@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
+  ClipboardList,
   CreditCard,
   Home,
   MapPinned,
@@ -30,6 +31,7 @@ const menu = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
   { label: "Shipments", href: "/envios", icon: Truck },
+  { label: "FBA Prep", href: "/prep", icon: ClipboardList },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
   { label: "Balance", href: "/saldo", icon: CreditCard },
   { label: "Profile", href: "/perfil", icon: Settings },

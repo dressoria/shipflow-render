@@ -7,6 +7,7 @@ import {
   ArrowRight,
   BadgeCheck,
   Boxes,
+  ClipboardList,
   CircleDollarSign,
   HelpCircle,
   PackageCheck,
@@ -143,6 +144,7 @@ export function DashboardOverview() {
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <QuickAction href="/crear-guia" icon={PlusCircle} label="Create shipment" detail="Single label flow" accent="orange" />
               <QuickAction href="/crear-guia" icon={Boxes} label="Multi-label beta" detail="Up to 5 shipments" accent="blue" />
+              <QuickAction href="/prep" icon={ClipboardList} label="SendiFlash Prep" detail="FBA prep requests" accent="orange" />
               <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
               <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
               <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />

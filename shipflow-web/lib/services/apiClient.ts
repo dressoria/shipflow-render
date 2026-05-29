@@ -442,6 +442,85 @@ export async function apiCreateAdminBalanceAdjustment(
   });
 }
 
+// ── SendiFlash Prep ─────────────────────────────────────────────────────────
+
+export type CreatePrepOrderBody = {
+  marketplace: string;
+  businessName?: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string;
+  productSummary: string;
+  totalUnits: number;
+  totalCartons: number;
+  customerNotes?: string;
+  items: Array<{
+    sku?: string;
+    productName: string;
+    asin?: string;
+    units: number;
+    cartons: number;
+    prepServices: string[];
+    notes?: string;
+  }>;
+};
+
+export async function apiCreatePrepOrder(body: CreatePrepOrderBody): Promise<{ order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder }>("/api/prep-orders", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiGetPrepOrders(params?: { status?: string; limit?: number }): Promise<{ orders: import("@/lib/types").PrepOrder[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return apiFetch<{ orders: import("@/lib/types").PrepOrder[]; limit: number }>(`/api/prep-orders${query ? `?${query}` : ""}`);
+}
+
+export async function apiGetPrepOrder(id: string): Promise<{ order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder }>(`/api/prep-orders/${encodeURIComponent(id)}`);
+}
+
+export async function apiGetAdminPrepOrders(params?: {
+  status?: string;
+  search?: string;
+  limit?: number;
+}): Promise<{ orders: import("@/lib/types").PrepOrder[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.search) qs.set("search", params.search);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return apiFetch<{ orders: import("@/lib/types").PrepOrder[]; limit: number }>(`/api/admin/prep-orders${query ? `?${query}` : ""}`);
+}
+
+export async function apiGetAdminPrepOrder(id: string): Promise<{ order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder }>(`/api/admin/prep-orders/${encodeURIComponent(id)}`);
+}
+
+export async function apiUpdateAdminPrepOrder(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<{ order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder }>(`/api/admin/prep-orders/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiCreateAdminPrepOrderEvent(
+  id: string,
+  body: { visibility: "customer" | "internal"; status?: string; title: string; message?: string },
+): Promise<{ order: import("@/lib/types").PrepOrder }> {
+  return apiFetch<{ order: import("@/lib/types").PrepOrder }>(`/api/admin/prep-orders/${encodeURIComponent(id)}/events`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 // ── Shipments ────────────────────────────────────────────────────────────────
 
 export type ShipmentsData = { shipments: Envio[]; limit: number };

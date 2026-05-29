@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-29 (FASE 5.64)
+Última revisión: 2026-05-29 (FASE 5.65)
 
 ---
 
@@ -958,3 +958,34 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 
 - Dashboard issue count currently uses available shipment label statuses such as `failed` and `voided`.
 - Admin exception analytics and full pending-label-order review remain in `/admin/label-orders`.
+
+---
+
+## FASE 5.65 — SendiFlash Prep Managed MVP
+
+### Go conditions
+
+- Prep is isolated from shipping label purchase, wallet, Stripe label payments, refunds, voids, and provider logic.
+- Proposed migration creates only `prep_*` tables and Prep enums.
+- Customers can create Prep requests from `/prep/new`.
+- Customers can list/view only their own Prep orders.
+- Customer timeline only includes `visibility='customer'` events/documents.
+- Admin can list Prep requests at `/admin/prep-orders`.
+- Admin can update Prep status, receiving reference, estimated/final price, partner cost, margin, admin notes, and internal partner references.
+- Admin can add customer-visible or internal-only events.
+
+### No-go conditions
+
+- Customer sees partner name, partner reference, partner cost, margin, admin notes, or internal events/documents.
+- Prep copy claims AI/API automation, Amazon SP-API support, owned warehouses, guaranteed lowest price, or automated partner integration.
+- Prep adds payment collection before a dedicated payment phase.
+- Prep changes existing label/wallet/refund/void/provider behavior.
+
+### Deferred
+
+- Prep payments.
+- n8n automation.
+- AI assistant.
+- Amazon SP-API.
+- Partner API integration.
+- Customer document upload and storage workflow.

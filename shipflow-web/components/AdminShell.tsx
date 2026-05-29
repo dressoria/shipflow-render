@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CreditCard,
+  ClipboardList,
   FileSearch,
   LayoutDashboard,
   LogOut,
@@ -25,6 +26,7 @@ const menu = [
   { label: "Couriers", href: "/admin/couriers", icon: Warehouse },
   { label: "Balance", href: "/admin/saldo", icon: CreditCard },
   { label: "Label Orders", href: "/admin/label-orders", icon: Receipt },
+  { label: "Prep Orders", href: "/admin/prep-orders", icon: ClipboardList },
   { label: "Audit", href: "/admin/audit", icon: FileSearch },
 ];
 
@@ -85,12 +87,13 @@ export function AdminShell({
             <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 lg:grid lg:overflow-visible lg:pb-0">
               {menu.map((item) => {
                 const Icon = item.icon;
+                const active = item.href === "/admin" ? pathname === "/admin" : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`flex shrink-0 items-center gap-3 rounded-2xl px-3 py-3 text-sm font-bold transition lg:shrink ${
-                      pathname === item.href
+                      active
                         ? "bg-[#FF1493] text-white shadow-lg shadow-[#FF1493]/30"
                         : "text-slate-300 hover:bg-white/10 hover:text-white"
                     }`}

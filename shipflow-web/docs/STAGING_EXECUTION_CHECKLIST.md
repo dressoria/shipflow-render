@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-29 (FASE 5.64)
+Last updated: 2026-05-29 (FASE 5.65)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -1688,3 +1688,49 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No env files changed
 - [ ] No migrations added
 - [ ] No secrets or raw metadata exposed to users
+
+---
+
+## FASE 5.65 — SendiFlash Prep Managed MVP Checklist
+
+### 1. Migration review
+- [ ] Review `20260529_add_prep_orders.sql` manually before applying
+- [ ] Tables are limited to `prep_orders`, `prep_order_items`, `prep_order_events`, and `prep_order_documents`
+- [ ] RLS allows users to read/create only their own Prep orders
+- [ ] Customer-visible event/document policies filter `visibility='customer'`
+- [ ] Admin operations use service role through admin-only API routes
+
+### 2. Customer flow
+- [ ] `/prep` explains managed Amazon FBA prep by SendiFlash
+- [ ] `/prep/new` creates a request with contact, product summary, units/cartons, services, items, and notes
+- [ ] `/prep/orders` lists only the signed-in user's Prep orders
+- [ ] `/prep/orders/[id]` shows status, item list, customer-visible timeline, next steps, and estimate
+- [ ] Customer does not see partner/internal fields
+
+### 3. Admin flow
+- [ ] `/admin/prep-orders` is admin-only
+- [ ] Admin can filter/list Prep orders by status
+- [ ] `/admin/prep-orders/[id]` shows full order with internal fields
+- [ ] Admin can update status, pricing, receiving reference, partner reference, partner cost, margin, and admin notes
+- [ ] Admin can add customer-visible events
+- [ ] Admin can add internal-only events
+
+### 4. Statuses
+- [ ] `quote_requested`
+- [ ] `under_review`
+- [ ] `awaiting_inventory`
+- [ ] `inventory_received`
+- [ ] `prep_in_progress`
+- [ ] `action_required`
+- [ ] `ready_to_ship_to_amazon`
+- [ ] `shipped_to_amazon`
+- [ ] `completed`
+- [ ] `cancelled`
+
+### 5. Deferred scope
+- [ ] No Prep payment collection
+- [ ] No AI automation
+- [ ] No n8n automation
+- [ ] No Amazon SP-API
+- [ ] No partner API integration
+- [ ] No shipping label/wallet/payment/refund/void logic changed

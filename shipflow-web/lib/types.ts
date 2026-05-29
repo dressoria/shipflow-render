@@ -158,6 +158,87 @@ export type StructuredAddress = {
   validationStatus?: AddressValidationStatus;
 };
 
+export type PrepOrderStatus =
+  | "quote_requested"
+  | "under_review"
+  | "awaiting_inventory"
+  | "inventory_received"
+  | "prep_in_progress"
+  | "action_required"
+  | "ready_to_ship_to_amazon"
+  | "shipped_to_amazon"
+  | "completed"
+  | "cancelled";
+
+export type PrepOrderVisibility = "customer" | "internal";
+
+export type PrepOrderItem = {
+  id: string;
+  prepOrderId: string;
+  sku?: string | null;
+  productName: string;
+  asin?: string | null;
+  units: number;
+  cartons: number;
+  prepServices: string[];
+  notes?: string | null;
+  createdAt: string;
+};
+
+export type PrepOrderEvent = {
+  id: string;
+  prepOrderId: string;
+  visibility: PrepOrderVisibility;
+  status?: PrepOrderStatus | null;
+  title: string;
+  message?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+};
+
+export type PrepOrderDocument = {
+  id: string;
+  prepOrderId: string;
+  visibility: PrepOrderVisibility;
+  fileName: string;
+  fileUrl?: string | null;
+  storagePath?: string | null;
+  documentType?: string | null;
+  createdAt: string;
+};
+
+export type PrepOrder = {
+  id: string;
+  userId: string;
+  status: PrepOrderStatus;
+  serviceType: string;
+  marketplace: string;
+  businessName?: string | null;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string | null;
+  productSummary: string;
+  totalUnits: number;
+  totalCartons: number;
+  estimatedUnitPrice?: number | null;
+  estimatedTotal?: number | null;
+  finalUnitPrice?: number | null;
+  finalTotal?: number | null;
+  partnerCostTotal?: number | null;
+  marginTotal?: number | null;
+  customerNotes?: string | null;
+  adminNotes?: string | null;
+  partnerNameInternal?: string | null;
+  partnerReferenceInternal?: string | null;
+  receivingReference?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: PrepOrderItem[];
+  events?: PrepOrderEvent[];
+  documents?: PrepOrderDocument[];
+};
+
 // ── FASE 5.39B — Label direct payment (backend ready, not yet active) ────────
 
 export type PendingLabelOrderStatus =
