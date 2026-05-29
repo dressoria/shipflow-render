@@ -1,6 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PREP_STATUSES } from "@/lib/prep";
+import { getPrepStatusEventTitle, PREP_STATUSES } from "@/lib/prep";
 import { requireAdminUser } from "@/lib/server/adminAuth";
 import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
 import { dollarsToCents, loadPrepOrderDetails, type PrepOrderRow } from "@/lib/server/prepOrders";
@@ -43,12 +43,18 @@ export async function PATCH(
   }
 
   try {
-    const { serviceSupabase } = await requireAdminUser(request);
+    const { serviceSupabase, user } = await requireAdminUser(request);
     const { id } = await params;
     const body = (await request.json()) as Record<string, unknown>;
-    const patch: Record<string, unknown> = {};
+    const existingOrder = await loadOrder(serviceSupabase, id);
+    if (!existingOrder) return apiError("Prep order not found.", 404);
 
-    if (typeof body.status === "string" && PREP_STATUSES.includes(body.status as never)) patch.status = body.status;
+    const patch: Record<string, unknown> = {};
+    const nextStatus = typeof body.status === "string" && PREP_STATUSES.includes(body.status as never)
+      ? body.status
+      : null;
+
+    if (nextStatus) patch.status = nextStatus;
     if (typeof body.adminNotes === "string") patch.admin_notes = body.adminNotes.trim() || null;
     if (typeof body.partnerNameInternal === "string") patch.partner_name_internal = body.partnerNameInternal.trim() || null;
     if (typeof body.partnerReferenceInternal === "string") patch.partner_reference_internal = body.partnerReferenceInternal.trim() || null;
@@ -71,6 +77,22 @@ export async function PATCH(
       .maybeSingle<PrepOrderRow>();
     if (error) throw error;
     if (!order) return apiError("Prep order not found.", 404);
+
+    const eventVisibility = body.statusEventVisibility === "internal" ? "internal" : body.statusEventVisibility === "none" ? "none" : "customer";
+    const statusChanged = nextStatus && nextStatus !== existingOrder.status;
+    if (statusChanged && eventVisibility !== "none") {
+      const customTitle = typeof body.statusEventTitle === "string" ? body.statusEventTitle.trim() : "";
+      const customMessage = typeof body.statusEventMessage === "string" ? body.statusEventMessage.trim() : "";
+      const { error: eventError } = await serviceSupabase.from("prep_order_events").insert({
+        prep_order_id: id,
+        visibility: eventVisibility,
+        status: nextStatus,
+        title: customTitle || getPrepStatusEventTitle(nextStatus),
+        message: customMessage || null,
+        created_by: user.id,
+      });
+      if (eventError) throw eventError;
+    }
 
     return apiSuccess({ order: await loadPrepOrderDetails(serviceSupabase, order, true) });
   } catch (error) {

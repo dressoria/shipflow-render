@@ -28,7 +28,9 @@ export async function GET(request: Request) {
       .limit(limit);
 
     if (status) query = query.eq("status", status);
-    if (search) {
+    if (search && /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(search)) {
+      query = query.eq("id", search);
+    } else if (search) {
       query = query.or(`business_name.ilike.%${search}%,contact_email.ilike.%${search}%,product_summary.ilike.%${search}%`);
     }
 

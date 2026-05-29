@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-29 (FASE 5.65)
+Última revisión: 2026-05-29 (FASE 5.66)
 
 ---
 
@@ -989,3 +989,23 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Amazon SP-API.
 - Partner API integration.
 - Customer document upload and storage workflow.
+
+---
+
+## FASE 5.66 — Prep Admin Operations and Pricing Workflow
+
+### Go conditions
+
+- Admin detail clearly shows order summary, customer/contact, items, requested services, pricing/margin, partner/internal workflow, receiving reference, status controls, and events.
+- Admin can update estimated unit price, estimated total, final unit price, final total, partner cost total, and margin total.
+- Admin UI calculates quote/margin helpers while preserving manual override fields.
+- Status changes can add a customer-visible or internal timeline event.
+- Customer detail shows current status, next step, estimate/final quote, receiving reference when relevant, and customer-visible timeline.
+- Admin list supports status filter and search by business/email/product/order UUID.
+
+### No-go conditions
+
+- Customer sees partner name/reference, partner cost, margin, admin notes, internal events, or internal documents.
+- Prep payment is collected before the dedicated Prep payment phase.
+- AI, n8n, Amazon SP-API, or partner API automation is presented as active.
+- Existing shipping label, wallet, payment, refund, void, or provider behavior changes.

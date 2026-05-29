@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-29 (FASE 5.65)
+Last updated: 2026-05-29 (FASE 5.66)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -1734,3 +1734,50 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No Amazon SP-API
 - [ ] No partner API integration
 - [ ] No shipping label/wallet/payment/refund/void logic changed
+
+---
+
+## FASE 5.66 — Prep Admin Operations Checklist
+
+### 1. Admin list
+- [ ] `/admin/prep-orders` loads for admin only
+- [ ] Status filter works
+- [ ] Search works for customer email, business, product summary, and full order UUID
+- [ ] Rows show short order id, customer/business, status, units, quote amount, margin, created date, and action-required flag
+
+### 2. Admin detail
+- [ ] `/admin/prep-orders/[id]` shows order summary
+- [ ] Customer/contact info is visible to admin
+- [ ] Items/SKUs and requested services are visible
+- [ ] Customer notes are visible
+- [ ] Admin notes are editable and internal-only
+- [ ] Partner name/reference are editable and internal-only
+- [ ] Receiving reference is editable
+
+### 3. Pricing and margin
+- [ ] Estimated total can be calculated from estimated unit price × units
+- [ ] Final total can be calculated from final unit price × units
+- [ ] Partner cost total can be entered
+- [ ] Margin total can be calculated as final total − partner cost total
+- [ ] Manual overrides remain possible
+- [ ] No customer payment is collected
+
+### 4. Status and events
+- [ ] Status update saves to `prep_orders.status`
+- [ ] Status update can create a customer-visible event
+- [ ] Status update can create an internal-only event
+- [ ] Status update can skip event creation
+- [ ] Manual timeline events can be customer-visible or internal-only
+
+### 5. Customer visibility
+- [ ] `/prep/orders` shows status, units, estimate/final quote, created date, next step, and CTA
+- [ ] `/prep/orders/[id]` shows status, next step, quote block, receiving reference when relevant, items, and customer-visible timeline
+- [ ] Customer does not see partner/internal fields
+
+### 6. Deferred scope
+- [ ] No Prep payment
+- [ ] No AI automation
+- [ ] No n8n automation
+- [ ] No Amazon SP-API
+- [ ] No partner API integration
+- [ ] No label/payment/wallet/refund/void/provider logic changed

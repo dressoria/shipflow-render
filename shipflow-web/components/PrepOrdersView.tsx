@@ -7,7 +7,7 @@ import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { apiGetPrepOrders } from "@/lib/services/apiClient";
-import { getPrepStatusLabel, getPrepStatusTone } from "@/lib/prep";
+import { getPrepNextStep, getPrepStatusLabel, getPrepStatusTone } from "@/lib/prep";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/forms";
 import type { PrepOrder } from "@/lib/types";
@@ -43,14 +43,17 @@ export function PrepOrdersView() {
       ) : (
         <div className="divide-y divide-slate-100">
           {orders.map((order) => (
-            <Link key={order.id} href={`/prep/orders/${order.id}`} className="grid gap-3 p-4 transition hover:bg-slate-50 lg:grid-cols-[minmax(0,1fr)_160px_140px_120px_32px]">
+            <Link key={order.id} href={`/prep/orders/${order.id}`} className="grid gap-3 p-4 transition hover:bg-slate-50 xl:grid-cols-[minmax(0,1fr)_160px_180px_130px_32px]">
               <div className="min-w-0">
                 <p className="font-black text-slate-950">{order.productSummary}</p>
                 <p className="text-sm text-slate-500">{order.totalUnits} units · {order.totalCartons} cartons · {order.businessName || "Business pending"}</p>
               </div>
               <Badge tone={getPrepStatusTone(order.status)}>{getPrepStatusLabel(order.status)}</Badge>
-              <p className="text-sm font-bold text-slate-600">{formatDate(order.createdAt)}</p>
-              <p className="font-black text-slate-950 lg:text-right">{formatCurrency(order.estimatedTotal ?? 0)}</p>
+              <p className="text-sm font-bold text-slate-600">{getPrepNextStep(order.status, order.receivingReference)}</p>
+              <div className="text-left xl:text-right">
+                <p className="font-black text-slate-950">{formatCurrency(order.finalTotal ?? order.estimatedTotal ?? 0)}</p>
+                <p className="text-xs font-bold text-slate-400">{formatDate(order.createdAt)}</p>
+              </div>
               <ArrowRight className="h-4 w-4 text-slate-400" />
             </Link>
           ))}

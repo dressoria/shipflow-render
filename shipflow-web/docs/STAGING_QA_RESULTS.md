@@ -1,6 +1,6 @@
 # Staging QA Results
 
-Last updated: 2026-05-29 (FASE 5.65 SendiFlash Prep managed MVP)
+Last updated: 2026-05-29 (FASE 5.66 Prep admin operations)
 
 ---
 
@@ -1625,6 +1625,39 @@ Date/time: 2026-05-29 12:37 -05
 - Email change is not implemented.
 - Avatar upload is not implemented.
 - Wider profile/admin profile management remains deferred.
+
+---
+
+## FASE 5.66 — Prep Admin Operations, Pricing and Partner Workflow
+
+Date/time: 2026-05-29 America/Guayaquil
+
+### Scope implemented
+
+- Improved `/admin/prep-orders` with compact operations list, status filter, search, short order id, units/cartons, quote amount, margin signal, created date, and action-required flag.
+- Reworked `/admin/prep-orders/[id]` into an operations console with sections for order summary, customer/contact info, items/SKUs, requested services, pricing and margin, partner/internal workflow, receiving reference, status controls, and timeline events.
+- Added admin pricing helpers:
+  - estimated total = estimated unit price × total units
+  - final total = final unit price × total units
+  - margin total = final total − partner cost total
+  - manual overrides remain available.
+- Status changes can create a default timeline event with admin-selected visibility: customer, internal, or none.
+- Customer `/prep/orders` and `/prep/orders/[id]` now show clearer next steps, quote blocks, customer-visible timeline, and receiving reference only when operationally relevant.
+
+### Customer/internal separation
+
+- Customer endpoints continue to omit partner name, partner reference, partner cost, margin, admin notes, internal events, and internal documents.
+- Admin detail remains the only place where partner/internal fields are visible.
+- `receiving_reference` is the only partner-workflow field intentionally shown to customers when useful.
+
+### Still intentionally out of scope
+
+- No Prep payment collection.
+- No AI automation.
+- No n8n automation.
+- No Amazon SP-API.
+- No partner API integration.
+- No document upload/storage implementation.
 
 ---
 
