@@ -1561,3 +1561,14 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] Combined single Stripe batch checkout remains deferred
 - [ ] International/customs remains deferred
 - [ ] Automatic refunds/voids remain deferred
+
+### 8. Single shipment rate-flow UI
+- [ ] From/To cards display side by side on desktop
+- [ ] From/To cards stack cleanly on mobile
+- [ ] Name and Phone are separate rows inside each card
+- [ ] Phone country code selector persists in draft
+- [ ] Rate search loading shows `Searching for the best rate...`
+- [ ] Compact summary shows From / To / Package blocks
+- [ ] Rates render as responsive grid cards
+- [ ] Editing shipment details clears stale selected rate and old rates
+- [ ] Card checkout opens only the new Stripe tab when popup succeeds

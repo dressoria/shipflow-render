@@ -33,6 +33,7 @@ const LABELS_NOT_IMPLEMENTED_PROVIDERS = new Set(["shippo", "easypost", "easyshi
 const EMPTY_ADDRESS: StructuredAddress = {
   name: "",
   phone: "",
+  phoneCountryCode: "+1",
   street1: "",
   city: "",
   state: "",

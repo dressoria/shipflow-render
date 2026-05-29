@@ -73,6 +73,18 @@ type Props = {
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const HAS_GOOGLE_MAPS = Boolean(GOOGLE_MAPS_KEY);
 const GOOGLE_COUNTRY_RESTRICTIONS = getGooglePlacesCountryRestrictions();
+const PHONE_COUNTRY_CODES = [
+  { country: "US", label: "US +1", value: "+1" },
+  { country: "CA", label: "CA +1", value: "+1" },
+  { country: "ES", label: "ES +34", value: "+34" },
+  { country: "DE", label: "DE +49", value: "+49" },
+  { country: "FR", label: "FR +33", value: "+33" },
+  { country: "GB", label: "GB +44", value: "+44" },
+];
+
+function defaultPhoneCode(country: string) {
+  return PHONE_COUNTRY_CODES.find((item) => item.country === normalizeCountryCode(country))?.value ?? "+1";
+}
 
 function toSupportedAddress(current: StructuredAddress, partial: Partial<StructuredAddress>): StructuredAddress {
   const country = normalizeCountryCode(partial.country ?? current.country);
@@ -84,6 +96,7 @@ function toSupportedAddress(current: StructuredAddress, partial: Partial<Structu
 
   return {
     ...next,
+    phoneCountryCode: next.phoneCountryCode ?? defaultPhoneCode(country),
     street1: next.street1 ?? "",
     city: next.city ?? "",
     state: next.state ?? "",
@@ -154,6 +167,7 @@ export function AddressInput({
           ...parsed,
           name: current.name,
           phone: current.phone,
+          phoneCountryCode: current.phoneCountryCode,
           company: current.company,
           street2: current.street2,
         }),
@@ -210,7 +224,7 @@ export function AddressInput({
   function set(field: keyof StructuredAddress, val: string) {
     const next = toSupportedAddress(value, {
       [field]: field === "state" || field === "country" ? val.toUpperCase() : val,
-      ...(field === "country" ? { state: "", postalCode: "" } : {}),
+      ...(field === "country" ? { state: "", postalCode: "", phoneCountryCode: defaultPhoneCode(val) } : {}),
       source: "manual",
     });
     next.validationStatus = isComplete(next) ? "complete" : "needs_review";
@@ -224,6 +238,7 @@ export function AddressInput({
       country: parsed.country ?? value.country,
       name: value.name,
       phone: value.phone,
+      phoneCountryCode: value.phoneCountryCode,
       company: value.company,
       street2: value.street2,
     });
@@ -245,6 +260,7 @@ export function AddressInput({
       ...partial,
       name: value.name,
       phone: value.phone,
+      phoneCountryCode: value.phoneCountryCode,
       company: value.company,
       street2: value.street2,
     });
@@ -262,7 +278,7 @@ export function AddressInput({
 
   return (
     <div className="grid min-w-0 gap-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4">
         <InputField
           label="Name"
           value={value.name ?? ""}
@@ -270,11 +286,11 @@ export function AddressInput({
           placeholder="Jane Smith"
           error={errors.name}
         />
-        <InputField
-          label="Phone"
-          value={value.phone ?? ""}
-          onChange={(v) => set("phone", v)}
-          placeholder="+1 555 000 0000"
+        <PhoneField
+          code={value.phoneCountryCode ?? defaultPhoneCode(value.country)}
+          phone={value.phone ?? ""}
+          onCodeChange={(code) => set("phoneCountryCode", code)}
+          onPhoneChange={(phone) => set("phone", phone)}
           error={errors.phone}
         />
       </div>
@@ -448,6 +464,48 @@ function StateSelect({
           </option>
         ))}
       </select>
+      {error ? <span className="text-xs font-semibold text-red-600">{error}</span> : null}
+    </label>
+  );
+}
+
+function PhoneField({
+  code,
+  phone,
+  onCodeChange,
+  onPhoneChange,
+  error,
+}: {
+  code: string;
+  phone: string;
+  onCodeChange: (v: string) => void;
+  onPhoneChange: (v: string) => void;
+  error?: string;
+}) {
+  return (
+    <label className="grid min-w-0 gap-2 text-sm font-bold text-slate-700">
+      Phone
+      <div className="grid gap-2 sm:grid-cols-[128px_minmax(0,1fr)]">
+        <select
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value)}
+          className="h-12 rounded-2xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10"
+          aria-label="Phone country code"
+        >
+          {PHONE_COUNTRY_CODES.map((item) => (
+            <option key={`${item.country}-${item.value}`} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+        <input
+          value={phone}
+          onChange={(e) => onPhoneChange(e.target.value)}
+          placeholder="555 000 0000"
+          inputMode="tel"
+          className="h-12 min-w-0 rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10"
+        />
+      </div>
       {error ? <span className="text-xs font-semibold text-red-600">{error}</span> : null}
     </label>
   );

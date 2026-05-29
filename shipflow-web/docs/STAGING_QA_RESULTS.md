@@ -1537,6 +1537,20 @@ Date/time: 2026-05-29 07:04 -05
 | `grep -R "shipflow-user\|shipflow-users"` | Found expected legacy-auth docs/storage cleanup references only |
 | `grep -R "unsafe-eval\|eval(\|new Function\|setTimeout("\|setInterval("` | Found documentation reference only |
 
+### FASE 5.60 UI fix — Create Guide rate flow refinement
+
+Date/time: 2026-05-29 08:05 -05
+
+- Refined single-shipment `/crear-guia` Get Rates layout.
+- From/To remain side by side on desktop and stack on mobile, with Name and Phone on separate rows inside each card.
+- Added a simple phone country code selector for selected domestic markets: US/CA +1, ES +34, DE +49, FR +33, GB +44.
+- Phone code is stored in the local shipment draft with other address fields; no payment data is stored.
+- Compact rate-search summary now displays separate From, To, and Package blocks instead of one large text paragraph.
+- Available rates now render as responsive option cards in a grid/matrix.
+- Searching rates shows a professional loading panel with skeleton cards and progress copy.
+- Editing shipment details clears stale rates, selected rate, errors, modal state, and checkout notices before a new search.
+- Card checkout behavior remains new-tab first; current `/crear-guia` stays open unless the popup is blocked.
+
 ---
 
 ## FASE 5.58 — Final Controlled Beta Deployment Readiness

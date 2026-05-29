@@ -876,3 +876,12 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Wallet batch purchase is sequential and not a full all-or-nothing database transaction.
 - CSV/Excel import and larger bulk workflows remain deferred.
 - International/customs remains intentionally unsupported.
+
+### Create Guide UX refinements
+
+- Single-shipment Get Rates uses balanced From/To cards on desktop and stacked cards on mobile.
+- Name and Phone are separated vertically for readability.
+- Phone input includes a selected-market calling code selector.
+- Rate search collapses into a compact From / To / Package summary bar.
+- Rates render as responsive grid cards instead of a long plain list.
+- Card checkout must keep `/crear-guia` open when the new Stripe tab opens successfully.

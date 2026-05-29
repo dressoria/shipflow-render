@@ -54,6 +54,7 @@ import { formatCurrency } from "@/lib/utils";
 const EMPTY_ADDRESS: StructuredAddress = {
   name: "",
   phone: "",
+  phoneCountryCode: "+1",
   street1: "",
   city: "",
   state: "",
@@ -140,6 +141,13 @@ function addressPersonLabel(addr: StructuredAddress, fallback: string) {
 
 function packageCompactLabel(form: FormState) {
   return `${form.weight || "?"} ${form.weightUnit} · ${form.length || "?"}x${form.width || "?"}x${form.height || "?"} ${form.dimensionUnit}`;
+}
+
+function fullPhone(addr: StructuredAddress) {
+  const phone = addr.phone?.trim() ?? "";
+  if (!phone) return "";
+  if (phone.startsWith("+")) return phone;
+  return `${addr.phoneCountryCode ?? "+1"} ${phone}`.trim();
 }
 
 function resolvedProductType(form: FormState) {
@@ -415,7 +423,7 @@ export function CreateGuideForm() {
     const next: ErrorMap = {};
     if (!addr.name?.trim()) next[`${prefix}.name`] = "Required field.";
     if (!addr.phone?.trim()) next[`${prefix}.phone`] = "Required field.";
-    else if (!isPhone(addr.phone)) next[`${prefix}.phone`] = "Invalid phone number.";
+    else if (!isPhone(fullPhone(addr))) next[`${prefix}.phone`] = "Invalid phone number.";
     if (!addr.street1?.trim()) next[`${prefix}.street1`] = "Street address is required.";
     if (!addr.city?.trim()) next[`${prefix}.city`] = "Required field.";
     if (!addr.state?.trim()) next[`${prefix}.state`] = "State / province / region is required.";
@@ -705,9 +713,9 @@ export function CreateGuideForm() {
         },
         idempotencyKey: idempotencyKeyRef.current,
         senderName: form.origin.name?.trim() || undefined,
-        senderPhone: form.origin.phone?.trim() || undefined,
+        senderPhone: fullPhone(form.origin) || undefined,
         recipientName: form.destination.name?.trim() || undefined,
-        recipientPhone: form.destination.phone?.trim() || undefined,
+        recipientPhone: fullPhone(form.destination) || undefined,
         productType: resolvedProductType(form) || undefined,
       });
 
@@ -817,8 +825,8 @@ export function CreateGuideForm() {
             productDescription: resolvedProductType(form),
           },
         },
-        origin: { ...form.origin, country: countryCode },
-        destination: { ...form.destination, country: countryCode },
+        origin: { ...form.origin, country: countryCode, phone: fullPhone(form.origin) },
+        destination: { ...form.destination, country: countryCode, phone: fullPhone(form.destination) },
         parcel: {
           weight: Number(form.weight),
           weightUnit: form.weightUnit,
@@ -925,7 +933,7 @@ export function CreateGuideForm() {
 
       <FirstShipmentGuide />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="grid min-w-0 gap-5">
           {compactDetails ? (
             <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
@@ -1068,6 +1076,16 @@ export function CreateGuideForm() {
           </form>
           )}
 
+          {fetchingRates ? <RateLoadingGrid /> : null}
+
+          {apiRates.length > 0 && (
+            <AvailableRatesList
+              rates={apiRates}
+              selected={selectedApiRate}
+              onSelect={setSelectedApiRate}
+            />
+          )}
+
           {apiRates.length > 0 && (
             <form
               onSubmit={handleRequestOnlineLabel}
@@ -1143,14 +1161,6 @@ export function CreateGuideForm() {
 
         {/* ── Sidebar ── */}
         <aside className="grid min-w-0 content-start gap-5">
-          {apiRates.length > 0 && (
-            <AvailableRatesList
-              rates={apiRates}
-              selected={selectedApiRate}
-              onSelect={setSelectedApiRate}
-            />
-          )}
-
           {summary ? (
             <GuideSummary
               summary={summary}
@@ -1322,6 +1332,37 @@ function isCustomerVisibleRate(rate: RateResult): boolean {
   return !/\b(dummy|mock|internal|demo|test carrier)\b/.test(haystack);
 }
 
+function RateLoadingGrid() {
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="font-black text-slate-950">Searching for the best rate...</h2>
+          <p className="mt-1 text-sm text-slate-500">Comparing available providers for this route.</p>
+        </div>
+        <div className="flex gap-1.5" aria-hidden="true">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-[#2563EB]" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-[#F97316] [animation-delay:120ms]" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-slate-300 [animation-delay:240ms]" />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200" />
+            <div className="mt-4 h-5 w-3/4 animate-pulse rounded-full bg-slate-200" />
+            <div className="mt-3 h-3 w-32 animate-pulse rounded-full bg-slate-200" />
+            <div className="mt-5 flex items-end justify-between">
+              <div className="h-8 w-20 animate-pulse rounded-full bg-slate-200" />
+              <div className="h-4 w-16 animate-pulse rounded-full bg-slate-200" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AvailableRatesList({
   rates,
   selected,
@@ -1339,7 +1380,7 @@ function AvailableRatesList({
         <Info className="h-3.5 w-3.5 shrink-0" />
         Estimated rate based on the address and package details entered.
       </div>
-      <div className="mt-4 grid gap-3">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {rates.map((rate) => {
           const isCheapest = !!rate.tags?.includes("cheapest");
           const isFastest = !!rate.tags?.includes("fastest");
@@ -1356,10 +1397,10 @@ function AvailableRatesList({
               key={`${rate.provider}-${rate.courierId}-${rate.serviceCode}`}
               type="button"
               onClick={() => onSelect(rate)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`min-h-[188px] rounded-2xl border p-4 text-left transition ${
                 isSelected
-                  ? "border-[#06B6D4] bg-cyan-50 ring-1 ring-[#06B6D4]/30"
-                  : "border-slate-200 bg-slate-50 hover:border-cyan-200 hover:bg-cyan-50/40"
+                  ? "border-[#2563EB] bg-blue-50 ring-1 ring-[#2563EB]/30"
+                  : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/40"
               }`}
             >
               {(isRecommended || isCheapest || isFastest) && (
@@ -1381,7 +1422,7 @@ function AvailableRatesList({
                   )}
                 </div>
               )}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex h-full flex-col gap-4">
                 <div className="min-w-0">
                   <p className="break-words font-black text-slate-950">{rate.serviceName}</p>
                   <p className="mt-0.5 text-xs font-semibold text-slate-500">{carrierLabel}</p>
@@ -1393,7 +1434,13 @@ function AvailableRatesList({
                     <p className="mt-1.5 text-xs text-slate-400">Delivery time not specified</p>
                   )}
                 </div>
-                <div className="shrink-0 text-left sm:text-right">
+                <div className="mt-auto flex items-end justify-between gap-4">
+                  <span className={`rounded-full px-3 py-1 text-xs font-black ${
+                    isSelected ? "bg-blue-100 text-[#2563EB]" : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {isSelected ? "Selected" : "Select"}
+                  </span>
+                  <div className="shrink-0 text-right">
                   <p className="text-xl font-black text-[#06B6D4]">
                     {formatCurrency(rate.customerPrice)}
                   </p>
@@ -1401,6 +1448,7 @@ function AvailableRatesList({
                   {isSelected && (
                     <CheckCircle2 className="ml-auto mt-2 h-5 w-5 text-green-600" />
                   )}
+                  </div>
                 </div>
               </div>
             </button>

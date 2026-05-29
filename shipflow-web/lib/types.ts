@@ -142,6 +142,7 @@ export type AddressValidationStatus = "complete" | "incomplete" | "needs_review"
 export type StructuredAddress = {
   name?: string;
   phone?: string;
+  phoneCountryCode?: string;
   company?: string;
   street1: string;
   street2?: string;
