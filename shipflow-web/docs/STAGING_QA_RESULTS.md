@@ -1595,6 +1595,39 @@ Existing `profiles.business_name` remains the only profile-table write. Addition
 
 ---
 
+## FASE 5.63 — User Profile and Account Settings
+
+Date/time: 2026-05-29 12:37 -05
+
+### Scope implemented
+
+- Added `/perfil` as a protected user-facing account settings page.
+- Added Profile navigation item in the dashboard sidebar.
+- Users can view email, account creation date, company name, and metadata collected at signup.
+- Users can edit first name, last name, phone, company/business name, default market, business type, preferred payment method, default product type, and support/contact email.
+
+### Data storage
+
+- Editable account details are stored in Supabase Auth `user_metadata`.
+- `business_name` is also synced to `profiles.business_name` because the existing app uses it for user/admin display.
+- Email remains read-only.
+- No migration was required.
+
+### Security/account section
+
+- Profile page is protected by the existing `DashboardShell`/`ProtectedRoute` flow.
+- Users only load and update their own Supabase Auth metadata/profile row.
+- Password changes link to the existing forgot-password email reset flow.
+- Sign out is available from the security section.
+
+### Limitations
+
+- Email change is not implemented.
+- Avatar upload is not implemented.
+- Wider profile/admin profile management remains deferred.
+
+---
+
 ## FASE 5.58 — Final Controlled Beta Deployment Readiness
 
 Date: 2026-05-28

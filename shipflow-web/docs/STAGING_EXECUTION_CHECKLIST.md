@@ -1610,3 +1610,40 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No migrations added
 - [ ] No payment/shipping/wallet/label logic changed
 - [ ] Profile module remains deferred
+
+---
+
+## FASE 5.63 — Profile / Account Settings Checklist
+
+### 1. Access
+- [ ] `/perfil` requires authenticated verified user
+- [ ] Dashboard sidebar includes Profile
+- [ ] Unauthenticated users redirect through existing auth guard
+
+### 2. Profile fields
+- [ ] Email is read-only
+- [ ] Created date displays when available
+- [ ] First name can be edited
+- [ ] Last name can be edited
+- [ ] Phone can be edited and validates
+- [ ] Company/business name can be edited
+- [ ] Default market can be edited
+- [ ] Business type can be edited
+
+### 3. Preferences
+- [ ] Preferred payment method can be set to wallet/card/no preference
+- [ ] Default product type can be edited
+- [ ] Support/contact email can be edited
+
+### 4. Save behavior
+- [ ] Auth metadata updates successfully
+- [ ] `profiles.business_name` updates successfully
+- [ ] Success message appears after save
+- [ ] Friendly error appears on failure
+- [ ] No raw Supabase error is shown to the user
+
+### 5. Security
+- [ ] Password reset links to existing forgot-password flow
+- [ ] Sign out works
+- [ ] Email change is not offered
+- [ ] No secrets/payment data are stored

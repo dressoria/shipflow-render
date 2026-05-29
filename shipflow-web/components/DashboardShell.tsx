@@ -18,6 +18,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   X,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -31,6 +32,7 @@ const menu = [
   { label: "Shipments", href: "/envios", icon: Truck },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
   { label: "Balance", href: "/saldo", icon: CreditCard },
+  { label: "Profile", href: "/perfil", icon: Settings },
   { label: "Help", href: "/support", icon: HelpCircle },
 ];
 

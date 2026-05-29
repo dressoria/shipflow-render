@@ -911,3 +911,24 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - Optional captcha public key: `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`.
 - Required server secret when captcha is enabled: `RECAPTCHA_SECRET_KEY`.
 - Profile module remains pending; only `business_name` is written to `profiles` in this phase.
+
+---
+
+## FASE 5.63 — Profile / Account Settings
+
+### Go conditions
+
+- `/perfil` is accessible only to signed-in verified users.
+- Dashboard navigation includes Profile.
+- Users can view email and created date.
+- Users can update first name, last name, phone, company, market, business type, preferred payment method, default product type, and support email.
+- Company name syncs to `profiles.business_name`.
+- Other profile/preferences fields save to Supabase Auth metadata.
+- Password reset links to existing email reset flow.
+
+### No-go conditions
+
+- Email changes are presented as supported.
+- Profile edits touch shipping, payment, wallet, provider, refund, or void logic.
+- Profile data includes secrets or payment details.
+- A migration is added without a specific storage need.
