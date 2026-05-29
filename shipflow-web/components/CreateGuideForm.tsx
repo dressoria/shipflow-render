@@ -130,6 +130,18 @@ function shipmentSummary(form: FormState) {
   return `From: ${origin} -> To: ${destination} · ${form.weight || "?"} ${form.weightUnit} · ${dimensions} · ${product}`;
 }
 
+function addressCompactLabel(addr: StructuredAddress, fallback: string) {
+  return [addr.city, addr.state, normalizeCountryCode(addr.country)].filter(Boolean).join(", ") || fallback;
+}
+
+function addressPersonLabel(addr: StructuredAddress, fallback: string) {
+  return addr.name?.trim() || addr.company?.trim() || fallback;
+}
+
+function packageCompactLabel(form: FormState) {
+  return `${form.weight || "?"} ${form.weightUnit} · ${form.length || "?"}x${form.width || "?"}x${form.height || "?"} ${form.dimensionUnit}`;
+}
+
 function resolvedProductType(form: FormState) {
   if (form.productType === "Other") return form.productDescription.trim();
   return form.productType;
@@ -359,25 +371,31 @@ export function CreateGuideForm() {
 
   function updateOrigin(addr: StructuredAddress) {
     setForm((current) => ({ ...current, origin: addr }));
-    setApiRates([]);
-    setSelectedApiRate(null);
+    resetRateSearchState();
     setDetailsExpanded(true);
   }
 
   function updateDestination(addr: StructuredAddress) {
     setForm((current) => ({ ...current, destination: addr }));
-    setApiRates([]);
-    setSelectedApiRate(null);
+    resetRateSearchState();
     setDetailsExpanded(true);
   }
 
   function updateField(name: keyof Omit<FormState, "origin" | "destination">, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
     if (["weight", "weightUnit", "length", "width", "height", "dimensionUnit", "productType", "productDescription"].includes(name)) {
-      setApiRates([]);
-      setSelectedApiRate(null);
+      resetRateSearchState();
       setDetailsExpanded(true);
     }
+  }
+
+  function resetRateSearchState() {
+    setApiRates([]);
+    setSelectedApiRate(null);
+    setRatesError(null);
+    setErrors({});
+    setShowConfirm(false);
+    setCheckoutNotice(null);
   }
 
   function clearDraft() {
@@ -523,9 +541,11 @@ export function CreateGuideForm() {
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       setRatesError(quoteValidationMessage(errs));
+      setDetailsExpanded(true);
       return;
     }
 
+    setDetailsExpanded(false);
     setFetchingRates(true);
     setRatesError(null);
     setCheckoutNotice(null);
@@ -761,6 +781,16 @@ export function CreateGuideForm() {
     setPayByCardLoading(true);
     setErrors({});
 
+    const checkoutWindow = window.open("", "_blank");
+    if (checkoutWindow) {
+      checkoutWindow.opener = null;
+      checkoutWindow.document.title = "Opening SendiFlash Checkout...";
+      checkoutWindow.document.body.style.fontFamily = "system-ui, sans-serif";
+      checkoutWindow.document.body.style.padding = "24px";
+      checkoutWindow.document.body.style.color = "#334155";
+      checkoutWindow.document.body.textContent = "Opening secure checkout...";
+    }
+
     try {
       const { countryCode } = validateDomesticShipmentCountries(form.origin, form.destination);
       const result = await apiCreateLabelCheckoutSession({
@@ -799,8 +829,8 @@ export function CreateGuideForm() {
         },
       });
 
-      const checkoutWindow = window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
       if (checkoutWindow) {
+        checkoutWindow.location.href = result.checkoutUrl;
         setCheckoutNotice("Checkout opened in a new tab. Keep this page open while we prepare your label.");
         setPayByCardLoading(false);
       } else {
@@ -808,6 +838,7 @@ export function CreateGuideForm() {
         window.location.href = result.checkoutUrl;
       }
     } catch (err) {
+      if (checkoutWindow && !checkoutWindow.closed) checkoutWindow.close();
       const msg = err instanceof Error ? err.message : "";
       const lowerMsg = msg.toLowerCase();
       if (lowerMsg.includes("not enabled") || lowerMsg.includes("503")) {
@@ -898,23 +929,45 @@ export function CreateGuideForm() {
         <div className="grid min-w-0 gap-5">
           {compactDetails ? (
             <div className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm shadow-slate-950/5 sm:p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-widest text-[#2563EB]">
-                    {fetchingRates ? "Getting rates" : "Shipment details"}
-                  </p>
-                  <p className="mt-1 break-words text-sm font-bold text-slate-800">{shipmentSummary(form)}</p>
-                  {fetchingRates ? (
-                    <p className="mt-1 text-sm text-slate-500">Checking configured providers in parallel. This can take a few seconds.</p>
-                  ) : null}
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-widest text-[#2563EB]">
+                      {fetchingRates ? "Getting rates" : "Shipment details"}
+                    </p>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-500">{shipmentSummary(form)}</p>
+                    {fetchingRates ? (
+                      <p className="mt-1 text-sm text-slate-500">Checking configured providers. This can take a few seconds.</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailsExpanded(true)}
+                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#2563EB]"
+                  >
+                    Edit shipment details
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDetailsExpanded(true)}
-                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#2563EB]"
-                >
-                  Edit shipment details
-                </button>
+                <div className="grid gap-3 md:grid-cols-[1fr_1fr] xl:grid-cols-[1fr_1fr_0.9fr]">
+                  <CompactSummaryCard
+                    label="From"
+                    accent="blue"
+                    title={addressPersonLabel(form.origin, "Sender")}
+                    body={addressCompactLabel(form.origin, "Origin")}
+                  />
+                  <CompactSummaryCard
+                    label="To"
+                    accent="orange"
+                    title={addressPersonLabel(form.destination, "Recipient")}
+                    body={addressCompactLabel(form.destination, "Destination")}
+                  />
+                  <CompactSummaryCard
+                    label="Package"
+                    accent="slate"
+                    title={packageCompactLabel(form)}
+                    body={resolvedProductType(form) || "Package"}
+                  />
+                </div>
               </div>
             </div>
           ) : (
@@ -941,8 +994,8 @@ export function CreateGuideForm() {
               </div>
             </div>
 
-            <div className="grid gap-4 2xl:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-3xl border border-blue-100 bg-blue-50/40 p-4">
                 <SectionHeader icon={<User className="h-4 w-4" />} title="From" />
                 <div className="mt-4">
                   <AddressInput
@@ -956,7 +1009,7 @@ export function CreateGuideForm() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="rounded-3xl border border-orange-100 bg-orange-50/40 p-4">
                 <SectionHeader icon={<MapPin className="h-4 w-4" />} title="To" />
                 <div className="mt-4">
                   <AddressInput
@@ -1000,7 +1053,7 @@ export function CreateGuideForm() {
             <button
               type="submit"
               disabled={fetchingRates || showConfigWarning}
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#06B6D4] px-5 text-sm font-bold text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-[#0891B2] disabled:opacity-50 sm:w-fit"
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-bold text-white shadow-xl shadow-orange-500/20 transition hover:-translate-y-0.5 hover:bg-[#EA580C] disabled:opacity-50 sm:w-fit"
             >
               <Zap className="mr-2 h-4 w-4" />
               {fetchingRates ? "Getting rates..." : "Get rates"}
@@ -1190,6 +1243,32 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
     <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
       <span className="text-slate-400">{icon}</span>
       <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">{title}</h3>
+    </div>
+  );
+}
+
+function CompactSummaryCard({
+  label,
+  title,
+  body,
+  accent,
+}: {
+  label: string;
+  title: string;
+  body: string;
+  accent: "blue" | "orange" | "slate";
+}) {
+  const accentClasses = {
+    blue: "border-blue-100 bg-blue-50/50 text-[#2563EB]",
+    orange: "border-orange-100 bg-orange-50/60 text-[#F97316]",
+    slate: "border-slate-200 bg-slate-50 text-slate-600",
+  }[accent];
+
+  return (
+    <div className={`min-w-0 rounded-2xl border p-4 ${accentClasses}`}>
+      <p className="text-[11px] font-black uppercase tracking-widest">{label}</p>
+      <p className="mt-2 truncate text-sm font-black text-slate-950">{title}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-600">{body}</p>
     </div>
   );
 }
