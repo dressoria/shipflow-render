@@ -31,6 +31,7 @@ services:
         - NEXT_PUBLIC_APP_URL
         - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
         - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        - NEXT_PUBLIC_RECAPTCHA_SITE_KEY
         - NEXT_PUBLIC_ENABLE_DEMO_AUTH
     env_file:
       # Runtime-only env vars (server-side secrets, API keys, etc.).
