@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-29 (FASE 5.67)
+Última revisión: 2026-05-31 (FASE 5.70)
 
 ---
 
@@ -97,6 +97,15 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Controles de refund manual seguros: no refund si no hay pago, ya fue refunded/refund_pending, o existe label/shipment/tracking (FASE 5.52)
 - [x] Flujo de void documentado y restringido a admin — solo con `ENABLE_REAL_LABEL_VOID=true` y solo labels purchased con shipment/label/tracking (FASE 5.52)
 - [ ] **PENDIENTE:** Cron/worker para expiry automático (actualmente sweep manual)
+
+## 5.70. Prep beta gate
+
+- [x] FBA Prep público queda presentado como early access / coming soon antes del lanzamiento.
+- [x] Acceso activo a Prep centralizado para `131studio.ec@gmail.com` o usuarios admin.
+- [x] Usuarios normales ven "SendiFlash Prep is in preparation" en rutas customer de Prep.
+- [x] APIs customer de Prep devuelven `403` para cuentas no habilitadas.
+- [x] Shipping Labels permanecen disponibles y sin cambios de lógica.
+- [x] No se activaron refunds, voids, customs, automatización AI/API, ni cambios de providers.
 
 ---
 

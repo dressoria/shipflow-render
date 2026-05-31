@@ -26,8 +26,16 @@ import { Button } from "@/components/Button";
 import { BrandName } from "@/components/BrandName";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
+import { getPrepAccessState } from "@/lib/prepAccess";
 
-const menu = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof Home;
+  badge?: string;
+};
+
+const menu: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
   { label: "Shipments", href: "/envios", icon: Truck },
@@ -54,6 +62,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const prepAccess = getPrepAccessState(user);
 
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
@@ -63,7 +72,10 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     });
   }
 
-  const navItems = isAdmin ? [...menu, { label: "Admin", href: "/admin", icon: ShieldCheck }] : menu;
+  const baseNavItems = menu.map((item) =>
+    item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge: "Soon" } : item,
+  );
+  const navItems = isAdmin ? [...baseNavItems, { label: "Admin", href: "/admin", icon: ShieldCheck }] : baseNavItems;
 
   return (
     <ProtectedRoute>
@@ -194,7 +206,7 @@ function NavigationList({
   collapsed,
   onNavigate,
 }: {
-  items: typeof menu;
+  items: NavItem[];
   pathname: string;
   collapsed: boolean;
   onNavigate?: () => void;
@@ -219,7 +231,18 @@ function NavigationList({
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            {!collapsed ? <span className="truncate">{item.label}</span> : null}
+            {!collapsed ? (
+              <>
+                <span className="truncate">{item.label}</span>
+                {item.badge ? (
+                  <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    active ? "bg-white/20 text-white" : "bg-orange-500/15 text-orange-200"
+                  }`}>
+                    {item.badge}
+                  </span>
+                ) : null}
+              </>
+            ) : null}
           </Link>
         );
       })}

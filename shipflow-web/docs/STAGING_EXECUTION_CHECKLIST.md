@@ -1,10 +1,33 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-29 (FASE 5.67)
+Last updated: 2026-05-31 (FASE 5.70)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
 Do not deploy production-wide. Do not apply migrations automatically. Do not print secrets. Do not buy real labels or execute real refunds without explicit confirmation.
+
+## FASE 5.70 Prep Beta Access Gate
+
+Prep is technically present but not publicly open for normal customers.
+
+Expected access:
+
+- `131studio.ec@gmail.com`: active Prep beta access.
+- Admin accounts: active Prep beta access.
+- Normal users: Prep "in preparation" experience only.
+
+Operator QA:
+
+1. Sign in as `131studio.ec@gmail.com`.
+2. Confirm `/prep`, `/prep/new`, `/prep/orders`, and `/admin/prep-orders` remain usable.
+3. Sign in as a normal user.
+4. Confirm `/prep`, `/prep/new`, `/prep/orders`, and `/prep/orders/[id]` do not expose order creation, payment, or order details.
+5. Confirm `/api/prep-orders`, `/api/prep-orders/[id]/checkout`, and `/api/prep-orders/[id]/pay-wallet` return `403` for normal users.
+6. Confirm `/dashboard` shows FBA Prep as in preparation for normal users.
+7. Confirm `/fba-prep` and `/` describe Prep as early access / coming soon.
+8. Confirm Shipping Labels still work normally.
+
+Do not enable Prep publicly until operations, support, and fulfillment workflow are ready.
 
 ## FASE 5.46 Final PASS Snapshot
 

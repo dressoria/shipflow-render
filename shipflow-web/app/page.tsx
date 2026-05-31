@@ -101,7 +101,7 @@ const useCases: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
     icon: ShoppingBag,
     title: "Online sellers",
-    text: "Create labels for every order without switching carrier portals, and request FBA prep from the same account.",
+    text: "Create labels for every order without switching carrier portals, and request early access to FBA prep from the same account.",
   },
   {
     icon: Building2,
@@ -111,7 +111,7 @@ const useCases: Array<{ icon: LucideIcon; title: string; text: string }> = [
   {
     icon: Package,
     title: "Amazon FBA sellers",
-    text: "Request managed FBA prep services — labeling, poly bagging, bundling, and case forwarding — with quote review and payment.",
+    text: "Join the early-access list for managed FBA prep services — labeling, poly bagging, bundling, and case forwarding.",
   },
   {
     icon: Users,
@@ -135,8 +135,8 @@ const sellerTools: Array<{ icon: LucideIcon; title: string; text: string; href: 
   },
   {
     icon: Package,
-    title: "FBA Prep Request",
-    text: "Submit a managed Amazon FBA prep request — labeling, poly bag, bundling, and forwarding.",
+    title: "FBA Prep Early Access",
+    text: "Request access to managed Amazon FBA prep while public Prep ordering is being prepared.",
     href: "/registro?service=prep",
   },
   {
@@ -148,7 +148,7 @@ const sellerTools: Array<{ icon: LucideIcon; title: string; text: string; href: 
   {
     icon: CreditCard,
     title: "Wallet & Balance",
-    text: "Top up your balance and pay for labels or prep orders without entering card details every time.",
+    text: "Top up your balance and pay for labels without entering card details every time.",
     href: "/saldo",
   },
   {
@@ -380,10 +380,10 @@ function TwoServicesSection() {
             </div>
             <h3 className="mt-6 text-2xl font-black text-slate-950">SendiFlash Prep</h3>
             <p className="mt-3 text-base leading-7 text-[#334155]">
-              Managed Amazon FBA prep service. Request FNSKU labeling, poly bagging, bundling, and case forwarding with quote review and payment.
+              Managed Amazon FBA prep service in controlled early access. Request access for FNSKU labeling, poly bagging, bundling, and case forwarding.
             </p>
             <ul className="mt-6 grid gap-2.5">
-              {["Request Amazon FBA prep", "FNSKU labeling, poly bag, bundling", "Review quote and pay", "Track prep status"].map((item) => (
+              {["Request early access", "FNSKU labeling, poly bag, bundling", "Quote review for approved beta accounts", "Track prep status in beta"].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#F97316]" />
                   {item}
@@ -391,7 +391,7 @@ function TwoServicesSection() {
               ))}
             </ul>
             <p className="mt-4 text-xs leading-5 text-slate-400">
-              Prep services are manually managed. Final quote may vary after review. Services may be performed by SendiFlash or logistics partners.
+              Prep is not publicly open yet. Services are manually managed and may be performed by SendiFlash or logistics partners.
             </p>
             <div className="mt-6 flex flex-col gap-3">
               <Button
@@ -406,7 +406,7 @@ function TwoServicesSection() {
                 href="/registro?service=prep"
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-[#F97316]"
               >
-                Request FBA prep <ArrowRight className="h-3.5 w-3.5" />
+                Request Prep early access <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </MotionCard>
@@ -526,7 +526,7 @@ export default function Home() {
                   className="border border-blue-100 bg-blue-50 text-[#2563EB] ring-blue-100"
                 >
                   <ShieldCheck className="mr-2 h-3.5 w-3.5" />
-                  Shipping Labels · Amazon FBA Prep · One account
+                  Shipping Labels available now · FBA Prep early access
                 </Badge>
 
                 <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
@@ -536,7 +536,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
-                  Compare rates, create shipping labels, request Amazon FBA prep, and track every order from a single SendiFlash account.
+                  Compare rates, create shipping labels, and request early access to Amazon FBA prep from a single SendiFlash account.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -553,7 +553,7 @@ export default function Home() {
                     icon={<ArrowRight className="h-4 w-4" />}
                     className="rounded-2xl border-blue-100 bg-white text-[#0F172A] hover:border-[#F97316]/40 hover:bg-orange-50 hover:text-[#F97316] sm:min-w-44"
                   >
-                    Explore FBA Prep
+                    FBA Prep early access
                   </Button>
                 </div>
 
@@ -895,10 +895,10 @@ export default function Home() {
                 Get started today
               </Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
-                One account for shipping and FBA prep
+                Start shipping now, request Prep early access
               </h2>
               <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-300">
-                Create an account, compare rates, ship your first package, or submit your first FBA prep request — all from one SendiFlash workspace. No carrier contracts required.
+                Create an account, compare rates, and ship your first package today. FBA Prep is opening gradually for approved early-access accounts.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button href="/registro" variant="action" className="min-w-48 rounded-2xl">
@@ -910,7 +910,7 @@ export default function Home() {
                   icon={<ArrowRight className="h-4 w-4" />}
                   className="min-w-48 rounded-2xl border-white/20 bg-white/10 text-white hover:bg-white/18 hover:text-white"
                 >
-                  Request FBA prep
+                  Request Prep early access
                 </Button>
               </div>
             </MotionReveal>

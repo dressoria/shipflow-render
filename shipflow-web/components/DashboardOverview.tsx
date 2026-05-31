@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/forms";
 import { getBalanceSummary } from "@/lib/services/balanceService";
 import { getShipments } from "@/lib/services/shipmentService";
+import { getPrepAccessState } from "@/lib/prepAccess";
 import type { Envio, MovimientoSaldo } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
@@ -109,6 +110,7 @@ export function DashboardOverview() {
   const profileIncomplete = !user?.businessName;
   const hasShipments = shipments.length > 0;
   const greetingName = user?.businessName || user?.email?.split("@")[0] || "there";
+  const prepAccess = getPrepAccessState(user);
 
   if (loading) {
     return (
@@ -144,7 +146,16 @@ export function DashboardOverview() {
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <QuickAction href="/crear-guia" icon={PlusCircle} label="Create shipment" detail="Single label flow" accent="orange" />
               <QuickAction href="/crear-guia" icon={Boxes} label="Multi-label beta" detail="Up to 5 shipments" accent="blue" />
-              <QuickAction href="/prep" icon={ClipboardList} label="SendiFlash Prep" detail="FBA prep requests" accent="orange" />
+              <QuickAction
+                href="/prep"
+                icon={ClipboardList}
+                label="SendiFlash Prep"
+                detail={prepAccess.canUsePrep ? "FBA prep requests" : "In preparation"}
+                accent={prepAccess.canUsePrep ? "orange" : "slate"}
+              />
+              {prepAccess.canUsePrep ? (
+                <QuickAction href="/prep/orders" icon={ClipboardList} label="Prep orders" detail="Beta operations" accent="orange" />
+              ) : null}
               <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
               <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
               <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />
@@ -227,6 +238,7 @@ export function DashboardOverview() {
                   <StatusLine label="Automatic labels" value="On after payment" />
                   <StatusLine label="Markets" value="Selected domestic routes" />
                   <StatusLine label="Payments" value="Wallet and card" />
+                  <StatusLine label="FBA Prep" value={prepAccess.canUsePrep ? "Beta enabled" : "In preparation"} />
                   <StatusLine label="Exceptions" value="Support review" />
                 </div>
               </div>

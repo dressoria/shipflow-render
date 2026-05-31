@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/DashboardShell";
+import { PrepGate } from "@/components/PrepGate";
 import { PrepOverview } from "@/components/PrepOverview";
 
 export default function PrepPage() {
@@ -7,7 +8,9 @@ export default function PrepPage() {
       title="SendiFlash Prep"
       description="Managed Amazon FBA prep requests reviewed and tracked inside SendiFlash."
     >
-      <PrepOverview />
+      <PrepGate>
+        <PrepOverview />
+      </PrepGate>
     </DashboardShell>
   );
 }

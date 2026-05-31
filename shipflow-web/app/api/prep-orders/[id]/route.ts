@@ -1,5 +1,6 @@
 import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
 import { loadPrepOrderDetails, type PrepOrderRow } from "@/lib/server/prepOrders";
+import { requirePrepBetaAccess } from "@/lib/server/prepAccess";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 export async function GET(
@@ -12,6 +13,7 @@ export async function GET(
 
   try {
     const { supabase, user } = await requireVerifiedUser(request);
+    await requirePrepBetaAccess(supabase, user);
     const { id } = await params;
     const { data: order, error } = await supabase
       .from("prep_orders")

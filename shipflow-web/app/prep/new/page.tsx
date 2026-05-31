@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/DashboardShell";
+import { PrepGate } from "@/components/PrepGate";
 import { PrepOrderForm } from "@/components/PrepOrderForm";
 
 export default function NewPrepOrderPage() {
@@ -7,7 +8,9 @@ export default function NewPrepOrderPage() {
       title="Create Prep request"
       description="Send inventory details for manual SendiFlash review before final quote."
     >
-      <PrepOrderForm />
+      <PrepGate>
+        <PrepOrderForm />
+      </PrepGate>
     </DashboardShell>
   );
 }

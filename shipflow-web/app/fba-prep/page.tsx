@@ -49,7 +49,7 @@ const prepServices: Array<{ title: string; text: string }> = [
 const whatIsIncluded: Array<{ title: string; text: string }> = [
   {
     title: "No automatic charges",
-    text: "You always review the final quote before any payment is taken.",
+    text: "Early-access accounts review the final quote before any payment is taken.",
   },
   {
     title: "Quote before work begins",
@@ -57,7 +57,7 @@ const whatIsIncluded: Array<{ title: string; text: string }> = [
   },
   {
     title: "Pay by wallet or card",
-    text: "Use your SendiFlash wallet balance or a card to pay after accepting the quote.",
+    text: "Prep payments are available only to approved early-access accounts during beta.",
   },
   {
     title: "Track prep status",
@@ -68,8 +68,8 @@ const whatIsIncluded: Array<{ title: string; text: string }> = [
 const workflow: Array<{ number: string; title: string; text: string }> = [
   {
     number: "1",
-    title: "Submit a prep request",
-    text: "Log in to SendiFlash, go to Prep, and create a new request. Describe your units, quantities, and required services.",
+    title: "Request early access",
+    text: "Create a SendiFlash account and request early access while the managed Prep workflow is prepared for public launch.",
   },
   {
     number: "2",
@@ -78,8 +78,8 @@ const workflow: Array<{ number: string; title: string; text: string }> = [
   },
   {
     number: "3",
-    title: "Accept and pay",
-    text: "Review the quote in your account. Accept it and pay with your wallet balance or a card. No automatic charge before acceptance.",
+    title: "Accept and pay in beta",
+    text: "Approved beta accounts can review the quote, accept it, and pay with wallet balance or card. No automatic charge before acceptance.",
   },
   {
     number: "4",
@@ -109,14 +109,14 @@ export default function FbaPrepPage() {
                   className="border border-orange-100 bg-orange-50 text-[#F97316] ring-orange-100"
                 >
                   <Package className="mr-2 h-3.5 w-3.5" />
-                  SendiFlash Prep
+                  SendiFlash Prep · Early access
                 </Badge>
                 <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
                   Amazon FBA prep managed from your{" "}
                   <span className="text-[#F97316]">SendiFlash account.</span>
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
-                  Submit a prep request, review the quote, accept and pay, then track your inventory — all from one place. No warehouse contracts required.
+                  We&apos;re preparing managed Amazon FBA prep inside SendiFlash. Request early access now, and start with Shipping Labels while Prep opens gradually.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Button
@@ -124,19 +124,19 @@ export default function FbaPrepPage() {
                     variant="action"
                     className="rounded-2xl sm:min-w-44"
                   >
-                    Request FBA prep
+                    Request early access
                   </Button>
                   <Button
-                    href="/login"
+                    href="/shipping-labels"
                     variant="secondary"
                     icon={<ArrowRight className="h-4 w-4" />}
                     className="rounded-2xl sm:min-w-44"
                   >
-                    Sign in
+                    Start with labels
                   </Button>
                 </div>
                 <p className="mt-5 text-xs leading-5 text-slate-400">
-                  Prep services are manually managed and may be performed by SendiFlash or logistics partners. Final quote may vary after review.
+                  Prep is currently limited to approved beta accounts. Services are manually managed and may be performed by SendiFlash or logistics partners.
                 </p>
               </MotionReveal>
 
@@ -158,7 +158,7 @@ export default function FbaPrepPage() {
                           <Package className="h-4.5 w-4.5" />
                         </span>
                         <div>
-                          <p className="font-black text-slate-900">Prep Request #PR-1024</p>
+                      <p className="font-black text-slate-900">Prep Early Access #PR-1024</p>
                           <p className="text-xs text-slate-400">Amazon FBA · 2,000 units</p>
                         </div>
                       </div>
@@ -174,11 +174,11 @@ export default function FbaPrepPage() {
                         <div>
                           <p className="text-xs text-slate-400">Status</p>
                           <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-                            Quote ready
+                            Early access
                           </span>
                         </div>
                         <span className="rounded-xl bg-[#F97316] px-4 py-2 text-sm font-black text-white">
-                          Accept &amp; pay
+                          Request access
                         </span>
                       </div>
                     </div>
@@ -212,10 +212,10 @@ export default function FbaPrepPage() {
                   What is SendiFlash Prep?
                 </h2>
                 <p className="mt-5 text-base leading-7 text-[#334155]">
-                  SendiFlash Prep is a managed Amazon FBA prep service. You submit a request with unit counts and services required. Our team reviews it, sends a final quote, and you accept and pay before any work begins.
+                  SendiFlash Prep is a managed Amazon FBA prep service being prepared for controlled beta. Approved accounts can submit unit counts and required services for review, quote, and payment.
                 </p>
                 <p className="mt-4 text-base leading-7 text-[#334155]">
-                  There is no automatic charge. You always review the quote first.
+                  Public access is not open yet. There is no automatic charge, and approved beta accounts review the quote first.
                 </p>
                 <div className="mt-8 grid gap-5 sm:grid-cols-2">
                   {whatIsIncluded.map((item) => (
@@ -282,8 +282,8 @@ export default function FbaPrepPage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <SectionHeading
               eyebrow="How it works"
-              title="From request to Amazon FBA in five steps"
-              description="The entire prep workflow is managed through your SendiFlash account."
+              title="From early access to Amazon FBA in five steps"
+              description="The Prep workflow is opening gradually while Shipping Labels remain available now."
             />
             <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
               {workflow.map((step, index) => (
@@ -313,7 +313,7 @@ export default function FbaPrepPage() {
                 {[
                   "Final prep quote may vary after review based on actual unit count and service requirements.",
                   "Prep services are manually managed and may be performed by SendiFlash or logistics partners.",
-                  "No automatic charges are made before you accept the quoted price.",
+                  "Public Prep ordering is not open yet; approved beta accounts review quotes before payment.",
                   "Service availability may vary. Contact support if you have special requirements.",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
@@ -339,10 +339,10 @@ export default function FbaPrepPage() {
                 SendiFlash Prep
               </Badge>
               <h2 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
-                Ready to simplify your FBA prep?
+                Want early access to SendiFlash Prep?
               </h2>
               <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-300">
-                Create a free SendiFlash account and submit your first prep request. Our team reviews it and sends a quote before any work begins.
+                Create a free SendiFlash account or contact support to request Prep early access. Shipping Labels are available now.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button
@@ -350,15 +350,15 @@ export default function FbaPrepPage() {
                   variant="action"
                   className="min-w-48 rounded-2xl"
                 >
-                  Request FBA prep
+                  Request early access
                 </Button>
                 <Button
-                  href="/login"
+                  href="/shipping-labels"
                   variant="secondary"
                   icon={<ArrowRight className="h-4 w-4" />}
                   className="min-w-48 rounded-2xl border-white/20 bg-white/10 text-white hover:bg-white/18 hover:text-white"
                 >
-                  Sign in
+                  Start with labels
                 </Button>
               </div>
               <p className="mt-5 text-xs text-slate-500">

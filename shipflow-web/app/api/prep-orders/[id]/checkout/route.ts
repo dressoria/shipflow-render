@@ -8,6 +8,7 @@ import {
 import { getStripeClient, isStripeConfigured, isStripeWebhookConfigured } from "@/lib/server/stripe";
 import { canPayPrepOrder } from "@/lib/prep";
 import { loadPrepOrderDetails, type PrepOrderRow } from "@/lib/server/prepOrders";
+import { requirePrepBetaAccess } from "@/lib/server/prepAccess";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,8 @@ export async function POST(
   }
 
   try {
-    const { user } = await requireVerifiedUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
+    await requirePrepBetaAccess(supabase, user);
     const { id } = await params;
     const serviceSupabase = createServiceSupabaseClient();
     const { data: order, error } = await serviceSupabase

@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/supabaseServer";
 import { canPayPrepOrder } from "@/lib/prep";
 import { loadPrepOrderDetails, type PrepOrderRow } from "@/lib/server/prepOrders";
+import { requirePrepBetaAccess } from "@/lib/server/prepAccess";
 
 function centsToDollars(value: number) {
   return Number((value / 100).toFixed(2));
@@ -34,7 +35,8 @@ export async function POST(
   }
 
   try {
-    const { user } = await requireVerifiedUser(request);
+    const { supabase, user } = await requireVerifiedUser(request);
+    await requirePrepBetaAccess(supabase, user);
     const { id } = await params;
     const { serviceSupabase, order } = await loadOwnedPrepOrder(user.id, id);
     if (!order) return apiError("Prep order not found.", 404);

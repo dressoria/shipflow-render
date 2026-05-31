@@ -1,8 +1,36 @@
 # Staging QA Results
 
-Last updated: 2026-05-29 (FASE 5.67 Prep quote payment)
+Last updated: 2026-05-31 (FASE 5.70 Prep beta access gate)
 
 ---
+
+## FASE 5.70 — FBA Prep Beta Access Gate
+
+Run timestamp: 2026-05-31 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Gate FBA Prep access for controlled beta launch
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Prep beta access | READY FOR QA | Active Prep access is centralized and limited to `131studio.ec@gmail.com` or admin accounts. |
+| Customer Prep routes | READY FOR QA | `/prep`, `/prep/new`, `/prep/orders`, and `/prep/orders/[id]` show the active module only for allowed users; normal users see "SendiFlash Prep is in preparation." |
+| Customer Prep APIs | READY FOR QA | Customer Prep APIs return `403` with a safe message for non-allowed users. |
+| Public marketing | READY FOR QA | Homepage and `/fba-prep` keep Prep visible as early access / coming soon without implying public availability. |
+| Shipping Labels | NOT CHANGED | Shipping label, wallet, automatic label processing, refund, void, and provider logic were not changed. |
+
+### Manual QA checklist
+
+- [ ] Sign in as `131studio.ec@gmail.com` and confirm `/prep/new`, `/prep/orders`, and Prep payment test paths remain available.
+- [ ] Sign in as a normal user and confirm `/prep`, `/prep/new`, `/prep/orders`, and `/prep/orders/[id]` show the in-preparation page.
+- [ ] Confirm normal user calls to `/api/prep-orders` and Prep payment endpoints return `403`.
+- [ ] Confirm `/dashboard` shows Shipping Labels as available and FBA Prep as in preparation for normal users.
+- [ ] Confirm `/fba-prep` public copy says early access / coming soon.
+
+Final decision: READY FOR OPERATOR QA.
 
 ## FASE 5.55 — Production QA and Controlled Beta Release Checklist
 

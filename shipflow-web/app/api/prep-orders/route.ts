@@ -5,6 +5,7 @@ import {
   normalizeCreatePrepOrderInput,
   type PrepOrderRow,
 } from "@/lib/server/prepOrders";
+import { requirePrepBetaAccess } from "@/lib/server/prepAccess";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 function parseLimit(value: string | null) {
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
 
   try {
     const { supabase, user } = await requireVerifiedUser(request);
+    await requirePrepBetaAccess(supabase, user);
     const url = new URL(request.url);
     const status = url.searchParams.get("status")?.trim();
     const limit = parseLimit(url.searchParams.get("limit"));
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
 
   try {
     const { supabase, user } = await requireVerifiedUser(request);
+    await requirePrepBetaAccess(supabase, user);
     const input = normalizeCreatePrepOrderInput(await request.json());
     const order = await createPrepOrder(supabase, user.id, input);
     return apiSuccess({ order }, 201);
