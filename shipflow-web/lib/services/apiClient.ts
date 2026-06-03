@@ -535,6 +535,76 @@ export async function apiCreateAdminPrepOrderEvent(
   });
 }
 
+// ── Ecuador Shipping beta requests ──────────────────────────────────────────
+
+export type CreateEcuadorShipmentRequestBody = import("@/lib/ecuador/types").CreateEcuadorShipmentRequestBody;
+
+export async function apiCreateEcuadorShipmentRequest(
+  body: CreateEcuadorShipmentRequestBody,
+): Promise<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest; message: string }> {
+  return apiFetch<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest; message: string }>("/api/ecuador/shipments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiGetEcuadorShipmentRequests(params?: {
+  status?: string;
+  limit?: number;
+}): Promise<{ shipments: import("@/lib/ecuador/types").EcuadorShipmentRequest[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return apiFetch<{ shipments: import("@/lib/ecuador/types").EcuadorShipmentRequest[]; limit: number }>(
+    `/api/ecuador/shipments${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function apiGetEcuadorShipmentRequest(
+  id: string,
+): Promise<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest }> {
+  return apiFetch<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest }>(
+    `/api/ecuador/shipments/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function apiGetAdminEcuadorShipments(params?: {
+  status?: string;
+  search?: string;
+  limit?: number;
+}): Promise<{ shipments: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest[]; limit: number }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.search) qs.set("search", params.search);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  const query = qs.toString();
+  return apiFetch<{ shipments: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest[]; limit: number }>(
+    `/api/admin/ecuador-shipments${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function apiGetAdminEcuadorShipment(
+  id: string,
+): Promise<{ shipment: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest }> {
+  return apiFetch<{ shipment: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest }>(
+    `/api/admin/ecuador-shipments/${encodeURIComponent(id)}`,
+  );
+}
+
+export async function apiUpdateAdminEcuadorShipment(
+  id: string,
+  body: Record<string, unknown>,
+): Promise<{ shipment: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest | null }> {
+  return apiFetch<{ shipment: import("@/lib/ecuador/types").AdminEcuadorShipmentRequest | null }>(
+    `/api/admin/ecuador-shipments/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
 // ── Shipments ────────────────────────────────────────────────────────────────
 
 export type ShipmentsData = { shipments: Envio[]; limit: number };

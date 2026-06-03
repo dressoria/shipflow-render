@@ -1,10 +1,57 @@
 # Staging Execution Checklist
 
-Last updated: 2026-06-03 (FASE 5.71)
+Last updated: 2026-06-03 (FASE 5.76)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
 Do not deploy production-wide. Do not apply migrations automatically. Do not print secrets. Do not buy real labels or execute real refunds without explicit confirmation.
+
+## FASE 5.76 Ecuador Beta Request Flow
+
+Scope: additive persistence and controlled beta request flow only. No provider calls or payments.
+
+Operator QA:
+
+1. Sign in as a verified normal user and open `/ecuador/crear-envio`.
+2. Submit a beta request and confirm the page says no real shipment is created yet.
+3. Confirm redirect to `/ecuador/envios/[id]` works.
+4. Open `/ecuador/envios` and confirm only that user's Ecuador requests appear.
+5. Confirm the detail page shows status, addresses, package info, and customer-visible timeline only.
+6. Confirm direct calls to `/api/ecuador/shipments` require auth and do not expose internal fields.
+7. Sign in as admin and open `/admin/ecuador-envios`.
+8. Update a request in `/admin/ecuador-envios/[id]` and add one customer event and one internal event.
+9. Confirm no provider order is created, no Delivereo call is made, and no Ecuador payment is processed.
+
+## FASE 5.75 Ecuador MVP Skeleton
+
+Scope: placeholder routes, types, and provider structure only.
+
+Operator QA:
+
+1. Open `/ecuador/crear-envio` and confirm the preview form is disabled and honest about not creating real orders.
+2. Open `/ecuador/envios` and confirm the empty state explains the service is not active yet.
+3. Open a sample detail route such as `/ecuador/envios/demo` and confirm it renders normally.
+4. Sign in as admin and open `/admin/ecuador-envios`.
+5. Open `/admin/ecuador-envios/demo` and confirm it remains placeholder-only.
+6. Confirm no real provider quote/create/tracking call is made from these pages.
+7. Confirm no Ecuador payment or persistence behavior exists yet.
+
+## FASE 5.74 Regional Mode Foundation
+
+Scope: UI/state foundation only for manual USA vs Ecuador mode switching.
+
+Operator QA:
+
+1. Open `/` and confirm the region mode switcher is visible and usable.
+2. Switch to Ecuador mode and refresh the page; confirm the preference persists.
+3. Confirm Ecuador mode shows Spanish-first hero copy and only safe CTAs such as `/support` and `/shipping-labels`.
+4. Switch back to USA mode and confirm Shipping Labels returns as the main hero CTA.
+5. Open `/login` and `/registro` in both modes and confirm copy changes without changing auth behavior.
+6. Open `/dashboard` in both modes and confirm:
+   - USA mode keeps Shipping Labels primary
+   - Ecuador mode keeps Ecuador as coming soon only
+7. Confirm `/ecuador` and `/shipping-labels` cross-link cleanly.
+8. Confirm no Ecuador order creation route, API, payment flow, or provider integration was added.
 
 ## FASE 5.71 Ecuador Coming-Soon Positioning
 

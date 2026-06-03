@@ -1,6 +1,6 @@
 # Production Readiness Checklist
 
-Last updated: 2026-06-03 (FASE 5.72)
+Last updated: 2026-06-03 (FASE 5.76)
 
 Purpose: final pre-launch checklist for SendiFlash production readiness without enabling public launch prematurely.
 
@@ -8,7 +8,8 @@ Purpose: final pre-launch checklist for SendiFlash production readiness without 
 
 - Shipping Labels: available and treated as the main beta product.
 - FBA Prep: gated controlled beta only.
-- Ecuador Shipping: public coming-soon positioning only, not live.
+- Ecuador Shipping: controlled beta request flow only, not live shipping.
+- Ecuador Shipping may store internal beta requests, but must not create provider orders or process Ecuador payments yet.
 - Delivereo: not integrated.
 - AI/n8n automation: not live.
 
@@ -75,8 +76,9 @@ Purpose: final pre-launch checklist for SendiFlash production readiness without 
 
 - [ ] `/ecuador` says coming soon or in preparation.
 - [ ] No public promise mentions Delivereo.
-- [ ] No Ecuador order flow exists yet.
-- [ ] No Ecuador API or Ecuador payment flow is active yet.
+- [ ] Ecuador customer flow is clearly labeled as beta request only, not live shipping.
+- [ ] Ecuador admin flow is internal-only and does not call Delivereo.
+- [ ] No Ecuador payment flow is active yet.
 
 ## H. Legal/support checklist
 
@@ -107,5 +109,5 @@ Purpose: final pre-launch checklist for SendiFlash production readiness without 
 
 - Keep Shipping Labels as the only production-ready public service.
 - Keep FBA Prep gated to approved users and admins.
-- Keep Ecuador Shipping as marketing-only until provider, payment, and operations work are complete.
+- Keep Ecuador Shipping limited to controlled beta requests until provider, payment, and operations work are complete.
 - Treat any real-label, Stripe, or provider issue as a reason to pause launch and return to controlled beta validation.

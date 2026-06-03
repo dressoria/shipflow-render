@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
+import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { SectionHeading } from "@/components/SectionHeading";
 
 export const metadata: Metadata = {
@@ -56,6 +57,9 @@ export default function EcuadorPage() {
                   <MapPinned className="mr-2 h-3.5 w-3.5" />
                   Ecuador Shipping · En preparacion
                 </Badge>
+                <div className="mt-5 max-w-md">
+                  <RegionModeSwitcher />
+                </div>
                 <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.7rem]">
                   Envios locales y nacionales en Ecuador,{" "}
                   <span className="text-sky-700">proximamente en SendiFlash.</span>
@@ -64,8 +68,8 @@ export default function EcuadorPage() {
                   Estamos preparando una experiencia para cotizar, pagar y gestionar envios locales y nacionales en Ecuador desde una sola cuenta SendiFlash.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Button href="/support" variant="action" className="rounded-2xl sm:min-w-44">
-                    Solicitar acceso temprano
+                  <Button href="/ecuador/crear-envio" variant="action" className="rounded-2xl sm:min-w-44">
+                    Solicitar acceso beta
                   </Button>
                   <Button
                     href="/shipping-labels"
@@ -77,7 +81,7 @@ export default function EcuadorPage() {
                   </Button>
                 </div>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-500">
-                  Estado actual: en desarrollo y acceso temprano. Esta pagina presenta la direccion del servicio, no una disponibilidad activa.
+                  Estado actual: en desarrollo y acceso temprano. Puedes enviar una solicitud beta, pero no se crea un envío real todavía.
                 </p>
               </MotionReveal>
 
@@ -191,13 +195,13 @@ export default function EcuadorPage() {
                   href="/support"
                   className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-bold text-white shadow-lg shadow-orange-500/25 transition hover:-translate-y-0.5 hover:bg-[#EA580C]"
                 >
-                  Solicitar acceso temprano
+                  Solicitar acceso beta
                 </Link>
                 <Link
                   href="/shipping-labels"
                   className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                 >
-                  Usar Shipping Labels
+                  Ver Shipping Labels USA
                 </Link>
               </div>
             </div>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   Building2,
@@ -24,9 +26,11 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
 import { QuotePreview } from "@/components/QuotePreview";
+import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { SectionHeading } from "@/components/SectionHeading";
 import { NationwideRoute } from "@/components/landing/NationwideRoute";
 import { ScrollStory } from "@/components/landing/ScrollStory";
+import { useRegionMode } from "@/contexts/RegionModeContext";
 
 const trustBadges = [
   "Shipping labels",
@@ -323,7 +327,8 @@ function DashboardHeroVisual() {
   );
 }
 
-function TwoServicesSection() {
+function TwoServicesSection({ mode }: { mode: "us" | "ec" }) {
+  const ecuadorFirst = mode === "ec";
   return (
     <section id="services" className="bg-white py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -333,11 +338,16 @@ function TwoServicesSection() {
           description="Shipping Labels are available now, Ecuador Shipping is in preparation, and FBA Prep remains controlled early access."
         />
         <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {/* Shipping Labels */}
-          <MotionCard
-            delay={0}
-            className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white p-8 shadow-sm transition hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/6"
-          >
+          {(ecuadorFirst ? ["ec", "us", "prep"] : ["us", "ec", "prep"]).map((cardKey, index) => {
+            if (cardKey === "us") {
+              return (
+                <MotionCard
+                  key="us"
+                  delay={index * 0.08}
+                  className={`rounded-3xl border bg-gradient-to-br from-blue-50/60 to-white p-8 shadow-sm transition hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/6 ${
+                    mode === "us" ? "border-blue-300 ring-2 ring-blue-100" : "border-blue-100"
+                  }`}
+                >
             <span className="inline-flex items-center rounded-full border border-green-100 bg-green-50 px-3 py-1 text-xs font-black text-green-700">
               Available now
             </span>
@@ -372,15 +382,21 @@ function TwoServicesSection() {
                 Learn more <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          </MotionCard>
+                </MotionCard>
+              );
+            }
 
-          {/* Ecuador Shipping */}
-          <MotionCard
-            delay={0.08}
-            className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50/70 to-white p-8 shadow-sm transition hover:border-sky-200 hover:shadow-lg hover:shadow-sky-950/6"
-          >
+            if (cardKey === "ec") {
+              return (
+                <MotionCard
+                  key="ec"
+                  delay={index * 0.08}
+                  className={`rounded-3xl border bg-gradient-to-br from-sky-50/70 to-white p-8 shadow-sm transition hover:border-sky-200 hover:shadow-lg hover:shadow-sky-950/6 ${
+                    mode === "ec" ? "border-sky-300 ring-2 ring-sky-100" : "border-sky-100"
+                  }`}
+                >
             <span className="inline-flex items-center rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-              Coming soon
+              {mode === "ec" ? "Modo Ecuador" : "Coming soon"}
             </span>
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-sky-600 text-white shadow-lg shadow-sky-500/20">
               <MapPinned className="h-7 w-7" />
@@ -416,13 +432,16 @@ function TwoServicesSection() {
                 Learn more <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          </MotionCard>
+                </MotionCard>
+              );
+            }
 
-          {/* Prep */}
-          <MotionCard
-            delay={0.16}
-            className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-white p-8 shadow-sm transition hover:border-orange-200 hover:shadow-lg hover:shadow-orange-950/6"
-          >
+            return (
+              <MotionCard
+                key="prep"
+                delay={index * 0.08}
+                className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-white p-8 shadow-sm transition hover:border-orange-200 hover:shadow-lg hover:shadow-orange-950/6"
+              >
             <span className="inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
               Early access
             </span>
@@ -460,7 +479,9 @@ function TwoServicesSection() {
                 Learn more <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          </MotionCard>
+              </MotionCard>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -561,6 +582,8 @@ function TrustMetricsSection() {
 }
 
 export default function Home() {
+  const { mode } = useRegionMode();
+  const isEcuadorMode = mode === "ec";
   return (
     <>
       <Header />
@@ -574,46 +597,95 @@ export default function Home() {
               <MotionReveal>
                 <Badge
                   tone="blue"
-                  className="border border-blue-100 bg-blue-50 text-[#2563EB] ring-blue-100"
+                  className={isEcuadorMode ? "border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100" : "border border-blue-100 bg-blue-50 text-[#2563EB] ring-blue-100"}
                 >
                   <ShieldCheck className="mr-2 h-3.5 w-3.5" />
-                  Shipping Labels available now · Ecuador Shipping coming soon · FBA Prep early access
+                  {isEcuadorMode
+                    ? "Modo Ecuador · En preparación · Shipping Labels USA disponible"
+                    : "Shipping Labels available now · Ecuador Shipping coming soon · FBA Prep early access"}
                 </Badge>
 
-                <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
-                  Ship faster. Prep smarter.{" "}
-                  <span className="text-[#2563EB]">Scale your</span>{" "}
-                  <span className="text-[#F97316]">logistics.</span>
-                </h1>
+                <div className="mt-5 max-w-md">
+                  <RegionModeSwitcher />
+                </div>
+
+                {isEcuadorMode ? (
+                  <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
+                    Envia en Ecuador desde una sola cuenta{" "}
+                    <span className="text-sky-700">SendiFlash.</span>
+                  </h1>
+                ) : (
+                  <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
+                    Ship faster. Prep smarter.{" "}
+                    <span className="text-[#2563EB]">Scale your</span>{" "}
+                    <span className="text-[#F97316]">logistics.</span>
+                  </h1>
+                )}
 
                 <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
-                  Compare rates, create shipping labels, and follow the next SendiFlash service launches from a single account.
+                  {isEcuadorMode
+                    ? "Estamos preparando cotizacion, pagos y tracking para entregas locales y nacionales. Mientras tanto, puedes solicitar acceso temprano y seguir usando Shipping Labels USA."
+                    : "Compare rates, create shipping labels, and follow the next SendiFlash service launches from a single account."}
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    href="/crear-guia"
-                    variant="action"
-                    className="rounded-2xl sm:min-w-44"
-                  >
-                    Create a label
-                  </Button>
-                  <Button
-                    href="/fba-prep"
-                    variant="secondary"
-                    icon={<ArrowRight className="h-4 w-4" />}
-                    className="rounded-2xl border-blue-100 bg-white text-[#0F172A] hover:border-[#F97316]/40 hover:bg-orange-50 hover:text-[#F97316] sm:min-w-44"
-                  >
-                    FBA Prep early access
-                  </Button>
+                  {isEcuadorMode ? (
+                    <>
+                      <Button
+                        href="/support"
+                        variant="action"
+                        className="rounded-2xl sm:min-w-44"
+                      >
+                        Solicitar acceso temprano
+                      </Button>
+                      <Button
+                        href="/shipping-labels"
+                        variant="secondary"
+                        icon={<ArrowRight className="h-4 w-4" />}
+                        className="rounded-2xl border-sky-100 bg-white text-[#0F172A] hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 sm:min-w-44"
+                      >
+                        Ver Shipping Labels USA
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        href="/crear-guia"
+                        variant="action"
+                        className="rounded-2xl sm:min-w-44"
+                      >
+                        Create a label
+                      </Button>
+                      <Button
+                        href="/fba-prep"
+                        variant="secondary"
+                        icon={<ArrowRight className="h-4 w-4" />}
+                        className="rounded-2xl border-blue-100 bg-white text-[#0F172A] hover:border-[#F97316]/40 hover:bg-orange-50 hover:text-[#F97316] sm:min-w-44"
+                      >
+                        FBA Prep early access
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 <p className="mt-5 max-w-xl text-sm font-semibold text-slate-500">
-                  Shipping Labels available now ·{" "}
-                  <Link href="/ecuador" className="text-sky-700 underline-offset-4 transition hover:underline">
-                    Ecuador Shipping coming soon
-                  </Link>{" "}
-                  · FBA Prep early access
+                  {isEcuadorMode ? (
+                    <>
+                      Ecuador Shipping en preparacion ·{" "}
+                      <Link href="/shipping-labels" className="text-[#2563EB] underline-offset-4 transition hover:underline">
+                        Shipping Labels USA disponible
+                      </Link>{" "}
+                      · FBA Prep early access
+                    </>
+                  ) : (
+                    <>
+                      Shipping Labels available now ·{" "}
+                      <Link href="/ecuador" className="text-sky-700 underline-offset-4 transition hover:underline">
+                        Ecuador Shipping coming soon
+                      </Link>{" "}
+                      · FBA Prep early access
+                    </>
+                  )}
                 </p>
 
                 <div className="mt-8 flex max-w-xl flex-wrap gap-2.5">
@@ -663,7 +735,7 @@ export default function Home() {
         </section>
 
         {/* ── Two services ── */}
-        <TwoServicesSection />
+        <TwoServicesSection mode={mode} />
 
         {/* ── Real logistics scenes ── */}
         <section className="bg-[#F8FAFC] py-20 sm:py-28">

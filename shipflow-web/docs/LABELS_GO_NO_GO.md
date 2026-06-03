@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-06-03 (FASE 5.71)
+Última revisión: 2026-06-03 (FASE 5.76)
 
 ---
 
@@ -116,6 +116,39 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Shipping Labels siguen como servicio disponible ahora.
 - [x] FBA Prep sigue como early access / beta controlada.
 - [x] No se tocaron migraciones, wallet, auth, refunds, voids ni compra de labels.
+
+## 5.74. Regional mode foundation
+
+- [x] Existe modo regional cliente para `us` y `ec`.
+- [x] La preferencia regional se guarda en `localStorage`.
+- [x] El usuario puede cambiar manualmente entre USA Shipping Labels y Ecuador Shipping.
+- [x] No existe bloqueo por IP ni routing estricto por país.
+- [x] Homepage, auth y dashboard cambian copy/UI por modo sin habilitar envíos Ecuador reales.
+- [x] Ecuador sigue presentado como `próximamente` / `en preparación`.
+- [x] FBA Prep sigue gated / beta controlada.
+- [x] No se tocaron Delivereo, pagos Ecuador, migraciones ni lógica de labels existente.
+
+## 5.75. Ecuador MVP skeleton
+
+- [x] Existen rutas placeholder `/ecuador/crear-envio`, `/ecuador/envios` y `/ecuador/envios/[id]`.
+- [x] Existen rutas admin placeholder `/admin/ecuador-envios` y `/admin/ecuador-envios/[id]`.
+- [x] No se crean órdenes reales desde las nuevas rutas Ecuador.
+- [x] Delivereo sigue sin integración real y sin credenciales en código.
+- [x] Existe interfaz de provider Ecuador y provider mock/no-op sin llamadas de red.
+- [x] No existen pagos Ecuador activos.
+- [x] No se agregaron migraciones ni tablas reales para Ecuador.
+- [x] FBA Prep sigue gated / beta controlada.
+
+## 5.76. Ecuador beta request flow
+
+- [x] Existe migración aditiva `20260603_add_ecuador_shipping_requests.sql`.
+- [x] Existen tablas `regional_shipments` y `regional_shipment_events` con RLS para lectura propia del usuario.
+- [x] Existen APIs customer `POST /api/ecuador/shipments`, `GET /api/ecuador/shipments`, y `GET /api/ecuador/shipments/[id]`.
+- [x] Existen APIs admin `GET /api/admin/ecuador-shipments`, `GET /api/admin/ecuador-shipments/[id]`, y `PATCH /api/admin/ecuador-shipments/[id]`.
+- [x] `/ecuador/crear-envio` ahora crea solicitud beta, no envío real.
+- [x] `/ecuador/envios` y `/ecuador/envios/[id]` muestran solo campos seguros para cliente.
+- [x] `/admin/ecuador-envios` y `/admin/ecuador-envios/[id]` operan datos internos sin llamadas a Delivereo.
+- [x] No se tocaron pagos Ecuador, credenciales Delivereo, lógica de labels, wallet ni Prep.
 
 ---
 

@@ -1,6 +1,107 @@
 # Staging QA Results
 
-Last updated: 2026-06-03 (FASE 5.71 Ecuador coming-soon positioning)
+Last updated: 2026-06-03 (FASE 5.76 Ecuador beta request flow)
+
+---
+
+## FASE 5.76 — Ecuador Beta Request Flow
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Add Ecuador Shipping beta request data flow
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Ecuador migration | READY FOR QA | Additive migration creates `regional_shipments` and `regional_shipment_events` with RLS and `updated_at` trigger. |
+| Customer Ecuador APIs | READY FOR QA | `POST /api/ecuador/shipments`, `GET /api/ecuador/shipments`, and `GET /api/ecuador/shipments/[id]` require verified auth and only expose customer-safe fields. |
+| Admin Ecuador APIs | READY FOR QA | `GET /api/admin/ecuador-shipments`, `GET /api/admin/ecuador-shipments/[id]`, and `PATCH /api/admin/ecuador-shipments/[id]` are admin-only and operate on `market='EC'` records only. |
+| Customer Ecuador pages | READY FOR QA | `/ecuador/crear-envio`, `/ecuador/envios`, and `/ecuador/envios/[id]` are connected to the beta request flow and clearly state no real shipment is created yet. |
+| Admin Ecuador pages | READY FOR QA | `/admin/ecuador-envios` and `/admin/ecuador-envios/[id]` now review/update beta requests and can add customer/internal events without provider calls. |
+| Delivereo/payment/provider behavior | NOT CHANGED | No Delivereo network calls, no Ecuador payment flow, and no real provider order creation were introduced. |
+
+### Manual QA checklist
+
+- [ ] Confirm `/ecuador/crear-envio` saves a beta request and redirects to `/ecuador/envios/[id]`.
+- [ ] Confirm the create form says no real shipment is created and Delivereo is not integrated yet.
+- [ ] Confirm `/ecuador/envios` lists only the signed-in user's Ecuador requests.
+- [ ] Confirm `/ecuador/envios/[id]` hides internal fields such as provider cost, margin, admin notes, and provider order id.
+- [ ] Confirm `/api/ecuador/shipments` rejects unauthenticated access and does not expose other users' rows.
+- [ ] Confirm `/admin/ecuador-envios` is admin-only and lists all `market='EC'` requests.
+- [ ] Confirm `/admin/ecuador-envios/[id]` can update internal fields and add customer/internal timeline events.
+- [ ] Confirm no Delivereo calls, no Ecuador payments, and no real provider orders are created.
+
+Final decision: READY FOR OPERATOR QA.
+
+---
+
+## FASE 5.75 — Ecuador MVP Skeleton
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Add Ecuador Shipping MVP skeleton without provider calls
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Customer Ecuador routes | READY FOR QA | `/ecuador/crear-envio`, `/ecuador/envios`, and `/ecuador/envios/[id]` exist as placeholder/coming-soon pages and do not create real orders. |
+| Admin Ecuador routes | READY FOR QA | `/admin/ecuador-envios` and `/admin/ecuador-envios/[id]` exist behind admin protection as future operations placeholders. |
+| Ecuador type system | READY FOR QA | Isolated Ecuador shipment, payment, provider, quote, create, and tracking types exist outside current Shipping Labels types. |
+| Provider skeleton | READY FOR QA | Ecuador provider interface and mock/no-op provider exist with no network calls. |
+| Delivereo integration | NOT CHANGED | Delivereo remains undocumented in code, unconfigured, and not called by the new skeleton routes. |
+| Ecuador payment/data persistence | NOT CHANGED | No Ecuador payment flows, DB tables, or migrations were added. |
+
+### Manual QA checklist
+
+- [ ] Confirm `/ecuador/crear-envio` loads and clearly states no real shipments are created there yet.
+- [ ] Confirm `/ecuador/envios` shows the intended coming-soon empty state.
+- [ ] Confirm `/ecuador/envios/demo` and another sample ID route load without build/runtime failure.
+- [ ] Confirm `/admin/ecuador-envios` is admin-protected.
+- [ ] Confirm `/admin/ecuador-envios/demo` is admin-protected and shows placeholder content only.
+- [ ] Confirm Ecuador mode dashboard links can open the preview/list pages without implying live functionality.
+- [ ] Confirm no Delivereo calls, no payments, and no Ecuador order persistence were introduced.
+
+Final decision: READY FOR OPERATOR QA.
+
+---
+
+## FASE 5.74 — Regional Mode Foundation
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Add regional mode foundation for Ecuador and USA services
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Region mode model | READY FOR QA | Client-side `us` and `ec` modes exist with localStorage persistence and safe default `us`. |
+| Public switcher | READY FOR QA | Header and public surfaces expose a manual region/service mode switcher. |
+| Homepage behavior | READY FOR QA | Homepage hero and service emphasis now change for USA vs Ecuador mode without implying Ecuador is live. |
+| Auth copy | READY FOR QA | Login/registration copy becomes Ecuador-oriented in `ec` mode without changing auth logic or routes. |
+| Dashboard behavior | READY FOR QA | Dashboard UI emphasizes Shipping Labels in `us` mode and Ecuador coming-soon/support actions in `ec` mode. |
+| Ecuador backend/payment logic | NOT CHANGED | No Delivereo integration, Ecuador APIs, Ecuador payment APIs, migrations, or shipment tables were added. |
+
+### Manual QA checklist
+
+- [ ] On `/`, switch between USA and Ecuador modes and confirm the selected mode persists after refresh.
+- [ ] Confirm USA mode keeps Shipping Labels as the primary homepage CTA.
+- [ ] Confirm Ecuador mode shows Spanish hero copy and only support/USA-label CTAs.
+- [ ] Confirm `/login` and `/registro` copy changes with mode while auth behavior remains unchanged.
+- [ ] Confirm `/dashboard` shows Ecuador coming-soon actions in `ec` mode and Shipping Labels as primary in `us` mode.
+- [ ] Confirm `/ecuador` remains coming soon / in preparation only.
+- [ ] Confirm `/shipping-labels` includes the Ecuador callout and link to `/ecuador`.
+- [ ] Confirm FBA Prep remains gated for non-allowed users.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

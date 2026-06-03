@@ -265,6 +265,30 @@ export default function ShippingLabelsPage() {
           </div>
         </section>
 
+        <section className="bg-[#F8FAFC] py-8">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div className="rounded-3xl border border-sky-100 bg-white p-6 shadow-sm shadow-slate-950/5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Regional mode</p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-950">Shipping from Ecuador?</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                    Ecuador Shipping is in preparation. You can follow updates and request early access while Shipping Labels stays available now for USA shipping.
+                  </p>
+                </div>
+                <Button
+                  href="/ecuador"
+                  variant="secondary"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  className="rounded-2xl border-sky-200 text-sky-700 hover:border-sky-300 hover:bg-sky-50"
+                >
+                  View Ecuador Shipping
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── Final CTA ── */}
         <section className="relative overflow-hidden bg-[#0F172A] py-20 text-white sm:py-28">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[#F97316]" />

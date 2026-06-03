@@ -5,19 +5,22 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { BrandName } from "@/components/BrandName";
 import { Button } from "@/components/Button";
+import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
+import { useRegionMode } from "@/contexts/RegionModeContext";
 
 const nav = [
   { label: "Services", href: "/#services" },
+  { label: "Shipping Labels", href: "/shipping-labels" },
   { label: "Ecuador", href: "/ecuador" },
-  { label: "Features", href: "/#features" },
-  { label: "How it works", href: "/#how-it-works" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "FAQ", href: "/#faq" },
   { label: "Support", href: "/support" },
 ];
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const { mode } = useRegionMode();
+  const ctaLabel = mode === "ec" ? "Acceso temprano" : "Start shipping";
+  const loginLabel = mode === "ec" ? "Iniciar sesión" : "Sign in";
+  const ctaHref = mode === "ec" ? "/support" : "/registro";
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
@@ -40,11 +43,14 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <div className="w-[228px]">
+            <RegionModeSwitcher compact />
+          </div>
           <Button href="/login" variant="ghost">
-            Sign in
+            {loginLabel}
           </Button>
-          <Button href="/registro" variant="action" className="rounded-2xl">
-            Start shipping
+          <Button href={ctaHref} variant="action" className="rounded-2xl">
+            {ctaLabel}
           </Button>
         </div>
 
@@ -60,6 +66,9 @@ export function Header() {
 
       {open ? (
         <div className="mx-auto mt-2 max-w-7xl rounded-3xl border border-white/80 bg-white/95 px-4 py-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl md:hidden">
+          <div className="mb-4">
+            <RegionModeSwitcher />
+          </div>
           <nav className="grid gap-1">
             {nav.map((item) => (
               <Link
@@ -73,11 +82,11 @@ export function Header() {
             ))}
           </nav>
           <div className="mt-4 grid gap-3">
-            <Button href="/registro" variant="action" className="w-full">
-              Start shipping
+            <Button href={ctaHref} variant="action" className="w-full">
+              {ctaLabel}
             </Button>
             <Button href="/login" variant="secondary" className="w-full">
-              Sign in
+              {loginLabel}
             </Button>
           </div>
         </div>

@@ -16,6 +16,8 @@ import {
   Truck,
 } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
+import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
+import { useRegionMode } from "@/contexts/RegionModeContext";
 import { isEmail, isPhone, required } from "@/lib/forms";
 import { useAuth } from "@/hooks/useAuth";
 import { isAccountMayExistError, logoutUser } from "@/lib/services/authService";
@@ -149,7 +151,9 @@ function AuthFormError({ message }: { message: string }) {
 export function AuthCard({ mode }: AuthCardProps) {
   const router = useRouter();
   const { user, loading: authLoading, login, register } = useAuth();
+  const { mode: regionMode } = useRegionMode();
   const isLogin = mode === "login";
+  const isEcuadorMode = regionMode === "ec";
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [signOutLoading, setSignOutLoading] = useState(false);
@@ -295,17 +299,31 @@ export function AuthCard({ mode }: AuthCardProps) {
           <BrandName />
         </Link>
 
+        <div className="mt-6">
+          <RegionModeSwitcher />
+        </div>
+
         <div className="mt-7">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F97316]">
-            {isLogin ? "Welcome back" : "Beta access"}
+            {isEcuadorMode ? "Modo Ecuador" : isLogin ? "Welcome back" : "Beta access"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {isLogin ? "Welcome back" : "Create your free account"}
+            {isEcuadorMode
+              ? isLogin
+                ? "Ingresa a tu cuenta SendiFlash Ecuador"
+                : "Crea tu cuenta SendiFlash Ecuador"
+              : isLogin
+                ? "Welcome back"
+                : "Create your free account"}
           </h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            {isLogin
-              ? "Create labels, compare rates, and manage shipments from one workspace."
-              : "Start comparing rates and generating labels in minutes. Domestic shipping in selected markets; international shipping is coming later."}
+            {isEcuadorMode
+              ? isLogin
+                ? "Estamos preparando envios locales y nacionales en Ecuador. Tambien puedes usar Shipping Labels para envios en USA."
+                : "Estamos preparando envios locales y nacionales en Ecuador. Tambien puedes usar Shipping Labels para envios en USA desde la misma cuenta."
+              : isLogin
+                ? "Create labels, compare rates, and manage shipments from one workspace."
+                : "Start comparing rates and generating labels in minutes. Domestic shipping in selected markets; international shipping is coming later."}
           </p>
         </div>
 
@@ -313,17 +331,17 @@ export function AuthCard({ mode }: AuthCardProps) {
           {!isLogin ? (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field name="firstName" label="First name" placeholder="Andrea" error={errors.firstName} />
-                <Field name="lastName" label="Last name" placeholder="Martinez" error={errors.lastName} />
+                <Field name="firstName" label={isEcuadorMode ? "Nombre" : "First name"} placeholder="Andrea" error={errors.firstName} />
+                <Field name="lastName" label={isEcuadorMode ? "Apellido" : "Last name"} placeholder="Martinez" error={errors.lastName} />
               </div>
-              <Field name="businessName" label="Business / company name" placeholder="Northstar Market" error={errors.businessName} />
+              <Field name="businessName" label={isEcuadorMode ? "Negocio / empresa" : "Business / company name"} placeholder="Northstar Market" error={errors.businessName} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field name="phone" label="Phone" placeholder="+1 555 000 0000" error={errors.phone} />
-                <SelectField name="country" label="Default market" options={markets} error={errors.country} />
+                <Field name="phone" label={isEcuadorMode ? "Telefono" : "Phone"} placeholder="+1 555 000 0000" error={errors.phone} />
+                <SelectField name="country" label={isEcuadorMode ? "Mercado predeterminado" : "Default market"} options={markets} error={errors.country} />
               </div>
               <SelectField
                 name="businessType"
-                label="Business type"
+                label={isEcuadorMode ? "Tipo de negocio" : "Business type"}
                 options={businessTypes.map((value) => ({ code: value, label: value }))}
                 error={errors.businessType}
               />
@@ -331,20 +349,20 @@ export function AuthCard({ mode }: AuthCardProps) {
           ) : null}
 
           <Field name="email" label="Email" type="email" placeholder="hello@store.com" error={errors.email} />
-          <Field name="password" label="Password" type="password" placeholder="••••••••" error={errors.password} />
+          <Field name="password" label={isEcuadorMode ? "Contrasena" : "Password"} type="password" placeholder="••••••••" error={errors.password} />
           {!isLogin ? (
             <>
-              <Field name="confirmPassword" label="Confirm password" type="password" placeholder="••••••••" error={errors.confirmPassword} />
+              <Field name="confirmPassword" label={isEcuadorMode ? "Confirmar contrasena" : "Confirm password"} type="password" placeholder="••••••••" error={errors.confirmPassword} />
               <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 <input name="acceptedTerms" type="checkbox" className="mt-1" />
                 <span>
-                  I agree to the{" "}
+                  {isEcuadorMode ? "Acepto los " : "I agree to the "}
                   <Link href="/terms" className="font-bold text-[#2563EB] hover:underline">
-                    Terms
+                    {isEcuadorMode ? "Términos" : "Terms"}
                   </Link>{" "}
-                  and{" "}
+                  {isEcuadorMode ? "y la " : "and "}
                   <Link href="/privacy" className="font-bold text-[#2563EB] hover:underline">
-                    Privacy Policy
+                    {isEcuadorMode ? "Política de Privacidad" : "Privacy Policy"}
                   </Link>
                   .
                   {errors.acceptedTerms ? <span className="mt-1 block text-xs font-semibold text-red-600">{errors.acceptedTerms}</span> : null}
@@ -352,16 +370,16 @@ export function AuthCard({ mode }: AuthCardProps) {
               </label>
               {!CAPTCHA_SITE_KEY ? (
                 <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
-                  Anti-bot protection is not configured in this environment.
+                  {isEcuadorMode ? "La protección anti-bot no está configurada en este entorno." : "Anti-bot protection is not configured in this environment."}
                 </p>
               ) : (
-                <p className="text-xs font-semibold text-slate-400">Protected by reCAPTCHA.</p>
+                <p className="text-xs font-semibold text-slate-400">{isEcuadorMode ? "Protegido por reCAPTCHA." : "Protected by reCAPTCHA."}</p>
               )}
             </>
           ) : (
             <div className="text-right">
               <Link href="/forgot-password" className="text-xs font-semibold text-slate-500 hover:text-[#2563EB]">
-                Forgot your password?
+                {isEcuadorMode ? "¿Olvidaste tu contraseña?" : "Forgot your password?"}
               </Link>
             </div>
           )}
@@ -371,16 +389,16 @@ export function AuthCard({ mode }: AuthCardProps) {
             disabled={loading}
             className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-black text-white shadow-xl shadow-orange-500/20 transition hover:-translate-y-0.5 hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Checking..." : isLogin ? "Enter dashboard" : "Create account"}
+            {loading ? "Checking..." : isEcuadorMode ? (isLogin ? "Entrar al panel" : "Crear cuenta") : isLogin ? "Enter dashboard" : "Create account"}
             {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
           </button>
           {errors.form ? <AuthFormError message={errors.form} /> : null}
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-600">
-          {isLogin ? "No account yet?" : "Already have an account?"}{" "}
+          {isEcuadorMode ? (isLogin ? "¿Todavía no tienes cuenta?" : "¿Ya tienes cuenta?") : isLogin ? "No account yet?" : "Already have an account?"}{" "}
           <Link href={isLogin ? "/registro" : "/login"} className="font-bold text-[#2563EB] hover:underline">
-            {isLogin ? "Create account" : "Sign in"}
+            {isEcuadorMode ? (isLogin ? "Crear cuenta" : "Iniciar sesión") : isLogin ? "Create account" : "Sign in"}
           </Link>
         </p>
       </section>
@@ -400,18 +418,28 @@ function AuthFrame({ mode, children }: { mode: "login" | "registro"; children: R
 }
 
 function AuthPreview({ mode }: { mode: "login" | "registro" }) {
+  const { mode: regionMode } = useRegionMode();
+  const isEcuadorMode = regionMode === "ec";
   return (
     <section className="hidden min-w-0 text-white lg:block">
       <div className="max-w-xl">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
           <ShieldCheck className="h-3.5 w-3.5 text-[#FB923C]" />
-          Secure beta shipping workspace
+          {isEcuadorMode ? "Modo Ecuador en preparación" : "Secure beta shipping workspace"}
         </div>
         <h2 className="mt-6 text-5xl font-black tracking-tight">
-          {mode === "login" ? "Everything after checkout, handled." : "A cleaner way to ship from day one."}
+          {isEcuadorMode
+            ? mode === "login"
+              ? "Tu cuenta SendiFlash también será la base para Ecuador."
+              : "Una sola cuenta para Ecuador, USA y Prep."
+            : mode === "login"
+              ? "Everything after checkout, handled."
+              : "A cleaner way to ship from day one."}
         </h2>
         <p className="mt-4 max-w-lg text-base leading-7 text-slate-300">
-          Compare domestic rates, pay securely, and let SendiFlash prepare the label automatically after payment.
+          {isEcuadorMode
+            ? "Estamos preparando envíos locales y nacionales en Ecuador, mientras Shipping Labels sigue disponible para USA y mercados seleccionados."
+            : "Compare domestic rates, pay securely, and let SendiFlash prepare the label automatically after payment."}
         </p>
       </div>
 

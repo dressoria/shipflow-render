@@ -8,6 +8,7 @@ import {
   FileSearch,
   LayoutDashboard,
   LogOut,
+  MapPinned,
   PackageCheck,
   Receipt,
   ShieldCheck,
@@ -26,6 +27,7 @@ const menu = [
   { label: "Couriers", href: "/admin/couriers", icon: Warehouse },
   { label: "Balance", href: "/admin/saldo", icon: CreditCard },
   { label: "Label Orders", href: "/admin/label-orders", icon: Receipt },
+  { label: "Ecuador Shipping", href: "/admin/ecuador-envios", icon: MapPinned },
   { label: "Prep Orders", href: "/admin/prep-orders", icon: ClipboardList },
   { label: "Audit", href: "/admin/audit", icon: FileSearch },
 ];

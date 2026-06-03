@@ -21,6 +21,8 @@ import {
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
+import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
+import { useRegionMode } from "@/contexts/RegionModeContext";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/forms";
 import { getBalanceSummary } from "@/lib/services/balanceService";
@@ -58,6 +60,7 @@ type DashboardActivity =
 
 export function DashboardOverview() {
   const { user } = useAuth();
+  const { mode } = useRegionMode();
   const [shipments, setShipments] = useState<Envio[]>([]);
   const [movements, setMovements] = useState<MovimientoSaldo[]>([]);
   const [balance, setBalance] = useState(0);
@@ -112,6 +115,7 @@ export function DashboardOverview() {
   const hasShipments = shipments.length > 0;
   const greetingName = user?.businessName || user?.email?.split("@")[0] || "there";
   const prepAccess = getPrepAccessState(user);
+  const isEcuadorMode = mode === "ec";
 
   if (loading) {
     return (
@@ -134,19 +138,35 @@ export function DashboardOverview() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="blue">Controlled beta</Badge>
-              <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-                Automatic labels enabled
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${isEcuadorMode ? "bg-sky-50 text-sky-700" : "bg-green-50 text-green-700"}`}>
+                {isEcuadorMode ? "Modo Ecuador · En preparación" : "Automatic labels enabled"}
               </span>
             </div>
+            <div className="mt-4 max-w-md">
+              <RegionModeSwitcher />
+            </div>
             <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
-              Good to see you, {greetingName}.
+              {isEcuadorMode ? `Qué bueno verte, ${greetingName}.` : `Good to see you, ${greetingName}.`}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Compare rates, pay with wallet or card, and manage domestic shipments from one operating workspace.
+              {isEcuadorMode
+                ? "Estamos preparando Ecuador Shipping como tu experiencia principal. Mientras tanto, puedes solicitar acceso temprano y seguir usando Shipping Labels USA."
+                : "Compare rates, pay with wallet or card, and manage domestic shipments from one operating workspace."}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <QuickAction href="/crear-guia" icon={PlusCircle} label="Create shipment" detail="Single label flow" accent="orange" />
-              <QuickAction href="/crear-guia" icon={Boxes} label="Multi-label beta" detail="Up to 5 shipments" accent="blue" />
+              {isEcuadorMode ? (
+                <>
+                  <QuickAction href="/ecuador/crear-envio" icon={MapPinned} label="Solicitar revisión beta" detail="No crea envío real" accent="blue" />
+                  <QuickAction href="/support" icon={HelpCircle} label="Solicitar acceso temprano" detail="Ecuador Shipping" accent="slate" />
+                  <QuickAction href="/shipping-labels" icon={Truck} label="Ver Shipping Labels USA" detail="Servicio disponible" accent="orange" />
+                  <QuickAction href="/ecuador/envios" icon={Boxes} label="Mis solicitudes Ecuador" detail="Seguimiento beta" accent="slate" />
+                </>
+              ) : (
+                <>
+                  <QuickAction href="/crear-guia" icon={PlusCircle} label="Create shipment" detail="Single label flow" accent="orange" />
+                  <QuickAction href="/crear-guia" icon={Boxes} label="Multi-label beta" detail="Up to 5 shipments" accent="blue" />
+                </>
+              )}
               <QuickAction
                 href="/prep"
                 icon={ClipboardList}
@@ -159,7 +179,7 @@ export function DashboardOverview() {
               ) : null}
               <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
               <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
-              <QuickAction href="/ecuador" icon={MapPinned} label="Ecuador Shipping" detail="Coming soon" accent="slate" />
+              {!isEcuadorMode ? <QuickAction href="/ecuador" icon={MapPinned} label="Ecuador Shipping" detail="Coming soon" accent="slate" /> : null}
               <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />
               <QuickAction href="/support" icon={HelpCircle} label="Support" detail="Beta help center" accent="slate" />
             </div>
@@ -167,9 +187,9 @@ export function DashboardOverview() {
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next best steps</p>
             <div className="mt-4 grid gap-3">
-              <NextStep done={hasShipments} title="Create your first shipment" href="/crear-guia" />
+              <NextStep done={isEcuadorMode ? false : hasShipments} title={isEcuadorMode ? "Revisar vista previa Ecuador" : "Create your first shipment"} href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} />
               <NextStep done={balance > 0} title="Add wallet balance" href="/saldo" />
-              <NextStep done={!profileIncomplete} title="Complete your profile" href="/perfil" />
+              <NextStep done={!profileIncomplete} title={isEcuadorMode ? "Completa tu perfil" : "Complete your profile"} href="/perfil" />
               <NextStep done={false} title="Read the beta support guide" href="/support" optional />
             </div>
           </div>

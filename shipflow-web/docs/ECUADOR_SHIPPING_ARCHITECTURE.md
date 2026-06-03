@@ -1,10 +1,49 @@
 # Ecuador Shipping Architecture
 
-Last updated: 2026-06-03 (FASE 5.73)
+Last updated: 2026-06-03 (FASE 5.76)
 
 Purpose: architecture proposal for adding Ecuador Shipping to the existing SendiFlash platform without creating a separate product, login, or codebase.
 
-This document is planning only. It does not create routes, APIs, providers, database tables, or payment integrations.
+This document is architectural guidance first. The current codebase now includes a controlled beta request data flow, but still does not create provider orders or Ecuador payments.
+
+## FASE 5.76 beta data-flow note
+
+The current codebase now includes:
+
+- additive migration `20260603_add_ecuador_shipping_requests.sql`
+- `regional_shipments`
+- `regional_shipment_events`
+- customer Ecuador request APIs
+- admin Ecuador review/update APIs
+- customer-safe vs admin-internal field separation
+
+This phase stores Ecuador beta requests only. It does not integrate Delivereo, create live provider orders, or process Ecuador payments.
+
+## FASE 5.74 implementation note
+
+The current codebase now includes a client-side regional mode foundation:
+
+- manual mode switch between `us` and `ec`
+- localStorage preference persistence
+- region-aware public homepage, auth, and dashboard copy
+- no GeoIP enforcement
+- no Ecuador API, payment, or shipment-creation implementation
+
+This keeps the architecture aligned with one-account, multi-region SendiFlash behavior while Ecuador remains in preparation.
+
+## FASE 5.75 skeleton note
+
+The current codebase also includes:
+
+- `/ecuador/crear-envio`
+- `/ecuador/envios`
+- `/ecuador/envios/[id]`
+- `/admin/ecuador-envios`
+- `/admin/ecuador-envios/[id]`
+- isolated Ecuador types and provider interface
+- mock/no-op provider with no external calls
+
+These routes and models are structural only. They do not create real provider orders, do not store real Ecuador shipment data, and do not process Ecuador payments.
 
 ## Platform position
 
