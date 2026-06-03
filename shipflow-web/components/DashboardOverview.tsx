@@ -10,6 +10,7 @@ import {
   ClipboardList,
   CircleDollarSign,
   HelpCircle,
+  MapPinned,
   PackageCheck,
   PlusCircle,
   Settings,
@@ -158,6 +159,7 @@ export function DashboardOverview() {
               ) : null}
               <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
               <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
+              <QuickAction href="/ecuador" icon={MapPinned} label="Ecuador Shipping" detail="Coming soon" accent="slate" />
               <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />
               <QuickAction href="/support" icon={HelpCircle} label="Support" detail="Beta help center" accent="slate" />
             </div>
@@ -238,6 +240,7 @@ export function DashboardOverview() {
                   <StatusLine label="Automatic labels" value="On after payment" />
                   <StatusLine label="Markets" value="Selected domestic routes" />
                   <StatusLine label="Payments" value="Wallet and card" />
+                  <StatusLine label="Ecuador Shipping" value="Coming soon" />
                   <StatusLine label="FBA Prep" value={prepAccess.canUsePrep ? "Beta enabled" : "In preparation"} />
                   <StatusLine label="Exceptions" value="Support review" />
                 </div>

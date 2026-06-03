@@ -30,6 +30,7 @@ import { ScrollStory } from "@/components/landing/ScrollStory";
 
 const trustBadges = [
   "Shipping labels",
+  "Ecuador shipping coming soon",
   "Amazon FBA Prep",
   "Wallet & card payments",
   "Rate comparison",
@@ -134,10 +135,10 @@ const sellerTools: Array<{ icon: LucideIcon; title: string; text: string; href: 
     href: "/shipping-labels",
   },
   {
-    icon: Package,
-    title: "FBA Prep Early Access",
-    text: "Request access to managed Amazon FBA prep while public Prep ordering is being prepared.",
-    href: "/registro?service=prep",
+    icon: MapPinned,
+    title: "Ecuador Shipping",
+    text: "See what is being prepared for local and national shipping workflows in Ecuador.",
+    href: "/ecuador",
   },
   {
     icon: Tag,
@@ -327,25 +328,28 @@ function TwoServicesSection() {
     <section id="services" className="bg-white py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Two services, one account"
-          title="Two ways to manage ecommerce logistics"
-          description="Shipping labels for every order, and managed Amazon FBA prep — both from one SendiFlash account."
+          eyebrow="Three service tracks"
+          title="Three ways SendiFlash is supporting ecommerce logistics"
+          description="Shipping Labels are available now, Ecuador Shipping is in preparation, and FBA Prep remains controlled early access."
         />
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
+        <div className="mt-12 grid gap-6 lg:grid-cols-3">
           {/* Shipping Labels */}
           <MotionCard
             delay={0}
             className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50/60 to-white p-8 shadow-sm transition hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/6"
           >
+            <span className="inline-flex items-center rounded-full border border-green-100 bg-green-50 px-3 py-1 text-xs font-black text-green-700">
+              Available now
+            </span>
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#2563EB] text-white shadow-lg shadow-blue-500/20">
               <Truck className="h-7 w-7" />
             </div>
-            <h3 className="mt-6 text-2xl font-black text-slate-950">SendiFlash Shipping</h3>
+            <h3 className="mt-6 text-2xl font-black text-slate-950">Shipping Labels</h3>
             <p className="mt-3 text-base leading-7 text-[#334155]">
-              Compare domestic carrier rates, pay with wallet or card, generate labels, and track shipments from one workspace.
+              Compare rates, create shipping labels, pay with wallet or card, and track shipments from one workspace.
             </p>
             <ul className="mt-6 grid gap-2.5">
-              {["Compare domestic rates", "Pay with wallet or card", "Generate labels instantly", "Track shipments"].map((item) => (
+              {["Compare rates", "Pay with wallet or card", "Create labels", "Track shipments"].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#2563EB]" />
                   {item}
@@ -354,36 +358,83 @@ function TwoServicesSection() {
             </ul>
             <div className="mt-8 flex flex-col gap-3">
               <Button
-                href="/shipping-labels"
-                variant="secondary"
+                href="/crear-guia"
+                variant="action"
                 icon={<ArrowRight className="h-4 w-4" />}
-                className="self-start rounded-2xl border-blue-200 text-[#2563EB] hover:border-[#2563EB] hover:bg-blue-50"
+                className="self-start rounded-2xl"
               >
-                See Shipping Labels
+                Create a label
               </Button>
               <Link
-                href="/crear-guia"
+                href="/shipping-labels"
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-[#2563EB]"
               >
-                Create a label <ArrowRight className="h-3.5 w-3.5" />
+                Learn more <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </MotionCard>
+
+          {/* Ecuador Shipping */}
+          <MotionCard
+            delay={0.08}
+            className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50/70 to-white p-8 shadow-sm transition hover:border-sky-200 hover:shadow-lg hover:shadow-sky-950/6"
+          >
+            <span className="inline-flex items-center rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
+              Coming soon
+            </span>
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-sky-600 text-white shadow-lg shadow-sky-500/20">
+              <MapPinned className="h-7 w-7" />
+            </div>
+            <h3 className="mt-6 text-2xl font-black text-slate-950">Ecuador Shipping</h3>
+            <p className="mt-3 text-base leading-7 text-[#334155]">
+              SendiFlash is preparing local and national shipping tools for Ecuador-focused logistics, with integrations and operations still in progress.
+            </p>
+            <ul className="mt-6 grid gap-2.5">
+              {["Local deliveries", "National shipments", "Ecuador-focused logistics", "Early access updates"].map((item) => (
+                <li key={item} className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
+                  <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-sky-600" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-xs leading-5 text-slate-400">
+              This service is still in preparation. Coverage, provider setup, and local payment options will be announced later.
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <Button
+                href="/support"
+                variant="secondary"
+                icon={<ArrowRight className="h-4 w-4" />}
+                className="self-start rounded-2xl border-sky-200 text-sky-700 hover:border-sky-400 hover:bg-sky-50"
+              >
+                Join early access
+              </Button>
+              <Link
+                href="/ecuador"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-sky-700"
+              >
+                Learn more <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </MotionCard>
 
           {/* Prep */}
           <MotionCard
-            delay={0.08}
+            delay={0.16}
             className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50/60 to-white p-8 shadow-sm transition hover:border-orange-200 hover:shadow-lg hover:shadow-orange-950/6"
           >
+            <span className="inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+              Early access
+            </span>
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#F97316] text-white shadow-lg shadow-orange-500/20">
               <Package className="h-7 w-7" />
             </div>
-            <h3 className="mt-6 text-2xl font-black text-slate-950">SendiFlash Prep</h3>
+            <h3 className="mt-6 text-2xl font-black text-slate-950">FBA Prep</h3>
             <p className="mt-3 text-base leading-7 text-[#334155]">
-              Managed Amazon FBA prep service in controlled early access. Request access for FNSKU labeling, poly bagging, bundling, and case forwarding.
+              Managed Amazon FBA prep from SendiFlash, currently running as a controlled beta for approved accounts.
             </p>
             <ul className="mt-6 grid gap-2.5">
-              {["Request early access", "FNSKU labeling, poly bag, bundling", "Quote review for approved beta accounts", "Track prep status in beta"].map((item) => (
+              {["Request early access", "Managed FBA prep services", "Quote review for approved accounts", "Track prep status in beta"].map((item) => (
                 <li key={item} className="flex items-center gap-3 text-sm font-semibold text-[#334155]">
                   <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#F97316]" />
                   {item}
@@ -395,18 +446,18 @@ function TwoServicesSection() {
             </p>
             <div className="mt-6 flex flex-col gap-3">
               <Button
-                href="/fba-prep"
+                href="/registro?service=prep"
                 variant="action"
                 icon={<ArrowRight className="h-4 w-4" />}
                 className="self-start rounded-2xl"
               >
-                See FBA Prep
+                Request early access
               </Button>
               <Link
-                href="/registro?service=prep"
+                href="/fba-prep"
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 transition hover:text-[#F97316]"
               >
-                Request Prep early access <ArrowRight className="h-3.5 w-3.5" />
+                Learn more <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </MotionCard>
@@ -423,7 +474,7 @@ function SellerToolsSection() {
         <SectionHeading
           eyebrow="Seller tools"
           title="Everything ecommerce sellers need in one hub"
-          description="From shipping labels to FBA prep requests, your entire logistics workflow lives in one SendiFlash workspace."
+          description="From label creation to coming-soon Ecuador shipping information, your logistics workflow stays organized in one SendiFlash workspace."
         />
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {sellerTools.map((tool, index) => {
@@ -446,11 +497,11 @@ function SellerToolsSection() {
                   <Link
                     href={tool.href}
                     className="text-sm font-bold text-[#F97316] transition hover:underline"
-                  >
-                    Open tool
-                  </Link>
-                </div>
-              </MotionCard>
+                >
+                  Open page
+                </Link>
+              </div>
+            </MotionCard>
             );
           })}
         </div>
@@ -526,7 +577,7 @@ export default function Home() {
                   className="border border-blue-100 bg-blue-50 text-[#2563EB] ring-blue-100"
                 >
                   <ShieldCheck className="mr-2 h-3.5 w-3.5" />
-                  Shipping Labels available now · FBA Prep early access
+                  Shipping Labels available now · Ecuador Shipping coming soon · FBA Prep early access
                 </Badge>
 
                 <h1 className="mt-7 max-w-2xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
@@ -536,16 +587,16 @@ export default function Home() {
                 </h1>
 
                 <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
-                  Compare rates, create shipping labels, and request early access to Amazon FBA prep from a single SendiFlash account.
+                  Compare rates, create shipping labels, and follow the next SendiFlash service launches from a single account.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Button
-                    href="/registro"
+                    href="/crear-guia"
                     variant="action"
                     className="rounded-2xl sm:min-w-44"
                   >
-                    Start shipping
+                    Create a label
                   </Button>
                   <Button
                     href="/fba-prep"
@@ -556,6 +607,14 @@ export default function Home() {
                     FBA Prep early access
                   </Button>
                 </div>
+
+                <p className="mt-5 max-w-xl text-sm font-semibold text-slate-500">
+                  Shipping Labels available now ·{" "}
+                  <Link href="/ecuador" className="text-sky-700 underline-offset-4 transition hover:underline">
+                    Ecuador Shipping coming soon
+                  </Link>{" "}
+                  · FBA Prep early access
+                </p>
 
                 <div className="mt-8 flex max-w-xl flex-wrap gap-2.5">
                   {trustBadges.map((item) => (

@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-05-31 (FASE 5.70)
+Última revisión: 2026-06-03 (FASE 5.71)
 
 ---
 
@@ -106,6 +106,16 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] APIs customer de Prep devuelven `403` para cuentas no habilitadas.
 - [x] Shipping Labels permanecen disponibles y sin cambios de lógica.
 - [x] No se activaron refunds, voids, customs, automatización AI/API, ni cambios de providers.
+
+## 5.71. Ecuador coming-soon positioning
+
+- [x] Homepage público presenta Ecuador Shipping solo como `coming soon` / `en preparacion`.
+- [x] Existe pagina publica `/ecuador` con copy seguro y CTA a `/support`.
+- [x] No se menciona ningun provider ni integracion pendiente publicamente.
+- [x] No se agrego flujo de creacion de envio Ecuador, pagos Ecuador ni dashboard Ecuador operativo.
+- [x] Shipping Labels siguen como servicio disponible ahora.
+- [x] FBA Prep sigue como early access / beta controlada.
+- [x] No se tocaron migraciones, wallet, auth, refunds, voids ni compra de labels.
 
 ---
 

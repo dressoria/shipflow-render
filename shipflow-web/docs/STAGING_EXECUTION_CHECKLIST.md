@@ -1,10 +1,28 @@
 # Staging Execution Checklist
 
-Last updated: 2026-05-31 (FASE 5.70)
+Last updated: 2026-06-03 (FASE 5.71)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
 Do not deploy production-wide. Do not apply migrations automatically. Do not print secrets. Do not buy real labels or execute real refunds without explicit confirmation.
+
+## FASE 5.71 Ecuador Coming-Soon Positioning
+
+Scope: public marketing and safe navigation only. No Ecuador API, provider, payment, GeoIP, or auth behavior should change in this phase.
+
+Operator QA:
+
+1. Open `/` and confirm the hero status line lists Shipping Labels as available now, Ecuador Shipping as coming soon, and FBA Prep as early access.
+2. Confirm homepage service cards show:
+   - Shipping Labels → available now
+   - Ecuador Shipping → coming soon / in preparation
+   - FBA Prep → early access
+3. Open `/ecuador` and confirm the page uses in-preparation language only.
+4. Confirm `/ecuador` CTAs go to `/support` and `/shipping-labels`.
+5. Confirm header/footer include Ecuador navigation without exposing any Ecuador creation route.
+6. Confirm `/dashboard` may show Ecuador Shipping as coming soon only.
+7. Confirm there is no `/ecuador/crear-envio`, no provider naming, and no live-service promise.
+8. Confirm Shipping Labels and FBA Prep routes still behave as before.
 
 ## FASE 5.70 Prep Beta Access Gate
 

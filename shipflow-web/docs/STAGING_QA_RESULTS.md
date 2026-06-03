@@ -1,6 +1,37 @@
 # Staging QA Results
 
-Last updated: 2026-05-31 (FASE 5.70 Prep beta access gate)
+Last updated: 2026-06-03 (FASE 5.71 Ecuador coming-soon positioning)
+
+---
+
+## FASE 5.71 — Ecuador Coming-Soon Positioning
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Add Ecuador Shipping coming soon positioning
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Homepage positioning | READY FOR QA | Homepage now presents Shipping Labels as available now, Ecuador Shipping as coming soon, and FBA Prep as early access. |
+| Public Ecuador route | READY FOR QA | New `/ecuador` page builds as a public coming-soon page in Spanish-forward copy with safe CTAs to `/support` and `/shipping-labels`. |
+| Navigation | READY FOR QA | Header/footer include Ecuador visibility without enabling any live Ecuador flow. |
+| Dashboard | READY FOR QA | Dashboard quick actions may link to `/ecuador` only as "Coming soon"; no Ecuador creation flow was added. |
+| Shipping/payment logic | NOT CHANGED | No Delivereo integration, Ecuador payment logic, GeoIP routing, login/auth changes, migrations, wallet logic, or label purchase logic were modified. |
+
+### Manual QA checklist
+
+- [ ] Confirm `/` hero shows `Shipping Labels available now · Ecuador Shipping coming soon · FBA Prep early access`.
+- [ ] Confirm homepage service cards show the three service states clearly and do not imply Ecuador is live.
+- [ ] Confirm `/ecuador` loads and only presents in-preparation / early-access language.
+- [ ] Confirm `/support` remains the CTA destination for Ecuador interest.
+- [ ] Confirm `/dashboard` Ecuador entry links to `/ecuador` and does not expose a shipment creation flow.
+- [ ] Confirm `/shipping-labels`, `/fba-prep`, `/support`, `/registro`, and `/dashboard` still build and load normally.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 
