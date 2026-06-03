@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, HelpCircle, PackageCheck } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { LoadingState } from "@/components/LoadingState";
-import { getEcuadorPaymentLabel, getEcuadorStatusLabel, getEcuadorStatusTone } from "@/lib/ecuador/copy";
+import { getEcuadorStatusLabel, getEcuadorStatusTone } from "@/lib/ecuador/copy";
 import type { EcuadorShipmentRequest } from "@/lib/ecuador/types";
 import { formatDate } from "@/lib/forms";
 import { apiGetEcuadorShipmentRequest } from "@/lib/services/apiClient";
@@ -41,16 +41,14 @@ export function EcuadorShipmentDetail({ id }: { id: string }) {
               {shipment.originCity || "Origen pendiente"} → {shipment.destinationCity || "Destino pendiente"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Ecuador Shipping is currently in beta preparation. Esta solicitud no crea un envío real y no dispara llamadas de proveedor.
+              Envíos Ecuador está en preparación. Esta solicitud no crea un envío real, no dispara llamadas de proveedor y no realiza cobros.
             </p>
           </div>
           <div className="rounded-3xl bg-sky-50 p-4">
             <p className="text-xs font-black uppercase tracking-widest text-sky-700">Solicitud beta</p>
             <p className="mt-2 text-sm font-bold text-slate-600">Creada {formatDate(shipment.createdAt)}</p>
-            <p className="mt-2 text-sm font-bold text-slate-600">Pago: {getEcuadorPaymentLabel(shipment.paymentStatus)}</p>
-            <p className="mt-2 text-sm font-bold text-slate-600">
-              Precio cliente: {shipment.customerPrice != null ? formatCurrency(shipment.customerPrice) : "Pendiente"}
-            </p>
+            <p className="mt-2 text-sm font-bold text-slate-600">Cobro: no disponible todavía</p>
+            <p className="mt-2 text-sm font-bold text-slate-600">Proveedor real: pendiente</p>
           </div>
         </div>
       </section>
@@ -136,7 +134,7 @@ export function EcuadorShipmentDetail({ id }: { id: string }) {
           </Card>
           <Card title="Campos internos">
             <p className="text-sm leading-6 text-slate-600">
-              Costos de proveedor, margen, notas internas y referencias operativas permanecen ocultos para el flujo cliente.
+              Costos de proveedor, margen, tracking interno, notas internas y referencias operativas permanecen ocultos para el flujo cliente.
             </p>
           </Card>
         </aside>

@@ -6,7 +6,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { LoadingState } from "@/components/LoadingState";
 import { getEcuadorStatusLabel, getEcuadorStatusTone } from "@/lib/ecuador/copy";
-import { ECUADOR_ADMIN_EDITABLE_STATUSES, type AdminEcuadorShipmentRequest, type EcuadorShipmentVisibility } from "@/lib/ecuador/types";
+import { ECUADOR_ADMIN_EDITABLE_STATUSES, ECUADOR_ADMIN_PROVIDERS, type AdminEcuadorShipmentRequest, type EcuadorShipmentVisibility } from "@/lib/ecuador/types";
 import { formatDate } from "@/lib/forms";
 import { apiGetAdminEcuadorShipment, apiUpdateAdminEcuadorShipment } from "@/lib/services/apiClient";
 import { formatCurrency } from "@/lib/utils";
@@ -127,7 +127,7 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
               {shipment.originCity || "Origen"} → {shipment.destinationCity || "Destino"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              No Delivereo API call is made from this page yet. This record only manages internal Ecuador beta request data.
+              Beta request. No Delivereo API call is made from this page yet. No real provider order is created yet and no payment is processed here.
             </p>
           </div>
           <div className="rounded-3xl bg-pink-50 p-4">
@@ -143,6 +143,7 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
         <div className="grid gap-5">
           <form onSubmit={saveDetails} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Actualizar solicitud</h3>
+            <p className="mt-2 text-sm text-slate-500">Internal review only. Editing this record does not call any provider or payment flow.</p>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <SelectField label="Estado" value={form.status ?? ""} onChange={(value) => setForm((current) => ({ ...current, status: value }))}>
                 {ECUADOR_ADMIN_EDITABLE_STATUSES.map((status) => (
@@ -150,9 +151,9 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
                 ))}
               </SelectField>
               <SelectField label="Proveedor" value={form.provider ?? ""} onChange={(value) => setForm((current) => ({ ...current, provider: value }))}>
-                <option value="manual">manual</option>
-                <option value="mock">mock</option>
-                <option value="delivereo">delivereo</option>
+                {ECUADOR_ADMIN_PROVIDERS.map((provider) => (
+                  <option key={provider} value={provider}>{provider}</option>
+                ))}
               </SelectField>
               <Field label="Provider status" value={form.providerStatus ?? ""} onChange={(value) => setForm((current) => ({ ...current, providerStatus: value }))} />
               <Field label="Provider order id" value={form.providerOrderId ?? ""} onChange={(value) => setForm((current) => ({ ...current, providerOrderId: value }))} />
@@ -197,6 +198,7 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
 
           <form onSubmit={addEvent} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Agregar evento</h3>
+            <p className="mt-2 text-sm text-slate-500">Customer events stay customer-visible. Internal events never appear in the customer flow.</p>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <SelectField label="Visibilidad" value={eventDraft.visibility} onChange={(value) => setEventDraft((current) => ({ ...current, visibility: value as EcuadorShipmentVisibility }))}>
                 <option value="customer">customer</option>

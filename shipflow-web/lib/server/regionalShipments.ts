@@ -8,6 +8,12 @@ import type {
   EcuadorShipmentStatus,
   EcuadorShipmentVisibility,
 } from "@/lib/ecuador/types";
+import {
+  ECUADOR_ADMIN_EDITABLE_STATUSES as ADMIN_STATUSES,
+  ECUADOR_ADMIN_PROVIDERS as ADMIN_PROVIDERS,
+  ECUADOR_CUSTOMER_REQUEST_STATUSES as CUSTOMER_STATUSES,
+  ECUADOR_REQUEST_PROVIDERS as CUSTOMER_PROVIDERS,
+} from "@/lib/ecuador/types";
 
 export type RegionalShipmentRow = {
   id: string;
@@ -64,6 +70,57 @@ type NormalizedCreateEcuadorShipmentRequestInput =
     packageWeight: number;
   };
 
+const FORBIDDEN_CUSTOMER_FIELDS = [
+  "user_id",
+  "provider_order_id",
+  "providerOrderId",
+  "provider_tracking_id",
+  "providerTrackingId",
+  "provider_status",
+  "providerStatus",
+  "provider_cost",
+  "providerCost",
+  "customer_price",
+  "customerPrice",
+  "margin",
+  "admin_notes",
+  "adminNotes",
+  "metadata",
+  "payment_status",
+  "paymentStatus",
+  "market",
+  "service_type",
+  "serviceType",
+] as const;
+
+const ECUADOR_CUSTOMER_ERROR_MESSAGES = new Set([
+  "Customer requests cannot set internal Ecuador fields.",
+  "Customer requests can only use manual or mock provider mode.",
+  "Customer requests can only use draft or quote_requested status.",
+  "Origin name is required.",
+  "Origin phone is required.",
+  "Origin address is required.",
+  "Origin city is required.",
+  "Destination name is required.",
+  "Destination phone is required.",
+  "Destination address is required.",
+  "Destination city is required.",
+  "Package description is required.",
+  "Package weight must be greater than zero.",
+  "Invalid Ecuador status filter.",
+  "Invalid Ecuador shipment id.",
+  "Invalid Ecuador admin status filter.",
+  "Invalid Ecuador admin provider.",
+  "Invalid Ecuador admin event status.",
+  "No valid Ecuador admin fields were provided.",
+]);
+
+const CUSTOMER_PROVIDER_SET = new Set<string>(CUSTOMER_PROVIDERS);
+const CUSTOMER_STATUS_SET = new Set<string>(CUSTOMER_STATUSES);
+const ADMIN_STATUS_SET = new Set<string>(ADMIN_STATUSES);
+const ADMIN_PROVIDER_SET = new Set<string>(ADMIN_PROVIDERS);
+const ADMIN_EVENT_STATUS_SET = new Set<string>(["draft", ...ADMIN_STATUSES]);
+
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -111,8 +168,6 @@ export function fromRegionalShipmentRow(
     provider: row.provider,
     status: row.status,
     paymentStatus: row.payment_status,
-    providerStatus: row.provider_status,
-    providerTrackingId: row.provider_tracking_id,
     originName: row.origin_name,
     originPhone: row.origin_phone,
     originAddress: row.origin_address,
@@ -129,7 +184,6 @@ export function fromRegionalShipmentRow(
     packageWidth: row.package_width,
     packageHeight: row.package_height,
     declaredValue: row.declared_value,
-    customerPrice: centsToDollars(row.customer_price),
     customerNotes: row.customer_notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -143,7 +197,10 @@ export function fromRegionalShipmentRow(
   return {
     ...base,
     userId: row.user_id,
+    providerStatus: row.provider_status,
+    providerTrackingId: row.provider_tracking_id,
     providerOrderId: row.provider_order_id,
+    customerPrice: centsToDollars(row.customer_price),
     providerCost: centsToDollars(row.provider_cost),
     margin: centsToDollars(row.margin),
     adminNotes: row.admin_notes,
@@ -153,7 +210,19 @@ export function fromRegionalShipmentRow(
 
 export function normalizeCreateEcuadorShipmentRequestInput(body: unknown): NormalizedCreateEcuadorShipmentRequestInput {
   const input = (body ?? {}) as Record<string, unknown>;
-  const provider: EcuadorProvider = input.provider === "mock" ? "mock" : input.provider === "manual" ? "manual" : "manual";
+  if (FORBIDDEN_CUSTOMER_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(input, field))) {
+    throw new Error("Customer requests cannot set internal Ecuador fields.");
+  }
+
+  if (input.provider != null && !CUSTOMER_PROVIDER_SET.has(String(input.provider))) {
+    throw new Error("Customer requests can only use manual or mock provider mode.");
+  }
+
+  if (input.status != null && !["draft", "quote_requested"].includes(String(input.status))) {
+    throw new Error("Customer requests can only use draft or quote_requested status.");
+  }
+
+  const provider: EcuadorProvider = input.provider === "mock" ? "mock" : "manual";
   const status: EcuadorShipmentStatus = input.status === "draft" ? "draft" : "quote_requested";
 
   const normalized = {
@@ -274,6 +343,10 @@ export async function listUserEcuadorShipmentRequests(
   userId: string,
   filters?: { status?: string | null; limit?: number },
 ) {
+  if (filters?.status && !CUSTOMER_STATUS_SET.has(filters.status)) {
+    throw new Error("Invalid Ecuador status filter.");
+  }
+
   let query = supabase
     .from("regional_shipments")
     .select("*")
@@ -294,6 +367,10 @@ export async function getUserEcuadorShipmentRequest(
   userId: string,
   id: string,
 ) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    throw new Error("Invalid Ecuador shipment id.");
+  }
+
   const { data, error } = await supabase
     .from("regional_shipments")
     .select("*")
@@ -311,6 +388,10 @@ export async function listAdminEcuadorShipmentRequests(
   supabase: SupabaseClient,
   filters?: { status?: string | null; search?: string | null; limit?: number },
 ) {
+  if (filters?.status && !ADMIN_STATUS_SET.has(filters.status)) {
+    throw new Error("Invalid Ecuador admin status filter.");
+  }
+
   let query = supabase
     .from("regional_shipments")
     .select("*")
@@ -365,7 +446,12 @@ export async function updateAdminEcuadorShipmentRequest(
   const patch: Record<string, unknown> = {};
 
   if (updates.status) patch.status = updates.status;
-  if (updates.provider) patch.provider = updates.provider;
+  if (updates.provider) {
+    if (!ADMIN_PROVIDER_SET.has(updates.provider)) {
+      throw new Error("Invalid Ecuador admin provider.");
+    }
+    patch.provider = updates.provider;
+  }
   if (updates.providerStatus !== undefined) patch.provider_status = cleanNullableText(updates.providerStatus);
   if (updates.providerOrderId !== undefined) patch.provider_order_id = cleanNullableText(updates.providerOrderId);
   if (updates.providerTrackingId !== undefined) patch.provider_tracking_id = cleanNullableText(updates.providerTrackingId);
@@ -375,7 +461,7 @@ export async function updateAdminEcuadorShipmentRequest(
   if (updates.adminNotes !== undefined) patch.admin_notes = cleanNullableText(updates.adminNotes);
 
   if (Object.keys(patch).length === 0) {
-    return getAdminEcuadorShipmentRequest(supabase, id);
+    throw new Error("No valid Ecuador admin fields were provided.");
   }
 
   const { data, error } = await supabase
@@ -402,6 +488,9 @@ export async function addRegionalShipmentEvent(
     createdBy?: string | null;
   },
 ) {
+  if (event.status && !ADMIN_EVENT_STATUS_SET.has(event.status)) {
+    throw new Error("Invalid Ecuador admin event status.");
+  }
   const { error } = await supabase.from("regional_shipment_events").insert({
     regional_shipment_id: id,
     visibility: event.visibility,
@@ -411,4 +500,8 @@ export async function addRegionalShipmentEvent(
     created_by: event.createdBy ?? null,
   });
   if (error) throw error;
+}
+
+export function isKnownEcuadorRequestErrorMessage(message: string) {
+  return ECUADOR_CUSTOMER_ERROR_MESSAGES.has(message);
 }

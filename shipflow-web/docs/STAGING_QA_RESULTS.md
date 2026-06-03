@@ -1,6 +1,47 @@
 # Staging QA Results
 
-Last updated: 2026-06-03 (FASE 5.76 Ecuador beta request flow)
+Last updated: 2026-06-03 (FASE 5.77 Ecuador beta hardening)
+
+---
+
+## FASE 5.77 — Ecuador Beta Request QA And Safety Hardening
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Harden Ecuador beta request flow
+
+### Safety issues found
+
+| Issue | Result |
+| --- | --- |
+| Customer-facing surfaces still hinted at provider/payment state | Fixed |
+| Customer input validation silently coerced restricted provider/status fields | Fixed |
+| Ecuador API errors could leak raw backend error text | Fixed |
+| `regional_shipment_events` was missing a customer insert policy for the initial customer-visible event | Fixed with additive migration |
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Customer API safety | READY FOR QA | Customer create/list/read now reject internal field injection, reject `provider=delivereo`, reject arbitrary status values, and return friendlier validation errors. |
+| Admin API validation | READY FOR QA | Admin list/update paths now validate status/provider/event inputs and continue without provider/payment calls. |
+| Customer/admin field separation | READY FOR QA | Customer-facing Ecuador pages no longer show provider-review-only/payment-adjacent details. Internal fields remain admin-only. |
+| RLS correction | READY FOR QA | New additive migration adds customer insert policy for `regional_shipment_events` so the initial customer-visible event can be created safely under RLS. |
+| UX polish | READY FOR QA | Customer copy now emphasizes preparation, no real shipment, and no charge. Admin copy now emphasizes beta request, no provider call, no payment, and internal review only. |
+
+### Manual QA checklist
+
+- [ ] Follow `docs/ECUADOR_BETA_QA_CHECKLIST.md`.
+- [ ] Confirm signed-out access to Ecuador customer routes follows the normal auth guard flow.
+- [ ] Confirm customer POST rejects internal/admin field injection with friendly errors.
+- [ ] Confirm customer list/detail surfaces do not reveal internal/provider-tracking fields.
+- [ ] Confirm normal users cannot access `/admin/ecuador-envios` or admin Ecuador APIs.
+- [ ] Confirm admin update/event actions do not trigger provider or payment behavior.
+- [ ] Confirm the additive RLS fix migration is applied before testing customer request creation in environments with RLS enabled.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

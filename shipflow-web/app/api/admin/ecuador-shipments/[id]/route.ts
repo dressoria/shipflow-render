@@ -1,10 +1,11 @@
 import { ECUADOR_ADMIN_EDITABLE_STATUSES, type EcuadorShipmentStatus } from "@/lib/ecuador/types";
 import { getEcuadorStatusEventTitle } from "@/lib/ecuador/copy";
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import { requireAdminUser } from "@/lib/server/adminAuth";
 import {
   addRegionalShipmentEvent,
   getAdminEcuadorShipmentRequest,
+  isKnownEcuadorRequestErrorMessage,
   updateAdminEcuadorShipmentRequest,
 } from "@/lib/server/regionalShipments";
 import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
@@ -13,6 +14,18 @@ function parseOptionalNumber(value: unknown) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+async function toAdminEcuadorApiError(error: unknown, fallbackMessage: string) {
+  if (error instanceof Response) {
+    return apiError((await error.text()) || fallbackMessage, error.status);
+  }
+
+  if (error instanceof Error && isKnownEcuadorRequestErrorMessage(error.message)) {
+    return apiError(error.message, 400);
+  }
+
+  return apiError(fallbackMessage, 500);
 }
 
 export async function GET(
@@ -30,7 +43,7 @@ export async function GET(
     if (!shipment) return apiError("Ecuador Shipping request not found.", 404);
     return apiSuccess({ shipment });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not load this admin Ecuador Shipping request.");
+    return toAdminEcuadorApiError(error, "We could not load this admin Ecuador Shipping request.");
   }
 }
 
@@ -56,6 +69,8 @@ export async function PATCH(
     const nextProvider = body.provider === "manual" || body.provider === "mock" || body.provider === "delivereo"
       ? body.provider
       : undefined;
+    if (body.status != null && !nextStatus) return apiError("Invalid Ecuador admin status filter.", 400);
+    if (body.provider != null && !nextProvider) return apiError("Invalid Ecuador admin provider.", 400);
 
     const shipment = await updateAdminEcuadorShipmentRequest(serviceSupabase, id, {
       status: nextStatus,
@@ -103,6 +118,6 @@ export async function PATCH(
     const refreshed = await getAdminEcuadorShipmentRequest(serviceSupabase, id);
     return apiSuccess({ shipment: refreshed });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not update this Ecuador Shipping request.");
+    return toAdminEcuadorApiError(error, "We could not update this Ecuador Shipping request.");
   }
 }

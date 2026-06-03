@@ -32,7 +32,7 @@ export function AdminEcuadorShipmentsView() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-black text-slate-950">Solicitudes Ecuador</h2>
-            <p className="text-sm text-slate-500">No Delivereo API call is made from this module yet.</p>
+            <p className="text-sm text-slate-500">Beta request · No provider call · No payment · Internal review only.</p>
           </div>
           <Link href="/ecuador" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">
             <MapPinned className="h-4 w-4" />
@@ -72,7 +72,7 @@ export function AdminEcuadorShipmentsView() {
           <EmptyState
             icon={MapPinned}
             title="No hay solicitudes Ecuador todavía"
-            description="Las solicitudes beta de clientes aparecerán aquí para revisión operativa."
+            description="Las solicitudes beta de clientes aparecerán aquí para revisión operativa interna, sin provider call ni payment."
           />
         </div>
       ) : null}

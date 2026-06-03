@@ -1,6 +1,6 @@
 # Ecuador Shipping Architecture
 
-Last updated: 2026-06-03 (FASE 5.76)
+Last updated: 2026-06-03 (FASE 5.77)
 
 Purpose: architecture proposal for adding Ecuador Shipping to the existing SendiFlash platform without creating a separate product, login, or codebase.
 
@@ -18,6 +18,16 @@ The current codebase now includes:
 - customer-safe vs admin-internal field separation
 
 This phase stores Ecuador beta requests only. It does not integrate Delivereo, create live provider orders, or process Ecuador payments.
+
+## FASE 5.77 hardening note
+
+The current codebase now also includes:
+
+- stricter customer API validation for Ecuador beta requests
+- friendlier Ecuador validation errors
+- tighter customer/admin field separation on customer surfaces
+- additive RLS correction for customer-visible event creation
+- dedicated manual QA checklist in `docs/ECUADOR_BETA_QA_CHECKLIST.md`
 
 ## FASE 5.74 implementation note
 

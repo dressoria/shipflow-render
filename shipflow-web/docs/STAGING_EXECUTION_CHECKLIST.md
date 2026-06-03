@@ -1,6 +1,6 @@
 # Staging Execution Checklist
 
-Last updated: 2026-06-03 (FASE 5.76)
+Last updated: 2026-06-03 (FASE 5.77)
 
 Purpose: controlled VM/staging QA for ShipFlow / SendiFlash direct label payment, manual label processing, and sandbox provider behavior.
 
@@ -21,6 +21,18 @@ Operator QA:
 7. Sign in as admin and open `/admin/ecuador-envios`.
 8. Update a request in `/admin/ecuador-envios/[id]` and add one customer event and one internal event.
 9. Confirm no provider order is created, no Delivereo call is made, and no Ecuador payment is processed.
+
+## FASE 5.77 Ecuador Beta Hardening
+
+Scope: QA/safety hardening only. No new provider or payment features.
+
+Operator QA:
+
+1. Apply the additive migration `20260603_add_regional_shipment_event_insert_policy.sql` in staging before testing request creation.
+2. Follow `docs/ECUADOR_BETA_QA_CHECKLIST.md`.
+3. Confirm customer create API rejects internal/admin fields with friendly errors.
+4. Confirm customer list/detail pages never reveal provider order id, provider tracking id, provider cost, margin, admin notes, or internal events.
+5. Confirm admin update/event flows still do not create real provider orders or trigger payments.
 
 ## FASE 5.75 Ecuador MVP Skeleton
 

@@ -55,6 +55,12 @@ export const ECUADOR_REQUEST_PROVIDERS = [
   "mock",
 ] as const satisfies EcuadorProvider[];
 
+export const ECUADOR_ADMIN_PROVIDERS = [
+  "manual",
+  "mock",
+  "delivereo",
+] as const satisfies EcuadorProvider[];
+
 export type EcuadorAddressDraft = {
   name?: string;
   phone?: string;
@@ -155,8 +161,6 @@ export type EcuadorShipmentRequest = {
   provider: EcuadorProvider;
   status: EcuadorShipmentStatus;
   paymentStatus: EcuadorPaymentStatus;
-  providerStatus?: string | null;
-  providerTrackingId?: string | null;
   originName?: string | null;
   originPhone?: string | null;
   originAddress?: string | null;
@@ -173,7 +177,6 @@ export type EcuadorShipmentRequest = {
   packageWidth?: number | null;
   packageHeight?: number | null;
   declaredValue?: number | null;
-  customerPrice?: number | null;
   customerNotes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -182,7 +185,10 @@ export type EcuadorShipmentRequest = {
 
 export type AdminEcuadorShipmentRequest = EcuadorShipmentRequest & {
   userId: string;
+  providerStatus?: string | null;
+  providerTrackingId?: string | null;
   providerOrderId?: string | null;
+  customerPrice?: number | null;
   providerCost?: number | null;
   margin?: number | null;
   adminNotes?: string | null;

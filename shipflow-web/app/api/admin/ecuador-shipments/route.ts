@@ -1,12 +1,24 @@
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import { requireAdminUser } from "@/lib/server/adminAuth";
-import { listAdminEcuadorShipmentRequests } from "@/lib/server/regionalShipments";
+import { isKnownEcuadorRequestErrorMessage, listAdminEcuadorShipmentRequests } from "@/lib/server/regionalShipments";
 import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
 
 function parseLimit(value: string | null) {
   const limit = Number(value ?? 50);
   if (!Number.isFinite(limit)) return 50;
   return Math.min(Math.max(Math.trunc(limit), 1), 100);
+}
+
+async function toAdminEcuadorApiError(error: unknown, fallbackMessage: string) {
+  if (error instanceof Response) {
+    return apiError((await error.text()) || fallbackMessage, error.status);
+  }
+
+  if (error instanceof Error && isKnownEcuadorRequestErrorMessage(error.message)) {
+    return apiError(error.message, 400);
+  }
+
+  return apiError(fallbackMessage, 500);
 }
 
 export async function GET(request: Request) {
@@ -23,6 +35,6 @@ export async function GET(request: Request) {
     const shipments = await listAdminEcuadorShipmentRequests(serviceSupabase, { status, search, limit });
     return apiSuccess({ shipments, limit });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not load admin Ecuador Shipping requests.");
+    return toAdminEcuadorApiError(error, "We could not load admin Ecuador Shipping requests.");
   }
 }

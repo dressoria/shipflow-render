@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-06-03 (FASE 5.76)
+Última revisión: 2026-06-03 (FASE 5.77)
 
 ---
 
@@ -149,6 +149,16 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] `/ecuador/envios` y `/ecuador/envios/[id]` muestran solo campos seguros para cliente.
 - [x] `/admin/ecuador-envios` y `/admin/ecuador-envios/[id]` operan datos internos sin llamadas a Delivereo.
 - [x] No se tocaron pagos Ecuador, credenciales Delivereo, lógica de labels, wallet ni Prep.
+
+## 5.77. Ecuador beta request hardening
+
+- [x] Existe corrección aditiva `20260603_add_regional_shipment_event_insert_policy.sql`.
+- [x] Customer APIs rechazan `provider=delivereo` y estados arbitrarios.
+- [x] Customer APIs rechazan campos internos como `provider_order_id`, `provider_cost`, `margin` y `admin_notes`.
+- [x] Customer errores de validación se mantienen amigables y no exponen texto crudo de Supabase.
+- [x] Customer UI refuerza preparación beta, no envío real y no cobro.
+- [x] Admin UI refuerza `Beta request`, `No provider call`, `No payment` e `Internal review only`.
+- [x] Se agregó checklist manual en `docs/ECUADOR_BETA_QA_CHECKLIST.md`.
 
 ---
 

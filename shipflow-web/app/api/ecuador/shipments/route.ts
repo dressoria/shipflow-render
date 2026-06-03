@@ -1,6 +1,7 @@
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import {
   createEcuadorShipmentRequest,
+  isKnownEcuadorRequestErrorMessage,
   listUserEcuadorShipmentRequests,
   normalizeCreateEcuadorShipmentRequestInput,
 } from "@/lib/server/regionalShipments";
@@ -10,6 +11,18 @@ function parseLimit(value: string | null) {
   const limit = Number(value ?? 50);
   if (!Number.isFinite(limit)) return 50;
   return Math.min(Math.max(Math.trunc(limit), 1), 100);
+}
+
+async function toEcuadorApiError(error: unknown, fallbackMessage: string) {
+  if (error instanceof Response) {
+    return apiError((await error.text()) || fallbackMessage, error.status);
+  }
+
+  if (error instanceof Error && isKnownEcuadorRequestErrorMessage(error.message)) {
+    return apiError(error.message, 400);
+  }
+
+  return apiError(fallbackMessage, 500);
 }
 
 export async function GET(request: Request) {
@@ -25,7 +38,7 @@ export async function GET(request: Request) {
     const shipments = await listUserEcuadorShipmentRequests(supabase, user.id, { status, limit });
     return apiSuccess({ shipments, limit });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not load Ecuador Shipping requests.");
+    return toEcuadorApiError(error, "We could not load Ecuador Shipping requests.");
   }
 }
 
@@ -43,6 +56,6 @@ export async function POST(request: Request) {
       message: "Ecuador Shipping request created for beta review.",
     }, 201);
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not create this Ecuador Shipping request.");
+    return toEcuadorApiError(error, "We could not create this Ecuador Shipping request.");
   }
 }

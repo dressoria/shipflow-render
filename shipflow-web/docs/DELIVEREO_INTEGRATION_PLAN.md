@@ -1,6 +1,6 @@
 # Delivereo Integration Plan
 
-Last updated: 2026-06-03 (FASE 5.76)
+Last updated: 2026-06-03 (FASE 5.77)
 
 Purpose: technical discovery for a future Ecuador Shipping integration using Delivereo as the first potential provider.
 
@@ -16,6 +16,17 @@ The codebase now also includes a controlled Ecuador beta request data flow:
 - customer/internal event separation
 
 This still does not change the Delivereo conclusion: the current Ecuador flow stores internal beta requests only and makes no Delivereo network calls.
+
+## FASE 5.77 hardening note
+
+The Ecuador beta request flow was hardened further with:
+
+- stronger customer/admin validation
+- customer-safe field separation polish
+- additive RLS correction for initial customer-visible event creation
+- manual QA checklist coverage
+
+This still does not introduce Delivereo credentials, Delivereo calls, or any payment behavior.
 
 ## FASE 5.75 skeleton note
 

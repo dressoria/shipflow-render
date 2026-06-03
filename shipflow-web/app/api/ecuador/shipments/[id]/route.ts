@@ -1,6 +1,18 @@
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
-import { getUserEcuadorShipmentRequest } from "@/lib/server/regionalShipments";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
+import { getUserEcuadorShipmentRequest, isKnownEcuadorRequestErrorMessage } from "@/lib/server/regionalShipments";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
+
+async function toEcuadorApiError(error: unknown, fallbackMessage: string) {
+  if (error instanceof Response) {
+    return apiError((await error.text()) || fallbackMessage, error.status);
+  }
+
+  if (error instanceof Error && isKnownEcuadorRequestErrorMessage(error.message)) {
+    return apiError(error.message, 400);
+  }
+
+  return apiError(fallbackMessage, 500);
+}
 
 export async function GET(
   request: Request,
@@ -17,6 +29,6 @@ export async function GET(
     if (!shipment) return apiError("Ecuador Shipping request not found.", 404);
     return apiSuccess({ shipment });
   } catch (error) {
-    return apiErrorFromUnknown(error, "We could not load this Ecuador Shipping request.");
+    return toEcuadorApiError(error, "We could not load this Ecuador Shipping request.");
   }
 }

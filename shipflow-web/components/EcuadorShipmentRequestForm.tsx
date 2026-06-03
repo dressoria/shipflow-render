@@ -67,9 +67,11 @@ export function EcuadorShipmentRequestForm() {
         </Badge>
         <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Solicitar revisión beta</h2>
         <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-600">
+          <p>Envíos Ecuador está en preparación.</p>
           <p>{ECUADOR_COPY.betaFormNote}</p>
           <p>{ECUADOR_COPY.betaReviewNote}</p>
           <p>{ECUADOR_COPY.noProviderYet}</p>
+          <p>No se realizará ningún cobro desde esta pantalla.</p>
         </div>
       </section>
 
