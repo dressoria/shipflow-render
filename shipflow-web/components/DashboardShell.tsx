@@ -133,7 +133,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
               className="inline-flex h-10 items-center justify-center rounded-2xl border border-blue-100 bg-white/85 px-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-blue-50"
             >
               <LogOut className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden sm:inline">{isEcuadorMode ? "Cerrar sesión" : "Sign out"}</span>
             </button>
           </div>
         </div>
@@ -217,7 +217,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             type="button"
             onClick={toggleSidebar}
             className="absolute -right-3 top-5 grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-blue-50 hover:text-[#2563EB]"
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? (isEcuadorMode ? "Expandir menú" : "Expand sidebar") : (isEcuadorMode ? "Colapsar menú" : "Collapse sidebar")}
           >
             {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>

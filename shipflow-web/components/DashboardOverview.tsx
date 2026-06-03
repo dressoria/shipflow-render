@@ -146,15 +146,15 @@ export function DashboardOverview() {
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               {isEcuadorMode
-                ? "Estamos preparando Ecuador Shipping como tu experiencia principal. Mientras tanto, puedes solicitar acceso temprano y seguir usando Shipping Labels USA."
+                ? "Estamos preparando tu espacio multicourier Ecuador para solicitudes beta, cotizaciones en preparación y cobertura nacional por operadores aliados."
                 : "Compare rates, pay with wallet or card, and manage domestic shipments from one operating workspace."}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {isEcuadorMode ? (
                 <>
                   <QuickAction href="/ecuador/crear-envio" icon={MapPinned} label="Solicitar revisión beta" detail="No crea envío real" accent="blue" />
+                  <QuickAction href="/ecuador/crear-envio" icon={Truck} label="Cotizar envío beta" detail="Sin cobro por ahora" accent="blue" />
                   <QuickAction href="/support" icon={HelpCircle} label="Solicitar acceso temprano" detail="Red Ecuador en preparación" accent="slate" />
-                  <QuickAction href="/shipping-labels" icon={Truck} label="Ver Shipping Labels USA" detail="Servicio disponible" accent="orange" />
                   <QuickAction href="/ecuador/envios" icon={Boxes} label="Mis solicitudes Ecuador" detail="Seguimiento beta" accent="slate" />
                 </>
               ) : (
@@ -173,20 +173,21 @@ export function DashboardOverview() {
               {prepAccess.canUsePrep ? (
                 <QuickAction href="/prep/orders" icon={ClipboardList} label="Prep orders" detail="Beta operations" accent="orange" />
               ) : null}
-              <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" />
-              <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" />
+              {!isEcuadorMode ? <QuickAction href="/saldo" icon={Wallet} label="Add balance" detail={formatCurrency(balance)} accent="green" /> : null}
+              {!isEcuadorMode ? <QuickAction href="/envios" icon={Truck} label="My Shipments" detail={`${shipments.length} total`} accent="blue" /> : null}
               {!isEcuadorMode ? <QuickAction href="/ecuador" icon={MapPinned} label="Ecuador Shipping" detail="Coming soon" accent="slate" /> : null}
-              <QuickAction href="/perfil" icon={Settings} label="Profile" detail={profileIncomplete ? "Complete setup" : "Account settings"} accent={profileIncomplete ? "orange" : "slate"} />
+              <QuickAction href={isEcuadorMode ? "/perfil" : "/perfil"} icon={Settings} label={isEcuadorMode ? "Perfil" : "Profile"} detail={profileIncomplete ? (isEcuadorMode ? "Completa tu cuenta" : "Complete setup") : (isEcuadorMode ? "Datos de la cuenta" : "Account settings")} accent={profileIncomplete ? "orange" : "slate"} />
+              {isEcuadorMode ? <QuickAction href="/shipping-labels" icon={Truck} label="También USA" detail="Shipping Labels secundario" accent="orange" /> : null}
               <QuickAction href="/support" icon={HelpCircle} label="Support" detail="Beta help center" accent="slate" />
             </div>
           </div>
           <div className={`rounded-3xl border p-4 ${isEcuadorMode ? "border-sky-100 bg-sky-50/60" : "border-slate-200 bg-slate-50"}`}>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next best steps</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">{isEcuadorMode ? "Siguientes pasos" : "Next best steps"}</p>
             <div className="mt-4 grid gap-3">
               <NextStep done={isEcuadorMode ? false : hasShipments} title={isEcuadorMode ? "Revisar vista previa Ecuador" : "Create your first shipment"} href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} />
-              <NextStep done={balance > 0} title="Add wallet balance" href="/saldo" />
+              <NextStep done={isEcuadorMode ? false : balance > 0} title={isEcuadorMode ? "Solicitar acceso temprano" : "Add wallet balance"} href={isEcuadorMode ? "/support" : "/saldo"} />
               <NextStep done={!profileIncomplete} title={isEcuadorMode ? "Completa tu perfil" : "Complete your profile"} href="/perfil" />
-              <NextStep done={false} title="Read the beta support guide" href="/support" optional />
+              <NextStep done={false} title={isEcuadorMode ? "Conocer el estado beta" : "Read the beta support guide"} href="/support" optional />
             </div>
           </div>
         </div>
@@ -194,9 +195,9 @@ export function DashboardOverview() {
 
       <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-6">
         <MetricCard label={isEcuadorMode ? "Envíos USA" : "Shipments"} value={shipments.length.toString()} detail={isEcuadorMode ? "Historial disponible" : "Created"} icon={PackageCheck} tone="blue" />
-        <MetricCard label={isEcuadorMode ? "Gasto USA" : "Spend"} value={formatCurrency(stats.total)} detail={isEcuadorMode ? "Referencia de cuenta" : "Estimated total"} icon={CircleDollarSign} tone="green" />
-        <MetricCard label={isEcuadorMode ? "En tránsito USA" : "Active"} value={stats.inTransit.toString()} detail={isEcuadorMode ? "Solo Shipping Labels" : "In transit"} icon={Truck} tone="blue" />
-        <MetricCard label="Balance" value={formatCurrency(balance)} detail={isEcuadorMode ? "Disponible para USA" : "Available"} icon={Wallet} tone="green" />
+        <MetricCard label={isEcuadorMode ? "Cotización beta" : "Spend"} value={isEcuadorMode ? "Activa" : formatCurrency(stats.total)} detail={isEcuadorMode ? "Sin cobro" : "Estimated total"} icon={CircleDollarSign} tone="green" />
+        <MetricCard label={isEcuadorMode ? "Cobertura Ecuador" : "Active"} value={isEcuadorMode ? "6+" : stats.inTransit.toString()} detail={isEcuadorMode ? "Ciudades foco" : "In transit"} icon={Truck} tone="blue" />
+        <MetricCard label="Balance" value={isEcuadorMode ? "USA" : formatCurrency(balance)} detail={isEcuadorMode ? "Carril secundario" : "Available"} icon={Wallet} tone="green" />
         <MetricCard label={isEcuadorMode ? "Etiquetas USA" : "Labels"} value={stats.labelsPurchased.toString()} detail={isEcuadorMode ? "Compradas" : "Purchased"} icon={BadgeCheck} tone="blue" />
         <MetricCard label={isEcuadorMode ? "Incidencias" : "Issues"} value={stats.issues.toString()} detail={isEcuadorMode ? "Revisión necesaria" : "Need review"} icon={AlertTriangle} tone={stats.issues > 0 ? "amber" : "slate"} />
       </section>

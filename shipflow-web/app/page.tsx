@@ -23,6 +23,13 @@ import { faqs } from "@/data/site";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Footer } from "@/components/Footer";
+import {
+  EcuadorAudienceSection,
+  EcuadorBetaStatusSection,
+  EcuadorLandingHero,
+  EcuadorOperatorsSection,
+  EcuadorValueSection,
+} from "@/components/EcuadorLandingHero";
 import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
 import { QuotePreview } from "@/components/QuotePreview";
@@ -614,6 +621,23 @@ function TrustMetricsSection() {
 export default function Home() {
   const { mode } = useRegionMode();
   const isEcuadorMode = mode === "ec";
+
+  if (isEcuadorMode) {
+    return (
+      <>
+        <Header />
+        <main>
+          <EcuadorLandingHero />
+          <EcuadorValueSection />
+          <EcuadorOperatorsSection />
+          <EcuadorAudienceSection />
+          <EcuadorBetaStatusSection />
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Header />

@@ -33,7 +33,7 @@ export function RegionModeSwitcher({ compact = false, variant = "panel" }: Regio
           pill={isPill}
           icon={<Truck className="h-4 w-4" />}
           title="USA Shipping Labels"
-          status="Available now"
+          status="Labels"
           onSelect={setMode}
         />
         <RegionModeOption
@@ -43,7 +43,7 @@ export function RegionModeSwitcher({ compact = false, variant = "panel" }: Regio
           pill={isPill}
           icon={<MapPinned className="h-4 w-4" />}
           title="Ecuador Shipping"
-          status="Coming soon"
+          status="Beta"
           onSelect={setMode}
         />
       </div>
@@ -90,7 +90,7 @@ function RegionModeOption({
         {icon}
         <span className="truncate">{compact || pill ? (mode === "us" ? "USA" : "Ecuador") : title}</span>
       </span>
-      <span className={`mt-1 block text-xs font-semibold ${selected ? "text-slate-300" : "text-slate-500"} ${pill ? "hidden sm:block" : ""}`}>
+      <span className={`mt-1 block text-[11px] font-semibold ${selected ? "text-slate-300" : "text-slate-500"} ${pill ? "hidden" : ""}`}>
         {status}
       </span>
     </button>

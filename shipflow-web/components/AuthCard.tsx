@@ -326,8 +326,8 @@ export function AuthCard({ mode }: AuthCardProps) {
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {isEcuadorMode
               ? isLogin
-                ? "Estamos preparando envios locales y nacionales en Ecuador. Tambien puedes usar Shipping Labels para envios en USA."
-                : "Estamos preparando envios locales y nacionales en Ecuador. Tambien puedes usar Shipping Labels para envios en USA desde la misma cuenta."
+                ? "Accede a SendiFlash Ecuador para revisar solicitudes beta, cotizaciones en preparación y el avance de tu operación multicourier."
+                : "Crea una sola cuenta para SendiFlash Ecuador y Shipping Labels USA. Ecuador sigue en preparación y sin cobro por ahora."
               : isLogin
                 ? "Create labels, compare rates, and manage shipments from one workspace."
                 : "Start comparing rates and generating labels in minutes. Domestic shipping in selected markets; international shipping is coming later."}
@@ -437,62 +437,111 @@ function AuthPreview({ mode }: { mode: "login" | "registro" }) {
         <h2 className="mt-6 text-5xl font-black tracking-tight">
           {isEcuadorMode
             ? mode === "login"
-              ? "Tu cuenta SendiFlash también será la base para Ecuador."
-              : "Una sola cuenta para Ecuador, USA y Prep."
+              ? "Accede a SendiFlash Ecuador."
+              : "Una sola cuenta para Ecuador y USA."
             : mode === "login"
               ? "Everything after checkout, handled."
               : "A cleaner way to ship from day one."}
         </h2>
         <p className="mt-4 max-w-lg text-base leading-7 text-slate-300">
           {isEcuadorMode
-            ? "Estamos preparando envíos locales y nacionales en Ecuador, mientras Shipping Labels sigue disponible para USA y mercados seleccionados."
+            ? "Solicitudes beta, cotizaciones y seguimiento en preparación para operadores como Servientrega, LaarCourier, Tramaco y Delivereo. Sin cobro por ahora."
             : "Compare domestic rates, pay securely, and let SendiFlash prepare the label automatically after payment."}
         </p>
       </div>
 
       <div className="mt-8 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-black/20 backdrop-blur">
-        <div className="grid gap-3 rounded-3xl bg-white p-4 text-slate-950">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-[#2563EB]">Rate comparison</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">New York, NY → Miami, FL · 1 lb</p>
-            </div>
-            <Route className="h-5 w-5 text-[#F97316]" />
-          </div>
-          {[
-            ["USPS Ground Advantage", "$8.42", "Best value"],
-            ["UPS Ground", "$10.18", "Ground"],
-            ["FedEx 2Day", "$15.90", "Fastest"],
-          ].map(([name, price, badge]) => (
-            <div key={name} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-black text-slate-950">{name}</p>
-                <p className="mt-0.5 text-xs font-semibold text-slate-500">{badge}</p>
+        {isEcuadorMode ? (
+          <>
+            <div className="grid gap-3 rounded-3xl bg-white p-4 text-slate-950">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-sky-700">SendiFlash Ecuador</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">Quito · Guayaquil · Cuenca · Manta · Loja</p>
+                </div>
+                <Route className="h-5 w-5 text-sky-700" />
               </div>
-              <p className="text-lg font-black text-[#2563EB]">{price}</p>
+              {[
+                ["Servientrega", "Integración en preparación"],
+                ["LaarCourier", "Cobertura en validación"],
+                ["Tramaco", "Operador futuro"],
+              ].map(([name, badge]) => (
+                <div key={name} className="flex items-center justify-between rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-950">{name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-500">{badge}</p>
+                  </div>
+                  <p className="text-xs font-black text-sky-700">Beta</p>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Sin cobro y sin orden real por ahora
+              </div>
             </div>
-          ))}
-          <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-            <CheckCircle2 className="h-4 w-4" />
-            Label ready automatically
-          </div>
-        </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {[
-            [Truck, "Shipments"],
-            [CreditCard, "Wallet + card"],
-            [LockKeyhole, "Protected signup"],
-          ].map(([Icon, label]) => {
-            const TypedIcon = Icon as typeof Truck;
-            return (
-              <div key={label as string} className="rounded-2xl border border-white/10 bg-white/10 p-3">
-                <TypedIcon className="h-4 w-4 text-[#FB923C]" />
-                <p className="mt-2 text-xs font-bold text-slate-200">{label as string}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                [Truck, "Solicitudes beta"],
+                [CreditCard, "Sin cobro"],
+                [LockKeyhole, "Una cuenta USA + Ecuador"],
+              ].map(([Icon, label]) => {
+                const TypedIcon = Icon as typeof Truck;
+                return (
+                  <div key={label as string} className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                    <TypedIcon className="h-4 w-4 text-sky-300" />
+                    <p className="mt-2 text-xs font-bold text-slate-200">{label as string}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid gap-3 rounded-3xl bg-white p-4 text-slate-950">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-[#2563EB]">Rate comparison</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">New York, NY → Miami, FL · 1 lb</p>
+                </div>
+                <Route className="h-5 w-5 text-[#F97316]" />
               </div>
-            );
-          })}
-        </div>
+              {[
+                ["USPS Ground Advantage", "$8.42", "Best value"],
+                ["UPS Ground", "$10.18", "Ground"],
+                ["FedEx 2Day", "$15.90", "Fastest"],
+              ].map(([name, price, badge]) => (
+                <div key={name} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-950">{name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-500">{badge}</p>
+                  </div>
+                  <p className="text-lg font-black text-[#2563EB]">{price}</p>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 rounded-2xl bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Label ready automatically
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                [Truck, "Shipments"],
+                [CreditCard, "Wallet + card"],
+                [LockKeyhole, "Protected signup"],
+              ].map(([Icon, label]) => {
+                const TypedIcon = Icon as typeof Truck;
+                return (
+                  <div key={label as string} className="rounded-2xl border border-white/10 bg-white/10 p-3">
+                    <TypedIcon className="h-4 w-4 text-[#FB923C]" />
+                    <p className="mt-2 text-xs font-bold text-slate-200">{label as string}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

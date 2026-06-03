@@ -21,15 +21,15 @@ export function Header() {
   const isEcuadorMode = mode === "ec";
   const navItems = isEcuadorMode
     ? [
-        { label: "Servicios", href: "/#services" },
-        { label: "Ecuador", href: "/ecuador" },
-        { label: "Etiquetas USA", href: "/shipping-labels" },
+        { label: "Inicio", href: "/ecuador" },
+        { label: "Operadores", href: "/ecuador#operadores" },
+        { label: "Cotización beta", href: "/ecuador/crear-envio" },
         { label: "Soporte", href: "/support" },
       ]
     : nav;
-  const ctaLabel = mode === "ec" ? "Acceso temprano" : "Start shipping";
+  const ctaLabel = mode === "ec" ? "Solicitar acceso" : "Start shipping";
   const loginLabel = mode === "ec" ? "Iniciar sesión" : "Sign in";
-  const ctaHref = mode === "ec" ? "/support" : "/registro";
+  const ctaHref = mode === "ec" ? "/ecuador/crear-envio" : "/registro";
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
@@ -43,7 +43,7 @@ export function Header() {
           <BrandName className="text-base" />
         </Link>
 
-        <nav className="hidden items-center gap-7 text-sm font-semibold text-[#64748B] md:flex">
+        <nav className="hidden items-center gap-6 text-sm font-semibold text-[#64748B] md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -55,7 +55,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-2.5 md:flex">
           <RegionModeSwitcher compact variant="pill" />
           <Button href="/login" variant="ghost">
             {loginLabel}
@@ -68,7 +68,7 @@ export function Header() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="grid h-10 w-10 place-items-center rounded-2xl border border-blue-100 bg-white text-slate-700 md:hidden"
+          className={`grid h-10 w-10 place-items-center rounded-2xl border bg-white text-slate-700 md:hidden ${isEcuadorMode ? "border-sky-100" : "border-blue-100"}`}
           aria-label="Open menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
