@@ -33,11 +33,17 @@ export function AdminEcuadorShipmentsView() {
           <div>
             <h2 className="font-black text-slate-950">Solicitudes Ecuador</h2>
             <p className="text-sm text-slate-500">Beta request · No provider call · No payment · Internal review only.</p>
+            <p className="mt-1 text-sm text-amber-700">Delivereo is not connected. No real provider operations are available.</p>
           </div>
-          <Link href="/ecuador" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">
-            <MapPinned className="h-4 w-4" />
-            Ver página pública
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/admin/ecuador/providers" className="inline-flex items-center gap-2 rounded-2xl border border-pink-100 bg-pink-50 px-4 py-2 text-sm font-black text-[#FF1493]">
+              Diagnóstico providers
+            </Link>
+            <Link href="/ecuador" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700">
+              <MapPinned className="h-4 w-4" />
+              Ver página pública
+            </Link>
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
           <label className="block">

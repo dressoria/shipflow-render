@@ -129,6 +129,9 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
             <p className="mt-2 text-sm leading-6 text-slate-600">
               Beta request. No Delivereo API call is made from this page yet. No real provider order is created yet and no payment is processed here.
             </p>
+            <p className="mt-2 text-sm font-bold text-amber-700">
+              Delivereo is not connected. No real provider operations are available.
+            </p>
           </div>
           <div className="rounded-3xl bg-pink-50 p-4">
             <p className="text-xs font-black uppercase tracking-widest text-[#FF1493]">Resumen operativo</p>
