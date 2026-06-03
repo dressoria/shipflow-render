@@ -1166,3 +1166,22 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - [ ] Any of the new pages expose partner cost, margin, internal notes, or third-party branding.
 - [ ] Any business logic in `/api/*`, Prep payment, wallet, label purchase, or auth changed.
 - [ ] Lint or build fails.
+
+---
+
+## FASE 5.78 — Go/No-Go: Ecuador and USA experience separation
+
+### Go conditions
+
+- [x] Region switcher is compact and header-only on public, auth, and dashboard entry surfaces.
+- [x] Ecuador mode uses blue accenting, Spanish copy, and Ecuador-first navigation/actions.
+- [x] USA Shipping Labels remains active and visually stable in USA mode.
+- [x] `/shipping-labels` shows only a small Ecuador beta callout, with no launch claim.
+- [x] Ecuador pages say en preparación, solicitud beta, and sin cobro.
+- [x] No provider, payment, wallet, auth, or migration logic changed.
+
+### No-Go conditions
+
+- [ ] Ecuador mode presents public claims that live shipping is available now.
+- [ ] USA label purchase flow or Prep flow behavior changes.
+- [ ] Any env, secret, provider credential, or backend payment/auth file changes.

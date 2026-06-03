@@ -25,17 +25,20 @@ import {
 import { Button } from "@/components/Button";
 import { BrandName } from "@/components/BrandName";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useRegionMode } from "@/contexts/RegionModeContext";
 import { useAuth } from "@/hooks/useAuth";
 import { getPrepAccessState } from "@/lib/prepAccess";
+import { cn } from "@/lib/utils";
 
 type NavItem = {
   label: string;
   href: string;
   icon: typeof Home;
   badge?: string;
+  secondary?: boolean;
 };
 
-const menu: NavItem[] = [
+const usaMenu: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
   { label: "Shipments", href: "/envios", icon: Truck },
@@ -44,6 +47,18 @@ const menu: NavItem[] = [
   { label: "Balance", href: "/saldo", icon: CreditCard },
   { label: "Profile", href: "/perfil", icon: Settings },
   { label: "Help", href: "/support", icon: HelpCircle },
+];
+
+const ecuadorMenu: NavItem[] = [
+  { label: "Panel", href: "/dashboard", icon: Home },
+  { label: "Nueva solicitud beta", href: "/ecuador/crear-envio", icon: PlusCircle },
+  { label: "Mis solicitudes", href: "/ecuador/envios", icon: MapPinned },
+  { label: "Soporte", href: "/support", icon: HelpCircle },
+  { label: "Perfil", href: "/perfil", icon: Settings },
+  { label: "Etiquetas USA", href: "/shipping-labels", icon: Truck, badge: "USA", secondary: true },
+  { label: "Envíos USA", href: "/envios", icon: Truck, secondary: true },
+  { label: "Saldo", href: "/saldo", icon: CreditCard, secondary: true },
+  { label: "FBA Prep", href: "/prep", icon: ClipboardList, badge: "Soon", secondary: true },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sendiflash-sidebar-collapsed";
@@ -56,6 +71,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({ title, description, children }: DashboardShellProps) {
   const { user, logout, isAdmin } = useAuth();
+  const { mode } = useRegionMode();
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -63,6 +79,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const prepAccess = getPrepAccessState(user);
+  const isEcuadorMode = mode === "ec";
 
   function toggleSidebar() {
     setSidebarCollapsed((current) => {
@@ -72,14 +89,20 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     });
   }
 
-  const baseNavItems = menu.map((item) =>
+  const baseNavItems = (isEcuadorMode ? ecuadorMenu : usaMenu).map((item) =>
     item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge: "Soon" } : item,
   );
   const navItems = isAdmin ? [...baseNavItems, { label: "Admin", href: "/admin", icon: ShieldCheck }] : baseNavItems;
+  const primaryNavItems = navItems.filter((item) => !item.secondary);
+  const secondaryNavItems = navItems.filter((item) => item.secondary);
+  const accentClass = isEcuadorMode ? "text-sky-700" : "text-[#F97316]";
+  const activeClass = isEcuadorMode
+    ? "bg-sky-600 text-white shadow-lg shadow-sky-600/30"
+    : "bg-[#2563EB] text-white shadow-lg shadow-[#2563EB]/30";
 
   return (
     <ProtectedRoute>
-    <div className="min-h-screen bg-[#F8F9FC]">
+    <div className={cn("min-h-screen", isEcuadorMode ? "bg-sky-50/50" : "bg-[#F8F9FC]")}>
       <header className="sticky top-0 z-40 border-b border-white/40 bg-white/70 backdrop-blur-2xl">
         <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-5 lg:px-6">
           <button
@@ -91,18 +114,18 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             <Menu className="h-5 w-5" />
           </button>
           <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
-            <span className="brand-glow grid h-9 w-9 place-items-center rounded-2xl bg-[#2563EB] text-white">
+            <span className={cn("brand-glow grid h-9 w-9 place-items-center rounded-2xl text-white", isEcuadorMode ? "bg-sky-600" : "bg-[#2563EB]")}>
               <PackageCheck className="h-5 w-5" />
             </span>
             <BrandName />
           </Link>
           <div className="hidden h-10 min-w-64 items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm xl:flex">
             <Search className="h-4 w-4" />
-            Search shipment, customer, or city
+            {isEcuadorMode ? "Buscar solicitud, ciudad o cliente" : "Search shipment, customer, or city"}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button href="/crear-guia" icon={<PlusCircle className="h-4 w-4" />} className="hidden rounded-2xl sm:inline-flex">
-              Get rates
+            <Button href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} icon={<PlusCircle className="h-4 w-4" />} className="hidden rounded-2xl sm:inline-flex">
+              {isEcuadorMode ? "Solicitud beta" : "Get rates"}
             </Button>
             <button
               type="button"
@@ -127,7 +150,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           <aside className="relative flex h-full w-[min(320px,86vw)] flex-col bg-[#12182B] p-3 shadow-2xl">
             <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/10 p-3 text-white">
               <div className="min-w-0">
-                <p className="text-sm font-bold">SendiFlash</p>
+                <p className="text-sm font-bold">{isEcuadorMode ? "SendiFlash Ecuador" : "SendiFlash"}</p>
                 <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Workspace"}</p>
               </div>
               <button
@@ -140,11 +163,24 @@ export function DashboardShell({ title, description, children }: DashboardShellP
               </button>
             </div>
             <NavigationList
-              items={navItems}
+              items={primaryNavItems}
               pathname={pathname}
               collapsed={false}
+              activeClass={activeClass}
               onNavigate={() => setMobileMenuOpen(false)}
             />
+            {secondaryNavItems.length > 0 ? (
+              <>
+                <p className="mt-6 px-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">También disponible</p>
+                <NavigationList
+                  items={secondaryNavItems}
+                  pathname={pathname}
+                  collapsed={false}
+                  activeClass={activeClass}
+                  onNavigate={() => setMobileMenuOpen(false)}
+                />
+              </>
+            ) : null}
           </aside>
         </div>
       ) : null}
@@ -160,17 +196,23 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           <div className={`dark-glass rounded-2xl text-white ${sidebarCollapsed ? "p-2" : "p-3"}`}>
             <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/10">
-                <BarChart3 className="h-5 w-5 text-[#22C55E]" />
+                <BarChart3 className={cn("h-5 w-5", isEcuadorMode ? "text-sky-300" : "text-[#22C55E]")} />
               </span>
               {!sidebarCollapsed ? (
                 <div className="min-w-0">
-                  <p className="text-sm font-bold">System operational</p>
-                  <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? "Shipping balance"}</p>
+                  <p className="text-sm font-bold">{isEcuadorMode ? "Modo Ecuador activo" : "System operational"}</p>
+                  <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? (isEcuadorMode ? "Solicitudes beta" : "Shipping balance")}</p>
                 </div>
               ) : null}
             </div>
           </div>
-          <NavigationList items={navItems} pathname={pathname} collapsed={sidebarCollapsed} />
+          <NavigationList items={primaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+          {!sidebarCollapsed && secondaryNavItems.length > 0 ? (
+            <>
+              <p className="mt-5 px-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">También disponible</p>
+              <NavigationList items={secondaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+            </>
+          ) : null}
           <button
             type="button"
             onClick={toggleSidebar}
@@ -183,8 +225,8 @@ export function DashboardShell({ title, description, children }: DashboardShellP
         <main className="min-w-0">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F97316]">
-                Dashboard
+              <p className={cn("text-xs font-bold uppercase tracking-[0.18em]", accentClass)}>
+                {isEcuadorMode ? "Panel Ecuador" : "Dashboard"}
               </p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
                 {title}
@@ -204,11 +246,13 @@ function NavigationList({
   items,
   pathname,
   collapsed,
+  activeClass,
   onNavigate,
 }: {
   items: NavItem[];
   pathname: string;
   collapsed: boolean;
+  activeClass: string;
   onNavigate?: () => void;
 }) {
   return (
@@ -226,7 +270,7 @@ function NavigationList({
               collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-2.5"
             } ${
               active
-                ? "bg-[#2563EB] text-white shadow-lg shadow-[#2563EB]/30"
+                ? activeClass
                 : "text-slate-300 hover:bg-white/10 hover:text-white"
             }`}
           >

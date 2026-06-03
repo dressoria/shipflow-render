@@ -21,7 +21,6 @@ import {
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
-import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { useRegionMode } from "@/contexts/RegionModeContext";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/forms";
@@ -137,13 +136,10 @@ export function DashboardOverview() {
         <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="blue">Controlled beta</Badge>
+              <Badge tone="blue">{isEcuadorMode ? "Vista regional" : "Controlled beta"}</Badge>
               <span className={`rounded-full px-3 py-1 text-xs font-black ${isEcuadorMode ? "bg-sky-50 text-sky-700" : "bg-green-50 text-green-700"}`}>
-                {isEcuadorMode ? "Modo Ecuador · En preparación" : "Automatic labels enabled"}
+                {isEcuadorMode ? "Modo Ecuador · Solicitudes beta" : "Automatic labels enabled"}
               </span>
-            </div>
-            <div className="mt-4 max-w-md">
-              <RegionModeSwitcher />
             </div>
             <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
               {isEcuadorMode ? `Qué bueno verte, ${greetingName}.` : `Good to see you, ${greetingName}.`}
@@ -157,7 +153,7 @@ export function DashboardOverview() {
               {isEcuadorMode ? (
                 <>
                   <QuickAction href="/ecuador/crear-envio" icon={MapPinned} label="Solicitar revisión beta" detail="No crea envío real" accent="blue" />
-                  <QuickAction href="/support" icon={HelpCircle} label="Solicitar acceso temprano" detail="Ecuador Shipping" accent="slate" />
+                  <QuickAction href="/support" icon={HelpCircle} label="Solicitar acceso temprano" detail="Red Ecuador en preparación" accent="slate" />
                   <QuickAction href="/shipping-labels" icon={Truck} label="Ver Shipping Labels USA" detail="Servicio disponible" accent="orange" />
                   <QuickAction href="/ecuador/envios" icon={Boxes} label="Mis solicitudes Ecuador" detail="Seguimiento beta" accent="slate" />
                 </>
@@ -184,7 +180,7 @@ export function DashboardOverview() {
               <QuickAction href="/support" icon={HelpCircle} label="Support" detail="Beta help center" accent="slate" />
             </div>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className={`rounded-3xl border p-4 ${isEcuadorMode ? "border-sky-100 bg-sky-50/60" : "border-slate-200 bg-slate-50"}`}>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">Next best steps</p>
             <div className="mt-4 grid gap-3">
               <NextStep done={isEcuadorMode ? false : hasShipments} title={isEcuadorMode ? "Revisar vista previa Ecuador" : "Create your first shipment"} href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} />
@@ -197,12 +193,12 @@ export function DashboardOverview() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-6">
-        <MetricCard label="Shipments" value={shipments.length.toString()} detail="Created" icon={PackageCheck} tone="blue" />
-        <MetricCard label="Spend" value={formatCurrency(stats.total)} detail="Estimated total" icon={CircleDollarSign} tone="green" />
-        <MetricCard label="Active" value={stats.inTransit.toString()} detail="In transit" icon={Truck} tone="blue" />
-        <MetricCard label="Balance" value={formatCurrency(balance)} detail="Available" icon={Wallet} tone="green" />
-        <MetricCard label="Labels" value={stats.labelsPurchased.toString()} detail="Purchased" icon={BadgeCheck} tone="blue" />
-        <MetricCard label="Issues" value={stats.issues.toString()} detail="Need review" icon={AlertTriangle} tone={stats.issues > 0 ? "amber" : "slate"} />
+        <MetricCard label={isEcuadorMode ? "Envíos USA" : "Shipments"} value={shipments.length.toString()} detail={isEcuadorMode ? "Historial disponible" : "Created"} icon={PackageCheck} tone="blue" />
+        <MetricCard label={isEcuadorMode ? "Gasto USA" : "Spend"} value={formatCurrency(stats.total)} detail={isEcuadorMode ? "Referencia de cuenta" : "Estimated total"} icon={CircleDollarSign} tone="green" />
+        <MetricCard label={isEcuadorMode ? "En tránsito USA" : "Active"} value={stats.inTransit.toString()} detail={isEcuadorMode ? "Solo Shipping Labels" : "In transit"} icon={Truck} tone="blue" />
+        <MetricCard label="Balance" value={formatCurrency(balance)} detail={isEcuadorMode ? "Disponible para USA" : "Available"} icon={Wallet} tone="green" />
+        <MetricCard label={isEcuadorMode ? "Etiquetas USA" : "Labels"} value={stats.labelsPurchased.toString()} detail={isEcuadorMode ? "Compradas" : "Purchased"} icon={BadgeCheck} tone="blue" />
+        <MetricCard label={isEcuadorMode ? "Incidencias" : "Issues"} value={stats.issues.toString()} detail={isEcuadorMode ? "Revisión necesaria" : "Need review"} icon={AlertTriangle} tone={stats.issues > 0 ? "amber" : "slate"} />
       </section>
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -241,8 +237,8 @@ export function DashboardOverview() {
             <div className="p-5">
               <EmptyState
                 icon={Truck}
-                title="No activity yet"
-                description="Create a shipment or add wallet balance to start your activity timeline."
+                title={isEcuadorMode ? "Sin actividad todavía" : "No activity yet"}
+                description={isEcuadorMode ? "Tus movimientos de cuenta y Shipping Labels USA aparecerán aquí mientras Ecuador sigue en preparación." : "Create a shipment or add wallet balance to start your activity timeline."}
               />
             </div>
           )}

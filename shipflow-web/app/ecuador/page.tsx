@@ -6,7 +6,6 @@ import { Button } from "@/components/Button";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
-import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { SectionHeading } from "@/components/SectionHeading";
 
 export const metadata: Metadata = {
@@ -57,15 +56,12 @@ export default function EcuadorPage() {
                   <MapPinned className="mr-2 h-3.5 w-3.5" />
                   Ecuador Shipping · En preparacion
                 </Badge>
-                <div className="mt-5 max-w-md">
-                  <RegionModeSwitcher />
-                </div>
                 <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.7rem]">
                   Envios locales y nacionales en Ecuador,{" "}
                   <span className="text-sky-700">proximamente en SendiFlash.</span>
                 </h1>
                 <p className="mt-6 max-w-2xl text-lg leading-8 text-[#334155]">
-                  Estamos preparando una experiencia para cotizar, pagar y gestionar envios locales y nacionales en Ecuador desde una sola cuenta SendiFlash.
+                  Estamos preparando una experiencia para cotizar, pagar y gestionar envios locales y nacionales en Ecuador desde una sola cuenta SendiFlash, con Servientrega, LaarCourier, Delivereo y mas operadores en preparacion.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Button href="/ecuador/crear-envio" variant="action" className="rounded-2xl sm:min-w-44">
@@ -81,7 +77,7 @@ export default function EcuadorPage() {
                   </Button>
                 </div>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-500">
-                  Estado actual: en desarrollo y acceso temprano. Puedes enviar una solicitud beta, pero no se crea un envío real todavía.
+                  Estado actual: en desarrollo y acceso temprano. Puedes enviar una solicitud beta, pero no se crea un envio real todavia ni se procesa ningun cobro.
                 </p>
               </MotionReveal>
 
@@ -120,7 +116,7 @@ export default function EcuadorPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 border-t border-slate-100 bg-white px-4 py-3">
-                    {["En desarrollo", "Acceso temprano", "Cobertura por anunciar", "Sin flujo de compra todavia"].map((chip) => (
+                    {["En desarrollo", "Acceso temprano", "Servientrega, LaarCourier, Delivereo en preparacion", "Sin flujo de compra todavia"].map((chip) => (
                       <span
                         key={chip}
                         className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600"
@@ -188,7 +184,7 @@ export default function EcuadorPage() {
                 En desarrollo y acceso temprano
               </h2>
               <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-                Ecuador Shipping todavia no esta habilitado como flujo activo dentro de SendiFlash. La cobertura, tiempos y disponibilidad final se comunicaran cuando el servicio este listo.
+                Ecuador Shipping todavia no esta habilitado como flujo activo dentro de SendiFlash. La cobertura, tiempos y disponibilidad final se comunicaran cuando el servicio este listo. Por ahora, el flujo disponible es solo de solicitud beta y revision interna.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link

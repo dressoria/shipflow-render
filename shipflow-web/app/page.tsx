@@ -26,20 +26,10 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MotionCard, MotionReveal } from "@/components/Motion";
 import { QuotePreview } from "@/components/QuotePreview";
-import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { SectionHeading } from "@/components/SectionHeading";
 import { NationwideRoute } from "@/components/landing/NationwideRoute";
 import { ScrollStory } from "@/components/landing/ScrollStory";
 import { useRegionMode } from "@/contexts/RegionModeContext";
-
-const trustBadges = [
-  "Shipping labels",
-  "Ecuador shipping coming soon",
-  "Amazon FBA Prep",
-  "Wallet & card payments",
-  "Rate comparison",
-  "Shipment tracking",
-];
 
 const carrierLogos = [
   { name: "USPS", src: "/carriers/usps.svg" },
@@ -226,7 +216,8 @@ function ImageSceneCard({
   );
 }
 
-function DashboardHeroVisual() {
+function DashboardHeroVisual({ mode }: { mode: "us" | "ec" }) {
+  const isEcuadorMode = mode === "ec";
   return (
     <div className="relative mx-auto max-w-xl">
       <div className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-2xl shadow-slate-950/12">
@@ -241,7 +232,7 @@ function DashboardHeroVisual() {
         </div>
 
         {/* Two-service preview cards */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-50/80 p-4">
+        <div className={`grid grid-cols-2 gap-3 p-4 ${isEcuadorMode ? "bg-sky-50/70" : "bg-slate-50/80"}`}>
           {/* Shipping Labels mini-card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
@@ -275,45 +266,77 @@ function DashboardHeroVisual() {
             </div>
           </div>
 
-          {/* Prep mini-card */}
+          {/* Secondary mini-card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#F97316] text-white">
-                <Package className="h-3.5 w-3.5" />
+              <span className={`grid h-7 w-7 place-items-center rounded-lg text-white ${isEcuadorMode ? "bg-sky-600" : "bg-[#F97316]"}`}>
+                {isEcuadorMode ? <MapPinned className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />}
               </span>
-              <span className="text-xs font-black text-slate-800">FBA Prep</span>
+              <span className="text-xs font-black text-slate-800">{isEcuadorMode ? "Ecuador Shipping" : "FBA Prep"}</span>
             </div>
-            <p className="mb-3 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-500">
-              Amazon FBA · 2,000 units
-            </p>
-            <div className="space-y-1.5 text-[10px] text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
-                FNSKU labeling
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
-                Poly bag packaging
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
-                Case forwarding
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                Quote ready
-              </span>
-              <span className="rounded-lg bg-[#F97316] px-2 py-0.5 text-[10px] font-black text-white">
-                Accept →
-              </span>
-            </div>
+            {isEcuadorMode ? (
+              <>
+                <p className="mb-3 rounded-lg bg-sky-50 px-2.5 py-1.5 text-[10px] text-sky-700">
+                  Solicitud beta · Sin cobro · En preparación
+                </p>
+                <div className="space-y-1.5 text-[10px] text-slate-600">
+                  {[
+                    "Servientrega, LaarCourier, Delivereo",
+                    "y más operadores en preparación",
+                    "Sin orden real todavía",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-sky-600" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="inline-flex items-center rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                    Red futura
+                  </span>
+                  <span className="rounded-lg bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">
+                    Beta →
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-3 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[10px] text-slate-500">
+                  Amazon FBA · 2,000 units
+                </p>
+                <div className="space-y-1.5 text-[10px] text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
+                    FNSKU labeling
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
+                    Poly bag packaging
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-[#F97316]" />
+                    Case forwarding
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="inline-flex items-center rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                    Quote ready
+                  </span>
+                  <span className="rounded-lg bg-[#F97316] px-2 py-0.5 text-[10px] font-black text-white">
+                    Accept →
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Status chips */}
         <div className="flex flex-wrap gap-1.5 border-t border-slate-100 bg-white px-4 py-3">
-          {["Wallet", "Card payment", "Tracking", "FBA Prep", "Seller tools"].map((chip) => (
+          {(isEcuadorMode
+            ? ["Modo Ecuador", "Solicitud beta", "Sin cobro", "Operadores en preparación", "Etiquetas USA"]
+            : ["Wallet", "Card payment", "Tracking", "FBA Prep", "Seller tools"]).map((chip) => (
             <span
               key={chip}
               className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold text-slate-600"
@@ -488,14 +511,15 @@ function TwoServicesSection({ mode }: { mode: "us" | "ec" }) {
   );
 }
 
-function SellerToolsSection() {
+function SellerToolsSection({ mode }: { mode: "us" | "ec" }) {
+  const isEcuadorMode = mode === "ec";
   return (
     <section id="seller-tools" className="bg-[#F8FAFC] py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="Seller tools"
-          title="Everything ecommerce sellers need in one hub"
-          description="From label creation to coming-soon Ecuador shipping information, your logistics workflow stays organized in one SendiFlash workspace."
+          eyebrow={isEcuadorMode ? "Herramientas regionales" : "Seller tools"}
+          title={isEcuadorMode ? "Una cuenta para preparar Ecuador sin perder acceso a USA" : "Everything ecommerce sellers need in one hub"}
+          description={isEcuadorMode ? "Solicitudes beta Ecuador, visibilidad del servicio USA y siguientes pasos claros dentro del mismo workspace." : "From label creation to coming-soon Ecuador shipping information, your logistics workflow stays organized in one SendiFlash workspace."}
         />
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {sellerTools.map((tool, index) => {
@@ -504,21 +528,27 @@ function SellerToolsSection() {
               <MotionCard
                 key={tool.title}
                 delay={index * 0.05}
-                className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/4 transition hover:-translate-y-1 hover:border-[#F97316]/30 hover:shadow-lg hover:shadow-slate-950/8"
+                className={`group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/4 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-950/8 ${
+                  isEcuadorMode ? "hover:border-sky-200" : "hover:border-[#F97316]/30"
+                }`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-orange-50 text-[#F97316] transition group-hover:bg-[#F97316] group-hover:text-white">
+                  <div
+                    className={`grid h-12 w-12 place-items-center rounded-2xl transition group-hover:text-white ${
+                      isEcuadorMode ? "bg-sky-50 text-sky-700 group-hover:bg-sky-600" : "bg-orange-50 text-[#F97316] group-hover:bg-[#F97316]"
+                    }`}
+                  >
                     <Icon className="h-6 w-6" />
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#F97316]" />
+                  <ArrowRight className={`h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 ${isEcuadorMode ? "group-hover:text-sky-700" : "group-hover:text-[#F97316]"}`} />
                 </div>
-                <h3 className="mt-5 font-black text-slate-950 transition group-hover:text-[#F97316]">{tool.title}</h3>
+                <h3 className={`mt-5 font-black text-slate-950 transition ${isEcuadorMode ? "group-hover:text-sky-700" : "group-hover:text-[#F97316]"}`}>{tool.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-[#334155]">{tool.text}</p>
                 <div className="mt-5">
                   <Link
                     href={tool.href}
-                    className="text-sm font-bold text-[#F97316] transition hover:underline"
-                >
+                    className={`text-sm font-bold transition hover:underline ${isEcuadorMode ? "text-sky-700" : "text-[#F97316]"}`}
+                  >
                   Open page
                 </Link>
               </div>
@@ -590,7 +620,7 @@ export default function Home() {
       <main>
         {/* ── Hero ── */}
         <section className="relative isolate overflow-hidden bg-[#F8FAFC] text-[#0F172A]">
-          <div className="absolute inset-x-0 top-0 h-72 bg-white" />
+          <div className={`absolute inset-x-0 top-0 h-72 ${isEcuadorMode ? "bg-sky-50" : "bg-white"}`} />
 
           <div className="relative z-10 mx-auto max-w-7xl px-4 pb-22 pt-32 sm:px-6 md:pt-36 lg:px-8">
             <div className="grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
@@ -605,13 +635,9 @@ export default function Home() {
                     : "Shipping Labels available now · Ecuador Shipping coming soon · FBA Prep early access"}
                 </Badge>
 
-                <div className="mt-5 max-w-md">
-                  <RegionModeSwitcher />
-                </div>
-
                 {isEcuadorMode ? (
                   <h1 className="mt-7 max-w-3xl text-5xl font-black leading-[1.02] tracking-tight text-[#0F172A] sm:text-6xl lg:text-[3.75rem]">
-                    Envia en Ecuador desde una sola cuenta{" "}
+                    Prepara tu operación de entregas en Ecuador desde una sola cuenta{" "}
                     <span className="text-sky-700">SendiFlash.</span>
                   </h1>
                 ) : (
@@ -624,7 +650,7 @@ export default function Home() {
 
                 <p className="mt-6 max-w-xl text-lg leading-8 text-[#334155]">
                   {isEcuadorMode
-                    ? "Estamos preparando cotizacion, pagos y tracking para entregas locales y nacionales. Mientras tanto, puedes solicitar acceso temprano y seguir usando Shipping Labels USA."
+                    ? "Estamos preparando una experiencia azul, enfocada en Ecuador, para solicitudes beta, cobertura local y nacional, y una futura red con Servientrega, LaarCourier, Delivereo y más operadores en preparación."
                     : "Compare rates, create shipping labels, and follow the next SendiFlash service launches from a single account."}
                 </p>
 
@@ -689,7 +715,23 @@ export default function Home() {
                 </p>
 
                 <div className="mt-8 flex max-w-xl flex-wrap gap-2.5">
-                  {trustBadges.map((item) => (
+                  {(isEcuadorMode
+                    ? [
+                        "Solicitudes beta Ecuador",
+                        "Servientrega en preparación",
+                        "LaarCourier en preparación",
+                        "Delivereo en preparación",
+                        "Sin cobro todavía",
+                        "Etiquetas USA disponibles",
+                      ]
+                    : [
+                        "Shipping labels",
+                        "Ecuador shipping coming soon",
+                        "Amazon FBA Prep",
+                        "Wallet & card payments",
+                        "Rate comparison",
+                        "Shipment tracking",
+                      ]).map((item) => (
                     <span
                       key={item}
                       className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"
@@ -702,12 +744,12 @@ export default function Home() {
               </MotionReveal>
 
               <MotionReveal delay={0.2} className="hidden lg:block">
-                <DashboardHeroVisual />
+                <DashboardHeroVisual mode={mode} />
               </MotionReveal>
             </div>
 
             <MotionReveal delay={0.24} className="mt-14 lg:hidden">
-              <DashboardHeroVisual />
+              <DashboardHeroVisual mode={mode} />
             </MotionReveal>
           </div>
         </section>
@@ -715,18 +757,28 @@ export default function Home() {
         {/* ── Trust / Benefits strip ── */}
         <section className="-mt-10 bg-[#F8FAFC] px-4 pb-14 sm:px-6 lg:px-8">
           <div className="relative z-10 mx-auto grid max-w-7xl gap-3 rounded-[2rem] border border-white/90 bg-white/95 p-4 shadow-2xl shadow-slate-950/8 backdrop-blur-2xl sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              { title: "Secure payments", text: "PCI-compliant checkout" },
-              { title: "Multi-carrier rates", text: "Compare before you buy" },
-              { title: "Amazon FBA Prep", text: "Managed prep service" },
-              { title: "Clear pricing", text: "No hidden charges" },
-              { title: "Workflow-ready", text: "Built for operations teams" },
-            ].map((item) => (
+            {(isEcuadorMode
+              ? [
+                  { title: "Solicitud beta", text: "No crea un envío real" },
+                  { title: "Experiencia en español", text: "Navegación Ecuador-first" },
+                  { title: "Cobertura en preparación", text: "Operadores y rutas por confirmar" },
+                  { title: "Sin cobro todavía", text: "Pagos locales pendientes" },
+                  { title: "USA sigue disponible", text: "Shipping Labels como opción secundaria" },
+                ]
+              : [
+                  { title: "Secure payments", text: "PCI-compliant checkout" },
+                  { title: "Multi-carrier rates", text: "Compare before you buy" },
+                  { title: "Amazon FBA Prep", text: "Managed prep service" },
+                  { title: "Clear pricing", text: "No hidden charges" },
+                  { title: "Workflow-ready", text: "Built for operations teams" },
+                ]).map((item) => (
               <div
                 key={item.title}
-                className="rounded-3xl border border-blue-50 bg-white p-5 shadow-sm shadow-slate-950/4 transition hover:-translate-y-1 hover:border-blue-100 hover:shadow-lg hover:shadow-blue-950/6"
+                className={`rounded-3xl border bg-white p-5 shadow-sm shadow-slate-950/4 transition hover:-translate-y-1 hover:shadow-lg ${
+                  isEcuadorMode ? "border-sky-50 hover:border-sky-100 hover:shadow-sky-950/6" : "border-blue-50 hover:border-blue-100 hover:shadow-blue-950/6"
+                }`}
               >
-                <CheckCircle2 className="h-5 w-5 text-[#2563EB]" />
+                <CheckCircle2 className={`h-5 w-5 ${isEcuadorMode ? "text-sky-700" : "text-[#2563EB]"}`} />
                 <p className="mt-3 text-sm font-black leading-5 text-[#0F172A]">{item.title}</p>
                 <p className="mt-1.5 text-xs font-medium leading-5 text-[#64748B]">{item.text}</p>
               </div>
@@ -953,7 +1005,7 @@ export default function Home() {
         </section>
 
         {/* ── Seller tools hub ── */}
-        <SellerToolsSection />
+        <SellerToolsSection mode={mode} />
 
         {/* ── Use cases ── */}
         <section id="use-cases" className="bg-white py-20 sm:py-28">

@@ -71,6 +71,7 @@ export function EcuadorShipmentRequestForm() {
           <p>{ECUADOR_COPY.betaFormNote}</p>
           <p>{ECUADOR_COPY.betaReviewNote}</p>
           <p>{ECUADOR_COPY.noProviderYet}</p>
+          <p>Servientrega, LaarCourier, Delivereo y más operadores siguen en preparación.</p>
           <p>No se realizará ningún cobro desde esta pantalla.</p>
         </div>
       </section>
@@ -141,7 +142,7 @@ export function EcuadorShipmentRequestForm() {
           <div>
             <h3 className="text-lg font-black text-slate-950">Antes de enviar</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Esta pantalla guarda una solicitud interna para revisión beta. No se crea orden real, no se llama a Delivereo y no se procesa ningún pago.
+              Esta pantalla guarda una solicitud interna para revisión beta. No se crea orden real, no se llama a Delivereo ni a otros operadores en preparación y no se procesa ningún pago.
             </p>
           </div>
         </div>

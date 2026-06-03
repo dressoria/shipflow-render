@@ -2396,6 +2396,14 @@ Six tool cards: Shipping Label Generator (`/crear-guia`), FBA Prep Request (`/re
 | `npm run build` | Passed; `/` and all other routes build cleanly |
 | `git diff --check` | Passed |
 
+### FASE 5.78 — Ecuador/USA platform separation
+
+- Region switcher reduced to a compact header control; removed from homepage hero, auth card, and dashboard body.
+- Ecuador mode now uses blue-first visual treatment, Spanish-first copy, Ecuador request links, and USA Shipping Labels as a secondary path.
+- `/shipping-labels` keeps only a small Ecuador beta callout; no public Ecuador activation claims were added.
+- Ecuador customer pages continue to say beta request, en preparación, sin cobro, and no real shipment.
+- No backend/provider/payment/auth/env changes were made in this UI separation phase.
+
 ---
 
 ## FASE 5.69 — Dedicated service pages and absolute anchor navigation

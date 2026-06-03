@@ -48,7 +48,7 @@ export function EcuadorShipmentDetail({ id }: { id: string }) {
             <p className="text-xs font-black uppercase tracking-widest text-sky-700">Solicitud beta</p>
             <p className="mt-2 text-sm font-bold text-slate-600">Creada {formatDate(shipment.createdAt)}</p>
             <p className="mt-2 text-sm font-bold text-slate-600">Cobro: no disponible todavía</p>
-            <p className="mt-2 text-sm font-bold text-slate-600">Proveedor real: pendiente</p>
+            <p className="mt-2 text-sm font-bold text-slate-600">Proveedor real: Delivereo y otros operadores en preparación</p>
           </div>
         </div>
       </section>

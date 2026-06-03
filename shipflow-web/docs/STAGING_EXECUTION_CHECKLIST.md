@@ -2052,3 +2052,14 @@ Release can move to PASS after latest main is deployed, support/legal routes ret
 - [ ] No migration applied
 - [ ] No secrets or provider credentials touched
 - [ ] `/crear-guia`, `/login`, `/registro`, `/support`, `/prep`, `/dashboard` still build
+
+### FASE 5.78 — Region separation QA
+
+- [ ] Header region switcher renders as compact pill on desktop and mobile
+- [ ] Homepage in USA mode remains orange/blue and label-focused
+- [ ] Homepage in Ecuador mode is Spanish-first and blue-first
+- [ ] Auth pages show region pill only, with no large switcher card
+- [ ] Dashboard sidebar in Ecuador mode hides USA-only primary items
+- [ ] `/ecuador`, `/ecuador/crear-envio`, `/ecuador/envios`, `/ecuador/envios/[id]` all show beta/no-charge/preparation messaging
+- [ ] `/shipping-labels` shows Ecuador beta callout only
+- [ ] No backend/provider/payment/auth changes in diff

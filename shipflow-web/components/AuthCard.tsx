@@ -16,7 +16,6 @@ import {
   Truck,
 } from "lucide-react";
 import { BrandName } from "@/components/BrandName";
-import { RegionModeSwitcher } from "@/components/RegionModeSwitcher";
 import { useRegionMode } from "@/contexts/RegionModeContext";
 import { isEmail, isPhone, required } from "@/lib/forms";
 import { useAuth } from "@/hooks/useAuth";
@@ -300,12 +299,20 @@ export function AuthCard({ mode }: AuthCardProps) {
         </Link>
 
         <div className="mt-6">
-          <RegionModeSwitcher />
+          <span
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black ${
+              isEcuadorMode
+                ? "border-sky-100 bg-sky-50 text-sky-700"
+                : "border-orange-100 bg-orange-50 text-[#F97316]"
+            }`}
+          >
+            {isEcuadorMode ? "Modo Ecuador · En preparación" : "Shipping Labels USA · Disponible"}
+          </span>
         </div>
 
-        <div className="mt-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F97316]">
-            {isEcuadorMode ? "Modo Ecuador" : isLogin ? "Welcome back" : "Beta access"}
+        <div className="mt-5">
+          <p className={`text-xs font-black uppercase tracking-[0.18em] ${isEcuadorMode ? "text-sky-700" : "text-[#F97316]"}`}>
+            {isEcuadorMode ? "Acceso beta Ecuador" : isLogin ? "Welcome back" : "Beta access"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {isEcuadorMode

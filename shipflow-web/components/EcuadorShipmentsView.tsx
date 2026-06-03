@@ -31,7 +31,7 @@ export function EcuadorShipmentsView() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
         <div>
           <h2 className="font-black text-slate-950">Mis solicitudes Ecuador</h2>
-          <p className="text-sm text-slate-500">Envíos Ecuador está en preparación. Tus solicitudes aquí son solo para revisión beta.</p>
+          <p className="text-sm text-slate-500">Envíos Ecuador está en preparación. Tus solicitudes aquí son solo para revisión beta, sin cobro y sin orden real todavía.</p>
         </div>
         <Link href="/ecuador/crear-envio" className="rounded-2xl bg-[#F97316] px-4 py-2 text-sm font-black text-white">
           Solicitar revisión beta
@@ -79,7 +79,7 @@ export function EcuadorShipmentsView() {
           <div>
             <h3 className="font-black text-slate-950">Preparación beta</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Estas solicitudes no crean órdenes reales todavía. SendiFlash las revisa internamente mientras Ecuador Shipping termina su preparación y no se realiza ningún cobro desde aquí.
+              Estas solicitudes no crean órdenes reales todavía. SendiFlash las revisa internamente mientras Ecuador Shipping termina su preparación con Delivereo y otros operadores futuros, y no se realiza ningún cobro desde aquí.
             </p>
           </div>
         </div>

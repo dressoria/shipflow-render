@@ -596,3 +596,9 @@ Suggested preference persistence:
 - Build around a provider adapter plus normalized regional shipment model.
 - Delay payment integration until provider quote/create/tracking behavior is stable.
 - Require Delivereo clarification on sandbox, auth header format, booking mode, and webhook support before implementation starts.
+
+## UI separation note
+
+- Ecuador mode should remain visually and structurally distinct from USA Shipping Labels while the backend stays shared.
+- Prefer blue regional theming, Spanish-first copy, Ecuador request routes, and explicit "en preparación / solicitud beta / sin cobro" messaging.
+- Keep Shipping Labels USA available as a secondary path inside Ecuador mode until provider and payment readiness are complete.

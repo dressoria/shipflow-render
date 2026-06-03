@@ -18,24 +18,37 @@ const nav = [
 export function Header() {
   const [open, setOpen] = useState(false);
   const { mode } = useRegionMode();
+  const isEcuadorMode = mode === "ec";
+  const navItems = isEcuadorMode
+    ? [
+        { label: "Servicios", href: "/#services" },
+        { label: "Ecuador", href: "/ecuador" },
+        { label: "Etiquetas USA", href: "/shipping-labels" },
+        { label: "Soporte", href: "/support" },
+      ]
+    : nav;
   const ctaLabel = mode === "ec" ? "Acceso temprano" : "Start shipping";
   const loginLabel = mode === "ec" ? "Iniciar sesión" : "Sign in";
   const ctaHref = mode === "ec" ? "/support" : "/registro";
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border border-white/80 bg-white/88 px-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl sm:px-5 lg:px-6">
+      <div
+        className={`mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[2rem] border px-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl sm:px-5 lg:px-6 ${
+          isEcuadorMode ? "border-sky-100 bg-white/92" : "border-white/80 bg-white/88"
+        }`}
+      >
         <Link href="/" className="flex items-center gap-3 rounded-2xl px-1 py-1">
-          <span className="h-8 w-1.5 rounded-full bg-[#F97316]" aria-hidden="true" />
+          <span className={`h-8 w-1.5 rounded-full ${isEcuadorMode ? "bg-sky-600" : "bg-[#F97316]"}`} aria-hidden="true" />
           <BrandName className="text-base" />
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm font-semibold text-[#64748B] md:flex">
-          {nav.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="transition hover:text-[#2563EB]"
+              className={`transition ${isEcuadorMode ? "hover:text-sky-700" : "hover:text-[#2563EB]"}`}
             >
               {item.label}
             </Link>
@@ -43,9 +56,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <div className="w-[228px]">
-            <RegionModeSwitcher compact />
-          </div>
+          <RegionModeSwitcher compact variant="pill" />
           <Button href="/login" variant="ghost">
             {loginLabel}
           </Button>
@@ -65,17 +76,23 @@ export function Header() {
       </div>
 
       {open ? (
-        <div className="mx-auto mt-2 max-w-7xl rounded-3xl border border-white/80 bg-white/95 px-4 py-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl md:hidden">
+        <div
+          className={`mx-auto mt-2 max-w-7xl rounded-3xl border bg-white/95 px-4 py-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl md:hidden ${
+            isEcuadorMode ? "border-sky-100" : "border-white/80"
+          }`}
+        >
           <div className="mb-4">
-            <RegionModeSwitcher />
+            <RegionModeSwitcher compact variant="pill" />
           </div>
           <nav className="grid gap-1">
-            {nav.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2563EB]"
+                className={`rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 ${
+                  isEcuadorMode ? "hover:bg-sky-50 hover:text-sky-700" : "hover:bg-blue-50 hover:text-[#2563EB]"
+                }`}
               >
                 {item.label}
               </Link>
