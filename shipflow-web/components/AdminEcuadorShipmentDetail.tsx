@@ -127,10 +127,10 @@ export function AdminEcuadorShipmentDetail({ id }: { id: string }) {
               {shipment.originCity || "Origen"} → {shipment.destinationCity || "Destino"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Beta request. No Delivereo API call is made from this page yet. No real provider order is created yet and no payment is processed here.
+              Beta request. This page still does not create real Delivereo orders, does not charge the customer, and does not process payments from admin.
             </p>
             <p className="mt-2 text-sm font-bold text-amber-700">
-              Delivereo is not connected. No real provider operations are available.
+              Delivereo quote calculation can be tested from the customer beta flow, but no real provider operations are available yet.
             </p>
           </div>
           <div className="rounded-3xl bg-pink-50 p-4">

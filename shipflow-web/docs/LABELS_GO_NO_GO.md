@@ -1185,3 +1185,21 @@ This keeps displayed price, Stripe charge, wallet debit, `pending_label_orders`,
 - [ ] Ecuador mode presents public claims that live shipping is available now.
 - [ ] USA label purchase flow or Prep flow behavior changes.
 - [ ] Any env, secret, provider credential, or backend payment/auth file changes.
+
+---
+
+## FASE 5.81 — Go/No-Go: Delivereo Ecuador quote calculation
+
+### Go conditions
+
+- [x] Delivereo quote call is server-side only.
+- [x] Quote flow does not create bookings or provider orders.
+- [x] Ecuador UI labels the result as beta, no-charge, and no real shipment.
+- [x] USA Shipping Labels, wallet, Stripe, Prep, auth, and reCAPTCHA remain unchanged.
+- [x] Delivereo failures return safe beta messages instead of exposing credentials.
+
+### No-Go conditions
+
+- [ ] Any quote call creates or retries a real Delivereo booking.
+- [ ] Ecuador quote UI implies that a charge or confirmed shipment has happened.
+- [ ] Any USA shipping-label or payment behavior changes as part of this phase.

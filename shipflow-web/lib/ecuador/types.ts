@@ -104,6 +104,11 @@ export type EcuadorQuoteResult = {
   metadata?: Record<string, unknown>;
 };
 
+export type EcuadorQuoteRequestBody = CreateEcuadorShipmentRequestBody & {
+  language?: "es" | "en";
+  category?: "SMALL" | "MEDIUM" | "LARGE";
+};
+
 export type EcuadorCreateShipmentInput = EcuadorShipmentDraft & {
   idempotencyKey: string;
   paymentStatus: EcuadorPaymentStatus;

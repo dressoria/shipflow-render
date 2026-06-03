@@ -2404,6 +2404,13 @@ Six tool cards: Shipping Label Generator (`/crear-guia`), FBA Prep Request (`/re
 - Ecuador customer pages continue to say beta request, en preparación, sin cobro, and no real shipment.
 - No backend/provider/payment/auth/env changes were made in this UI separation phase.
 
+### FASE 5.81 — Delivereo quote calculation
+
+- Added server-side Delivereo quote endpoint for Ecuador beta only.
+- Quote flow maps Ecuador request-form fields into Delivereo `calculate` payload and normalizes the response into a customer-safe beta estimate.
+- Ecuador request form now offers quote preview with explicit `sin cobro` and `no genera orden`.
+- No booking creation, no provider order creation, no wallet/Stripe/payment changes, and no USA Shipping Labels behavior changes.
+
 ---
 
 ## FASE 5.69 — Dedicated service pages and absolute anchor navigation

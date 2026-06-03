@@ -538,11 +538,29 @@ export async function apiCreateAdminPrepOrderEvent(
 // ── Ecuador Shipping beta requests ──────────────────────────────────────────
 
 export type CreateEcuadorShipmentRequestBody = import("@/lib/ecuador/types").CreateEcuadorShipmentRequestBody;
+export type EcuadorQuoteRequestBody = import("@/lib/ecuador/types").EcuadorQuoteRequestBody;
 
 export async function apiCreateEcuadorShipmentRequest(
   body: CreateEcuadorShipmentRequestBody,
 ): Promise<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest; message: string }> {
   return apiFetch<{ shipment: import("@/lib/ecuador/types").EcuadorShipmentRequest; message: string }>("/api/ecuador/shipments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiGetEcuadorDelivereoQuote(
+  body: EcuadorQuoteRequestBody,
+): Promise<{
+  quote: import("@/lib/ecuador/types").EcuadorQuoteResult;
+  beta: boolean;
+  message: string;
+}> {
+  return apiFetch<{
+    quote: import("@/lib/ecuador/types").EcuadorQuoteResult;
+    beta: boolean;
+    message: string;
+  }>("/api/ecuador/providers/delivereo/quote", {
     method: "POST",
     body: JSON.stringify(body),
   });

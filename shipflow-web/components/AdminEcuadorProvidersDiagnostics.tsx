@@ -110,7 +110,7 @@ export function AdminEcuadorProvidersDiagnostics({
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Operational status</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Provider calls are disabled, tracking is disabled, and order creation is disabled until Delivereo credentials and sandbox validation arrive.
+              Beta quote calculation can be prepared from the Ecuador customer flow, while tracking and order creation remain disabled until Delivereo credentials and sandbox validation are fully approved.
             </p>
             {message ? (
               <p className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${snapshot.authTest === "success" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-700"}`}>

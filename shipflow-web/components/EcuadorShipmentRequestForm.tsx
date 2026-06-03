@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight, MapPinned } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock3, MapPinned } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { ECUADOR_COPY } from "@/lib/ecuador/copy";
-import { apiCreateEcuadorShipmentRequest, type CreateEcuadorShipmentRequestBody } from "@/lib/services/apiClient";
+import type { EcuadorQuoteResult } from "@/lib/ecuador/types";
+import { apiCreateEcuadorShipmentRequest, apiGetEcuadorDelivereoQuote, type CreateEcuadorShipmentRequestBody } from "@/lib/services/apiClient";
+import { formatCurrency } from "@/lib/utils";
 
 type FormState = CreateEcuadorShipmentRequestBody;
 
@@ -34,6 +36,9 @@ export function EcuadorShipmentRequestForm() {
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [quote, setQuote] = useState<EcuadorQuoteResult | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,6 +61,26 @@ export function EcuadorShipmentRequestForm() {
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    setQuote(null);
+    setQuoteError("");
+  }
+
+  async function calculateQuote() {
+    setQuoteLoading(true);
+    setQuoteError("");
+
+    try {
+      const result = await apiGetEcuadorDelivereoQuote({
+        ...form,
+        language: "es",
+      });
+      setQuote(result.quote);
+    } catch (nextError) {
+      setQuote(null);
+      setQuoteError(nextError instanceof Error ? nextError.message : "No pudimos calcular la cotización beta de Ecuador.");
+    } finally {
+      setQuoteLoading(false);
+    }
   }
 
   return (
@@ -134,6 +159,54 @@ export function EcuadorShipmentRequestForm() {
         </label>
       </Section>
 
+      <section className="rounded-3xl border border-sky-100 bg-white p-6 shadow-sm shadow-slate-950/5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
+              Cotización beta
+            </Badge>
+            <h3 className="mt-4 text-xl font-black text-slate-950">Calcular con Delivereo sin crear orden</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Esta cotización es solo de referencia beta. No se cobra, no reserva motorizado y no crea un envío real.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={calculateQuote}
+            disabled={quoteLoading}
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-5 text-sm font-bold text-sky-700 disabled:opacity-60"
+          >
+            {quoteLoading ? "Calculando..." : quote ? "Recalcular cotización" : "Calcular cotización beta"}
+          </button>
+        </div>
+
+        {quoteError ? (
+          <p className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            {quoteError}
+          </p>
+        ) : null}
+
+        {quote ? (
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="rounded-3xl border border-sky-100 bg-sky-50/50 p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="blue">Delivereo</Badge>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700">Cotización beta</span>
+              </div>
+              <p className="mt-4 text-3xl font-black text-slate-950">
+                {quote.customerPrice != null ? formatCurrency(quote.customerPrice) : "Pendiente"}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{quote.message}</p>
+            </div>
+            <div className="grid gap-3">
+              <InfoCard label="Operador" value="Delivereo" />
+              <InfoCard label="Tiempo estimado" value={quote.estimatedTime || "No informado"} icon={Clock3} />
+              <InfoCard label="Estado" value="Cotización beta · sin cobro" />
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       <section className="rounded-3xl border border-dashed border-sky-200 bg-sky-50/60 p-6">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white text-sky-700 shadow-sm">
@@ -157,6 +230,24 @@ export function EcuadorShipmentRequestForm() {
         {error ? <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-red-700">{error}</p> : null}
       </section>
     </form>
+  );
+}
+
+function InfoCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon?: typeof Clock3;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      {Icon ? <Icon className="h-4 w-4 text-sky-700" /> : null}
+      <p className="mt-2 text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 # Ecuador Provider Roadmap
 
-Last updated: 2026-06-03 (FASE 5.78)
+Last updated: 2026-06-03 (FASE 5.81)
 
 Purpose: staged roadmap for connecting Delivereo safely after credentials arrive, without prematurely activating Ecuador Shipping.
 
@@ -19,6 +19,7 @@ Purpose: staged roadmap for connecting Delivereo safely after credentials arrive
 - Normalize quote response
 - Keep create-shipment disabled
 - Keep payments disabled
+- Use customer-facing beta quote UI with explicit no-charge / no-order messaging
 
 ## Phase C
 

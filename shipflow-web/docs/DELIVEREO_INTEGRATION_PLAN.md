@@ -1,10 +1,21 @@
 # Delivereo Integration Plan
 
-Last updated: 2026-06-03 (FASE 5.79)
+Last updated: 2026-06-03 (FASE 5.81)
 
 Purpose: technical discovery for a future Ecuador Shipping integration using Delivereo as the first potential provider.
 
 This document is investigatory only. It does not authorize implementation, credential setup, public launch, payment activation, or database changes.
+
+## FASE 5.81 quote-calculation note
+
+The codebase now includes:
+
+- server-side Delivereo quote calculation through `POST /api/ecuador/providers/delivereo/quote`
+- payload mapping from Ecuador beta-request fields into Delivereo `business-bookings/calculate`
+- normalized beta quote response for customer-safe UI display
+- Ecuador request-form integration that clearly says no charge and no real order
+
+This phase still does not create bookings, does not create provider orders, does not charge the customer, and does not activate Ecuador Shipping publicly.
 
 ## FASE 5.79 auth-validation note
 
@@ -188,6 +199,15 @@ Observed response fields:
 Endpoint:
 
 - `POST /api/private/business-bookings/calculate`
+
+Current SendiFlash usage in FASE 5.81:
+
+- server-side only
+- authenticated with existing Delivereo login helper
+- address-based payload mapping
+- same-city supported-city beta calculation only
+- quote result shown as estimate only
+- no writeback to provider, no booking side effect
 
 Required fields:
 
