@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
+import { EcuadorOperatorsLogos } from "@/components/EcuadorOperatorsLogos";
 import { MotionCard, MotionReveal } from "@/components/Motion";
 import { EcuadorMapVisual } from "@/components/EcuadorMapVisual";
 import { useRegionMode } from "@/contexts/RegionModeContext";
@@ -127,45 +128,7 @@ export function EcuadorValueSection() {
 }
 
 export function EcuadorOperatorsSection() {
-  return (
-    <section id="operadores" className="bg-[#F8FBFF] py-20 sm:py-28">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-700">Operadores en preparación</p>
-          <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-            Estamos preparando una red multicourier para Ecuador
-          </h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            Algunas cotizaciones pueden estar en beta mientras terminamos integraciones, validaciones internas y cobertura por operador.
-          </p>
-        </div>
-
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {[
-            "Servientrega",
-            "LaarCourier",
-            "Tramaco",
-            "Delivereo",
-            "Otros operadores",
-          ].map((operator, index) => (
-            <MotionCard
-              key={operator}
-              delay={index * 0.05}
-              className="rounded-3xl border border-sky-100 bg-white p-6 shadow-sm shadow-sky-950/5"
-            >
-              <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-                En preparación
-              </span>
-              <h3 className="mt-5 text-xl font-black text-slate-950">{operator}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Integración futura para cotizar y centralizar envíos desde una sola cuenta SendiFlash.
-              </p>
-            </MotionCard>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
+  return <EcuadorOperatorsLogos />;
 }
 
 export function EcuadorAudienceSection() {
