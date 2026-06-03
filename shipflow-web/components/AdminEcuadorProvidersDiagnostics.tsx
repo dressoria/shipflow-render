@@ -1,18 +1,47 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Ban, Network, ShieldCheck } from "lucide-react";
-import { getProviderReadiness } from "@/lib/ecuador/providerHealth";
+import type { EcuadorProviderDiagnosticsSnapshot } from "@/lib/ecuador/providerHealth";
+import { apiTestAdminDelivereoAuth } from "@/lib/services/apiClient";
 
-const rows = [
-  { label: "Provider", value: "Delivereo" },
-  { label: "Status", value: "Not configured" },
-  { label: "Credentials", value: "Not configured" },
-  { label: "Network", value: "Not tested" },
-  { label: "Orders", value: "Disabled" },
-  { label: "Tracking", value: "Disabled" },
-] as const;
+export function AdminEcuadorProvidersDiagnostics({
+  initialSnapshot,
+}: {
+  initialSnapshot: EcuadorProviderDiagnosticsSnapshot;
+}) {
+  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [testing, setTesting] = useState(false);
+  const [message, setMessage] = useState("");
 
-export function AdminEcuadorProvidersDiagnostics() {
-  const readiness = getProviderReadiness("delivereo");
+  const rows = [
+    { label: "Provider", value: "Delivereo" },
+    { label: "Status", value: formatStatus(snapshot) },
+    { label: "Credentials", value: snapshot.credentialsConfigured ? "Configured" : "Not configured" },
+    { label: "Network", value: snapshot.networkTested ? "Login only tested" : "Not tested" },
+    { label: "Orders", value: snapshot.ordersEnabled ? "Enabled" : "Disabled" },
+    { label: "Tracking", value: snapshot.trackingEnabled ? "Enabled" : "Disabled" },
+    { label: "Enabled flag", value: snapshot.enabled ? "true" : "false" },
+    { label: "Auth test", value: formatAuthTest(snapshot.authTest) },
+    { label: "Token received", value: snapshot.tokenReceived ? "Yes" : "No" },
+    { label: "Base URL", value: snapshot.baseUrl || "Not configured" },
+    { label: "Last checked", value: snapshot.lastCheckedAt ? formatTimestamp(snapshot.lastCheckedAt) : "Not tested" },
+  ] as const;
+
+  async function runAuthTest() {
+    setTesting(true);
+    setMessage("");
+    try {
+      const result = await apiTestAdminDelivereoAuth();
+      setSnapshot(result.snapshot);
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Delivereo authentication test failed.");
+    } finally {
+      setTesting(false);
+    }
+  }
 
   return (
     <div className="grid gap-5">
@@ -36,12 +65,22 @@ export function AdminEcuadorProvidersDiagnostics() {
             <h3 className="font-black text-slate-950">Provider diagnostics</h3>
             <p className="text-sm text-slate-500">Sandbox readiness foundation only. No credentials are loaded here.</p>
           </div>
-          <Link
-            href="/admin/ecuador-envios"
-            className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-          >
-            Volver a solicitudes Ecuador
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={runAuthTest}
+              disabled={testing}
+              className="inline-flex items-center rounded-2xl border border-pink-100 bg-pink-50 px-4 py-2 text-sm font-bold text-[#FF1493] transition hover:bg-pink-100 disabled:opacity-60"
+            >
+              {testing ? "Probando auth..." : "Probar auth Delivereo"}
+            </button>
+            <Link
+              href="/admin/ecuador-envios"
+              className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              Volver a solicitudes Ecuador
+            </Link>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -58,12 +97,12 @@ export function AdminEcuadorProvidersDiagnostics() {
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
           <h3 className="font-black text-slate-950">Readiness flags</h3>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <FlagCard label="Configured" value={readiness.configured ? "Yes" : "No"} icon={ShieldCheck} />
-            <FlagCard label="Credentials present" value={readiness.credentialsPresent ? "Yes" : "No"} icon={Ban} />
-            <FlagCard label="Can quote" value={readiness.canQuote ? "Yes" : "No"} icon={Network} />
-            <FlagCard label="Can create orders" value={readiness.canCreateOrders ? "Yes" : "No"} icon={Ban} />
-            <FlagCard label="Can track" value={readiness.canTrack ? "Yes" : "No"} icon={Network} />
-            <FlagCard label="Environment" value={readiness.status} icon={ShieldCheck} />
+            <FlagCard label="Configured" value={snapshot.configured ? "Yes" : "No"} icon={ShieldCheck} />
+            <FlagCard label="Credentials present" value={snapshot.credentialsPresent ? "Yes" : "No"} icon={Ban} />
+            <FlagCard label="Can quote" value={snapshot.canQuote ? "Yes" : "No"} icon={Network} />
+            <FlagCard label="Can create orders" value={snapshot.canCreateOrders ? "Yes" : "No"} icon={Ban} />
+            <FlagCard label="Can track" value={snapshot.canTrack ? "Yes" : "No"} icon={Network} />
+            <FlagCard label="Environment" value={snapshot.status} icon={ShieldCheck} />
           </div>
         </section>
 
@@ -73,6 +112,11 @@ export function AdminEcuadorProvidersDiagnostics() {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Provider calls are disabled, tracking is disabled, and order creation is disabled until Delivereo credentials and sandbox validation arrive.
             </p>
+            {message ? (
+              <p className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${snapshot.authTest === "success" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-700"}`}>
+                {message}
+              </p>
+            ) : null}
           </section>
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Next step</h3>
@@ -90,6 +134,28 @@ export function AdminEcuadorProvidersDiagnostics() {
       </div>
     </div>
   );
+}
+
+function formatStatus(snapshot: EcuadorProviderDiagnosticsSnapshot) {
+  if (!snapshot.enabled) return "Not configured";
+  return snapshot.status.replaceAll("_", " ");
+}
+
+function formatAuthTest(status: EcuadorProviderDiagnosticsSnapshot["authTest"]) {
+  if (status === "not_tested") return "Not tested";
+  if (status === "success") return "Success";
+  return "Fail";
+}
+
+function formatTimestamp(value: string) {
+  try {
+    return new Intl.DateTimeFormat("es-EC", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function FlagCard({

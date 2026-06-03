@@ -15,6 +15,16 @@ export type EcuadorProviderReadiness = {
   trackingEnabled: boolean;
 };
 
+export type EcuadorProviderDiagnosticsSnapshot = EcuadorProviderReadiness & {
+  provider: "delivereo";
+  credentialsConfigured: boolean;
+  authTest: "success" | "fail" | "not_tested";
+  tokenReceived: boolean;
+  baseUrl: string | null;
+  enabled: boolean;
+  lastCheckedAt: string | null;
+};
+
 export function getProviderHealthStatus(): EcuadorProviderEnvironment {
   return "not_configured";
 }

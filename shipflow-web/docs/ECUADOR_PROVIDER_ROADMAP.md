@@ -10,6 +10,8 @@ Purpose: staged roadmap for connecting Delivereo safely after credentials arrive
 - Confirm sandbox vs production base URL
 - Validate auth shape
 - Confirm timeout, retry, and header format
+- Use admin-only auth test endpoint before any quote/create attempt
+- Do not create bookings during auth validation
 
 ## Phase B
 

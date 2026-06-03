@@ -1,6 +1,36 @@
 # Staging QA Results
 
-Last updated: 2026-06-03 (FASE 5.77 Ecuador beta hardening)
+Last updated: 2026-06-03 (FASE 5.79 Delivereo auth validation)
+
+---
+
+## FASE 5.79 — Delivereo Authentication Validation
+
+Run timestamp: 2026-06-03 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Validate Delivereo authentication safely
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Env naming | READY FOR QA | `shipflow-web/.env.example` documents `DELIVEREO_BASE_URL`, `DELIVEREO_USERNAME`, `DELIVEREO_PASSWORD`, `DELIVEREO_TIMEOUT_MS`, and `DELIVEREO_ENABLED=false` only. |
+| Server-only config/auth | READY FOR QA | Delivereo config and auth helpers live under `lib/server/*`, read runtime env only, and never expose password/token to the client. |
+| Admin auth test endpoint | READY FOR QA | `POST /api/admin/ecuador/providers/delivereo/test-auth` is admin-only and performs login validation only. |
+| Diagnostics UI | READY FOR QA | `/admin/ecuador/providers` now shows credentials configured, auth test result, token received yes/no, base URL, enabled flag, and last checked timestamp without exposing secrets. |
+| Order/payment safety | NOT CHANGED | No bookings created, no quote/tracking call added, no Ecuador payment flow added. |
+
+### Manual QA checklist
+
+- [ ] Add Delivereo credentials locally without committing them.
+- [ ] Open `/admin/ecuador/providers` as admin and confirm initial state is `Not configured` / `Not tested` when env is absent.
+- [ ] With credentials configured and `DELIVEREO_ENABLED=true`, run the auth test and confirm the UI updates without showing the token.
+- [ ] Confirm non-admin users receive `403` from `POST /api/admin/ecuador/providers/delivereo/test-auth`.
+- [ ] Confirm no booking, quote, or tracking endpoint is called during the auth test.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 
-Última revisión: 2026-06-03 (FASE 5.77)
+Última revisión: 2026-06-03 (FASE 5.79)
 
 ---
 
@@ -159,6 +159,18 @@ Checklist de requisitos antes de activar `ENABLE_REAL_LABEL_PURCHASE=true`.
 - [x] Customer UI refuerza preparación beta, no envío real y no cobro.
 - [x] Admin UI refuerza `Beta request`, `No provider call`, `No payment` e `Internal review only`.
 - [x] Se agregó checklist manual en `docs/ECUADOR_BETA_QA_CHECKLIST.md`.
+
+## 5.79. Delivereo auth validation
+
+- [x] `.env.example` documenta nombres Delivereo sin credenciales reales.
+- [x] Existe lector server-only para config Delivereo.
+- [x] Existe cliente de login Delivereo con timeout y manejo seguro de errores.
+- [x] Existe helper de token renewal documentado para la siguiente fase.
+- [x] Existe endpoint admin-only `POST /api/admin/ecuador/providers/delivereo/test-auth`.
+- [x] `/admin/ecuador/providers` muestra estado seguro de auth sin exponer token ni password.
+- [x] No se crean bookings reales.
+- [x] No se agregaron pagos Ecuador.
+- [x] No se tocaron Shipping Labels, wallet ni Prep.
 
 ---
 

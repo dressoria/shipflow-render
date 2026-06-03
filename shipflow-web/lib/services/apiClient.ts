@@ -605,6 +605,21 @@ export async function apiUpdateAdminEcuadorShipment(
   );
 }
 
+export async function apiTestAdminDelivereoAuth(): Promise<{
+  snapshot: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot;
+  ok: boolean;
+  message: string;
+}> {
+  return apiFetch<{
+    snapshot: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot;
+    ok: boolean;
+    message: string;
+  }>("/api/admin/ecuador/providers/delivereo/test-auth", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 // ── Shipments ────────────────────────────────────────────────────────────────
 
 export type ShipmentsData = { shipments: Envio[]; limit: number };

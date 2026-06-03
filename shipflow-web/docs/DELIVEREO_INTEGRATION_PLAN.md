@@ -1,10 +1,22 @@
 # Delivereo Integration Plan
 
-Last updated: 2026-06-03 (FASE 5.77)
+Last updated: 2026-06-03 (FASE 5.79)
 
 Purpose: technical discovery for a future Ecuador Shipping integration using Delivereo as the first potential provider.
 
 This document is investigatory only. It does not authorize implementation, credential setup, public launch, payment activation, or database changes.
+
+## FASE 5.79 auth-validation note
+
+The codebase now includes:
+
+- server-only Delivereo config reader
+- login client for `business-user` auth
+- documented token-renewal helper
+- admin-only endpoint `POST /api/admin/ecuador/providers/delivereo/test-auth`
+- diagnostics UI for safe auth validation
+
+This phase validates authentication only. It does not create bookings, does not call quote/create/tracking endpoints, and never exposes tokens or passwords in the UI.
 
 ## FASE 5.76 beta-flow note
 
