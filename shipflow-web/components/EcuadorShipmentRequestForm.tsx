@@ -912,53 +912,57 @@ function StepCarrier({
   onCalculateQuote: () => void;
   onSelectOperator: (operatorName: string) => void;
 }) {
+  const noPricesAvailable = quoteResults.length > 0 && !quoteLoading && (quoteSummary?.realQuotesCount ?? 0) === 0;
+
   return (
     <div className="grid gap-5">
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 3</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">Opciones de envío</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Calcula las tarifas disponibles para tu ruta. Selecciona la transportadora que prefieras antes de continuar al resumen.
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-black text-slate-950">Opciones de envío</h3>
           <button
             type="button"
             onClick={onCalculateQuote}
             disabled={quoteLoading}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-bold text-white shadow-xl shadow-orange-500/20 transition hover:bg-[#EA580C] disabled:opacity-60"
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-2xl bg-[#F97316] px-3 text-xs font-bold text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#EA580C] disabled:opacity-60"
           >
             {quoteLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Buscando mejores precios
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                Buscando...
               </>
             ) : quoteResults.length > 0 ? (
-              "Recalcular tarifas"
+              "Recalcular"
             ) : (
               "Calcular tarifas"
             )}
           </button>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MiniStat label="Origen" value={origin.city || "Por definir"} />
-          <MiniStat label="Destino" value={destination.city || "Por definir"} />
-          <MiniStat label="Paquetes" value={`${packageTotals.count} bulto(s)`} />
-          <MiniStat label="Peso total" value={`${packageTotals.totalWeight.toFixed(2)} kg`} />
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1">
+          <span className="text-xs text-slate-500">
+            Origen: <span className="font-black text-slate-950">{origin.city || "—"}</span>
+          </span>
+          <span className="text-xs text-slate-500">
+            Destino: <span className="font-black text-slate-950">{destination.city || "—"}</span>
+          </span>
+          <span className="text-xs text-slate-500">
+            Bultos: <span className="font-black text-slate-950">{packageTotals.count}</span>
+          </span>
+          <span className="text-xs text-slate-500">
+            Peso: <span className="font-black text-slate-950">{packageTotals.totalWeight.toFixed(2)} kg</span>
+          </span>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">Sin cobro</span>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">No crea orden real todavía</span>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-0.5 text-[11px] font-black text-sky-700">Sin cobro</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-black text-slate-600">Sin orden real</span>
           {quoteSummary ? (
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-              {quoteSummary.realQuotesCount} cotización(es) disponible(s) · {quoteSummary.pendingProvidersCount} en preparación
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-black text-emerald-700">
+              {quoteSummary.realQuotesCount} con precio · {quoteSummary.pendingProvidersCount} en preparación
             </span>
           ) : null}
           {extraDestinations.length > 0 ? (
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
-              {extraDestinations.length} destino(s) adicional(es)
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[11px] font-black text-orange-700">
+              {extraDestinations.length} destino(s) extra
             </span>
           ) : null}
         </div>
@@ -967,109 +971,108 @@ function StepCarrier({
       {quoteLoading ? <QuoteLoadingCard origin={origin.city} destination={destination.city} /> : null}
 
       {quoteError ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-          No pudimos consultar cotizaciones en este momento. Por favor intenta de nuevo o avanza al resumen.
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+          <p className="text-xs font-semibold text-amber-700">
+            No pudimos consultar cotizaciones ahora. Puedes intentar de nuevo o continuar al resumen.
+          </p>
         </div>
       ) : null}
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black text-slate-950">Transportadoras disponibles</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Tarifas disponibles y operadores en preparación para tu ruta.
-            </p>
-          </div>
+          <h3 className="text-sm font-black text-slate-950">Transportadoras disponibles</h3>
           <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
             Multicourier Ecuador
           </Badge>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        {noPricesAvailable ? (
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Los operadores están en preparación. Puedes revisar la información y continuar cuando haya una opción disponible.
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid gap-2.5 xl:grid-cols-2">
           {ECUADOR_OPERATORS.map((operator) => {
             const providerResult = quoteResults.find((item) => item.providerName === operator.name) ?? null;
-            const hasLiveQuote = providerResult?.ok === true;
             const failedResult = providerResult?.ok === false ? providerResult : null;
             const isPendingActivation = failedResult?.reason === "provider_auth_failed";
-            const isContactRequired = failedResult?.reason === "contact_required";
             const selected = selectedOperatorName === operator.name;
 
-            const statusLabel = hasLiveQuote
+            const statusLabel = providerResult?.ok === true
               ? "Cotización disponible"
               : isPendingActivation
                 ? "Pendiente de activación"
-                : isContactRequired
-                  ? "Pendiente de contacto"
-                  : "En preparación";
-
-            const priceDisplay = hasLiveQuote ? formatCurrency(providerResult.amount) : "En preparación";
-            const etaDisplay = hasLiveQuote
-              ? (providerResult.etaLabel || providerResult.estimatedDays || "Por confirmar")
-              : "Por confirmar";
-
-            const helperCopy = selected
-              ? "Esta opción quedará asociada a tu solicitud."
-              : hasLiveQuote
-                ? "Selecciona esta opción para incluirla en el resumen."
-                : "Puedes marcarla como preferencia para seguimiento interno.";
+                : "En preparación";
 
             return (
               <button
                 key={operator.name}
                 type="button"
                 onClick={() => onSelectOperator(operator.name)}
-                className={`rounded-[1.8rem] border p-5 text-left transition ${
+                className={`rounded-2xl border p-4 text-left transition ${
                   selected
                     ? "border-sky-300 bg-sky-50"
                     : "border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/40"
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-                      <Image
-                        src={operator.logo}
-                        alt={`${operator.name} logo`}
-                        width={120}
-                        height={40}
-                        className="max-h-8 w-auto"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-lg font-black text-slate-950">{operator.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {hasLiveQuote ? "Cotización disponible para esta ruta" : "Disponible para preparación de solicitud"}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                    <Image
+                      src={operator.logo}
+                      alt={`${operator.name} logo`}
+                      width={80}
+                      height={32}
+                      className="max-h-6 w-auto"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-slate-950">{operator.name}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      {providerResult?.ok === true ? "Cotización disponible para esta ruta" : "Servicio de envío"}
+                    </p>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
-                      hasLiveQuote
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-black ${
+                      providerResult?.ok === true
                         ? "bg-emerald-50 text-emerald-700"
                         : isPendingActivation
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "bg-amber-50 text-amber-600"
+                          : "bg-slate-100 text-slate-500"
                     }`}
                   >
                     {statusLabel}
                   </span>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <ResultInfo label="Precio estimado" value={priceDisplay} />
-                  <ResultInfo label="Tiempo estimado" value={String(etaDisplay)} />
-                  <ResultInfo
-                    label="Estado"
-                    value={hasLiveQuote ? "Solicitud disponible" : "Visible para preparación"}
-                  />
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <p className="text-sm text-slate-500">{helperCopy}</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700 shadow-sm">
-                    {selected ? "Seleccionada" : hasLiveQuote ? "Seleccionar" : "Marcar preferencia"}
-                  </span>
-                </div>
+                {providerResult?.ok === true ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                      {formatCurrency(providerResult.amount)}
+                    </span>
+                    {providerResult.etaLabel || providerResult.estimatedDays ? (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                        {String(providerResult.etaLabel || providerResult.estimatedDays)}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`ml-auto rounded-full px-3 py-1 text-xs font-black transition ${
+                        selected
+                          ? "bg-sky-600 text-white"
+                          : "border border-sky-200 bg-sky-50 text-sky-700"
+                      }`}
+                    >
+                      {selected ? "Seleccionada" : "Seleccionar"}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                    {selected
+                      ? "Marcada como preferencia para seguimiento interno."
+                      : "Disponible cuando tenga cotización para esta ruta."}
+                  </p>
+                )}
               </button>
             );
           })}
@@ -1510,39 +1513,49 @@ function AddressPanel({
 
 function QuoteLoadingCard({ origin, destination }: { origin: string; destination: string }) {
   return (
-    <section className="rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm shadow-slate-950/5">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h3 className="text-xl font-black text-slate-950">Consultando operadores disponibles</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Buscando mejores precios para {origin || "origen"} → {destination || "destino"}.
+    <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
+      <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2" aria-hidden="true">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-sky-50 text-sky-600">
+            <Package className="h-4 w-4 animate-bounce" />
+          </span>
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-orange-50 text-[#F97316]">
+            <Truck className="h-4 w-4 animate-pulse" />
+          </span>
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-slate-950">Buscando mejores opciones</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Consultando operadores para{" "}
+            <span className="font-semibold">{origin || "origen"} → {destination || "destino"}</span>.{" "}
+            <span className="font-semibold text-sky-700">Sin cobro.</span>
           </p>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Esto no genera cobro ni orden real.</p>
         </div>
-        <div className="flex gap-3" aria-hidden="true">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700">
-            <Package className="h-5 w-5 animate-bounce" />
-          </span>
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-orange-50 text-[#F97316]">
-            <Truck className="h-5 w-5 animate-pulse" />
-          </span>
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-slate-600">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </span>
-        </div>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="animate-pulse rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-slate-200" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 w-3/4 rounded-full bg-slate-200" />
+                <div className="h-2.5 w-1/2 rounded-full bg-slate-100" />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <div className="h-6 flex-1 rounded-full bg-slate-100" />
+              <div className="h-6 flex-1 rounded-full bg-slate-100" />
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
-function ResultInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-black text-slate-950">{value}</p>
-    </div>
-  );
-}
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
