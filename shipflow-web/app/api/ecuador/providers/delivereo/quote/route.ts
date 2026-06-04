@@ -1,7 +1,5 @@
 import { apiError, apiSuccess } from "@/lib/server/apiResponse";
-import { getDelivereoCredentialStatus } from "@/lib/server/delivereoConfig";
-import { getDelivereoQuoteForEcuador, toSafeDelivereoQuoteError } from "@/lib/server/ecuadorQuotes";
-import { delivereoErrorResponse } from "@/lib/server/delivereoHttp";
+import { getDelivereoQuoteForEcuador } from "@/lib/server/ecuadorQuotes";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 export async function POST(request: Request) {
@@ -9,37 +7,23 @@ export async function POST(request: Request) {
     return apiError("Server is not configured correctly.", 503);
   }
 
-  const credentials = getDelivereoCredentialStatus();
-  if (!credentials.enabled) {
-    return apiError("Delivereo is not configured", 503, "DELIVEREO_ENABLED is false");
-  }
-
-  if (!credentials.credentialsPresent) {
-    return apiError(
-      "Delivereo is not configured",
-      503,
-      credentials.missingFields.length > 0 ? `Missing ${credentials.missingFields[0]}` : "Missing Delivereo credentials",
-    );
-  }
-
   try {
     await requireVerifiedUser(request);
     const body = await request.json();
     const quote = await getDelivereoQuoteForEcuador(body);
+    if (!quote) {
+      return apiError("No pudimos consultar Delivereo.", 404, "Delivereo no devolvió resultado en el engine multicourier.");
+    }
     return apiSuccess({
-      quote,
+      result: quote,
       beta: true,
-      message: "Cotización beta calculada. No genera orden ni cobro.",
+      message: "Resultado Delivereo obtenido desde el engine multicourier.",
     });
   } catch (error) {
-    const safeError = toSafeDelivereoQuoteError(error);
-    const payload = await safeError.json().catch(() => null);
-    return delivereoErrorResponse(
-      payload && typeof payload === "object"
-        ? {
-            ...(payload as Record<string, unknown>),
-          }
-        : error,
+    return apiError(
+      "No pudimos consultar Delivereo.",
+      400,
+      error instanceof Error ? error.message : "Error en wrapper Delivereo.",
     );
   }
 }

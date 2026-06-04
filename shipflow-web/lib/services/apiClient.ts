@@ -555,6 +555,7 @@ export async function apiCreateAdminPrepOrderEvent(
 
 export type CreateEcuadorShipmentRequestBody = import("@/lib/ecuador/types").CreateEcuadorShipmentRequestBody;
 export type EcuadorQuoteRequestBody = import("@/lib/ecuador/types").EcuadorQuoteRequestBody;
+export type EcuadorProviderQuoteResult = import("@/lib/ecuador/providers/types").EcuadorProviderQuoteResult;
 
 export async function apiCreateEcuadorShipmentRequest(
   body: CreateEcuadorShipmentRequestBody,
@@ -565,18 +566,30 @@ export async function apiCreateEcuadorShipmentRequest(
   });
 }
 
-export async function apiGetEcuadorDelivereoQuote(
+export async function apiGetEcuadorQuotes(
   body: EcuadorQuoteRequestBody,
 ): Promise<{
-  quote: import("@/lib/ecuador/types").EcuadorQuoteResult;
+  results: EcuadorProviderQuoteResult[];
+  summary: {
+    totalProviders: number;
+    realQuotesCount: number;
+    pendingProvidersCount: number;
+    failedProvidersCount: number;
+  };
   beta: boolean;
   message: string;
 }> {
   return apiFetch<{
-    quote: import("@/lib/ecuador/types").EcuadorQuoteResult;
+    results: EcuadorProviderQuoteResult[];
+    summary: {
+      totalProviders: number;
+      realQuotesCount: number;
+      pendingProvidersCount: number;
+      failedProvidersCount: number;
+    };
     beta: boolean;
     message: string;
-  }>("/api/ecuador/providers/delivereo/quote", {
+  }>("/api/ecuador/quotes", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -640,12 +653,12 @@ export async function apiUpdateAdminEcuadorShipment(
 }
 
 export async function apiTestAdminDelivereoAuth(): Promise<{
-  snapshot: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot;
+  snapshots: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot[];
   ok: boolean;
   message: string;
 }> {
   return apiFetch<{
-    snapshot: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot;
+    snapshots: import("@/lib/ecuador/providerHealth").EcuadorProviderDiagnosticsSnapshot[];
     ok: boolean;
     message: string;
   }>("/api/admin/ecuador/providers/delivereo/test-auth", {

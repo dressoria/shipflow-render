@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { EcuadorProviderDiagnosticsSnapshot } from "@/lib/ecuador/providerHealth";
+import { getEcuadorQuoteProviders } from "@/lib/ecuador/providers";
 import {
   getDelivereoCredentialStatus,
   getDelivereoMissingConfigFields,
@@ -23,12 +24,14 @@ type LastAuthCheck = {
   authTest: DelivereoAuthTestStatus;
   tokenReceived: boolean;
   lastCheckedAt: string | null;
+  lastFailureReason: string | null;
 };
 
 let lastAuthCheck: LastAuthCheck = {
   authTest: "not_tested",
   tokenReceived: false,
   lastCheckedAt: null,
+  lastFailureReason: null,
 };
 
 function requireDelivereoCredentials(config: DelivereoServerConfig) {
@@ -119,9 +122,13 @@ export async function renewDelivereoToken(token: string) {
 
 export function getDelivereoAuthSnapshot(): EcuadorProviderDiagnosticsSnapshot {
   const credentials = getDelivereoCredentialStatus();
+  const provider = getEcuadorQuoteProviders().find((item) => item.id === "delivereo");
 
   return {
     provider: "delivereo",
+    providerName: provider?.name ?? "Delivereo",
+    logoPath: provider?.logoPath ?? "/images/ecuador/operators/delivereo.svg",
+    providerStatus: provider?.status ?? "beta",
     status: credentials.enabled && credentials.credentialsPresent ? "sandbox" : "not_configured",
     credentialsConfigured: credentials.credentialsPresent,
     authTest: lastAuthCheck.authTest,
@@ -137,7 +144,38 @@ export function getDelivereoAuthSnapshot(): EcuadorProviderDiagnosticsSnapshot {
     networkTested: lastAuthCheck.authTest !== "not_tested",
     ordersEnabled: false,
     trackingEnabled: false,
+    lastFailureReason: lastAuthCheck.lastFailureReason,
   };
+}
+
+export function getEcuadorProviderDiagnosticsSnapshots(): EcuadorProviderDiagnosticsSnapshot[] {
+  const delivereoSnapshot = getDelivereoAuthSnapshot();
+  const providers = getEcuadorQuoteProviders()
+    .filter((provider) => provider.id !== "delivereo")
+    .map<EcuadorProviderDiagnosticsSnapshot>((provider) => ({
+      provider: provider.id,
+      providerName: provider.name,
+      logoPath: provider.logoPath,
+      providerStatus: provider.status,
+      status: provider.status === "contact_required" || provider.status === "integration_pending" ? "not_configured" : "sandbox",
+      configured: false,
+      credentialsPresent: false,
+      credentialsConfigured: false,
+      canQuote: provider.supportsQuote,
+      canCreateOrders: provider.supportsBooking,
+      canTrack: false,
+      networkTested: false,
+      ordersEnabled: provider.supportsBooking,
+      trackingEnabled: false,
+      lastFailureReason: provider.status === "contact_required" ? "Pendiente de contacto" : "Integración en preparación",
+      authTest: "not_tested",
+      tokenReceived: false,
+      baseUrl: null,
+      enabled: false,
+      lastCheckedAt: null,
+    }));
+
+  return [delivereoSnapshot, ...providers];
 }
 
 export async function testDelivereoAuthentication() {
@@ -147,6 +185,7 @@ export async function testDelivereoAuthentication() {
       authTest: "fail",
       tokenReceived: false,
       lastCheckedAt: new Date().toISOString(),
+      lastFailureReason: credentials.missingFields.length > 0 ? `Missing ${credentials.missingFields[0]}` : "Missing Delivereo credentials",
     };
     throw safeDelivereoFailure(
       "Delivereo is not configured",
@@ -161,6 +200,7 @@ export async function testDelivereoAuthentication() {
       authTest: "fail",
       tokenReceived: false,
       lastCheckedAt: new Date().toISOString(),
+      lastFailureReason: "DELIVEREO_ENABLED is false",
     };
     throw safeDelivereoFailure(
       "Delivereo is not configured",
@@ -176,13 +216,16 @@ export async function testDelivereoAuthentication() {
       authTest: result.token ? "success" : "fail",
       tokenReceived: Boolean(result.token),
       lastCheckedAt: new Date().toISOString(),
+      lastFailureReason: result.token ? null : "Delivereo did not return a jwtToken",
     };
     return getDelivereoAuthSnapshot();
   } catch (error) {
+    const failureReason = error instanceof Error ? error.message : "Delivereo authentication failed.";
     lastAuthCheck = {
       authTest: "fail",
       tokenReceived: false,
       lastCheckedAt: new Date().toISOString(),
+      lastFailureReason: failureReason,
     };
     throw error;
   }

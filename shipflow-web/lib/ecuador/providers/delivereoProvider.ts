@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { EcuadorShippingProvider } from "@/lib/ecuador/providers/types";
+import type {
+  EcuadorProviderQuoteResult,
+  EcuadorQuoteProvider,
+  EcuadorShippingProvider,
+} from "@/lib/ecuador/providers/types";
 import type {
   EcuadorCreateShipmentInput,
   EcuadorCreateShipmentResult,
@@ -10,7 +14,11 @@ import type {
 } from "@/lib/ecuador/types";
 import { readDelivereoServerConfig } from "@/lib/server/delivereoConfig";
 import { loginToDelivereo } from "@/lib/server/delivereoAuth";
-import { delivereoPostJson, safeDelivereoFailure } from "@/lib/server/delivereoHttp";
+import {
+  delivereoPostJson,
+  formatDelivereoApiError,
+  safeDelivereoFailure,
+} from "@/lib/server/delivereoHttp";
 
 const DELIVEREO_NOT_CONFIGURED_MESSAGE = "Delivereo provider is not configured yet.";
 
@@ -283,7 +291,62 @@ function assertDelivereoQuoteConfig() {
   return config;
 }
 
-export class DelivereoEcuadorShippingProvider implements EcuadorShippingProvider {
+export class DelivereoEcuadorShippingProvider implements EcuadorShippingProvider, EcuadorQuoteProvider {
+  id = "delivereo" as const;
+  name = "Delivereo";
+  logoPath = "/images/ecuador/operators/delivereo.svg";
+  status = "beta" as const;
+  supportsQuote = true;
+  supportsBooking = false;
+
+  async getQuote(input: EcuadorQuoteInput): Promise<EcuadorProviderQuoteResult> {
+    try {
+      const result = await this.quote(input);
+      return {
+        ok: true,
+        providerId: this.id,
+        providerName: this.name,
+        serviceName: "Beta cotización Delivereo",
+        amount: result.customerPrice ?? result.providerCost ?? 0,
+        currency: "USD",
+        etaLabel: result.estimatedTime ?? undefined,
+        estimatedDays: result.estimatedTime ?? undefined,
+        rawStatus: result.status,
+        source: "real_provider",
+      };
+    } catch (error) {
+      const safe = formatDelivereoApiError(error);
+      const reason =
+        safe.stage === "business_login" && safe.status === 401
+          ? "provider_auth_failed"
+          : safe.status === 504
+            ? "timeout"
+            : safe.details.toLowerCase().includes("ciudad")
+              ? "unsupported_city"
+              : safe.details.toLowerCase().includes("missing")
+                ? "missing_config"
+                : "provider_error";
+
+      return {
+        ok: false,
+        providerId: this.id,
+        providerName: this.name,
+        reason,
+        userMessage: reason === "provider_auth_failed"
+          ? "Proveedor pendiente de activación"
+          : reason === "unsupported_city"
+            ? "Ciudad todavía no soportada para cotización"
+            : reason === "missing_config"
+              ? "Configuración pendiente"
+              : reason === "timeout"
+                ? "Tiempo de espera agotado"
+                : "Proveedor pendiente de activación",
+        debugMessage: `${safe.stage} · ${safe.details}`,
+        source: "provider",
+      };
+    }
+  }
+
   async quote(input: EcuadorQuoteInput): Promise<EcuadorQuoteResult> {
     const config = assertDelivereoQuoteConfig();
     const payload = mapEcuadorQuoteInputToDelivereoCalculatePayload(input);

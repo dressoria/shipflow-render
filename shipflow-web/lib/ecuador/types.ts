@@ -20,7 +20,15 @@ export type EcuadorPaymentStatus =
   | "failed"
   | "refunded_manual";
 
-export type EcuadorProvider = "delivereo" | "manual" | "mock";
+export type EcuadorProvider =
+  | "delivereo"
+  | "servientrega"
+  | "laarcourier"
+  | "urbano"
+  | "tramaco"
+  | "yobel"
+  | "manual"
+  | "mock";
 export type EcuadorShipmentVisibility = "customer" | "internal";
 
 export const ECUADOR_CUSTOMER_REQUEST_STATUSES = [
@@ -59,6 +67,11 @@ export const ECUADOR_ADMIN_PROVIDERS = [
   "manual",
   "mock",
   "delivereo",
+  "servientrega",
+  "laarcourier",
+  "urbano",
+  "tramaco",
+  "yobel",
 ] as const satisfies EcuadorProvider[];
 
 export type EcuadorAddressDraft = {

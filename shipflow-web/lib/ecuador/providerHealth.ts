@@ -1,9 +1,9 @@
-import type { EcuadorProvider } from "@/lib/ecuador/types";
+import type { EcuadorProviderId, EcuadorQuoteProviderStatus } from "@/lib/ecuador/providers/types";
 
 export type EcuadorProviderEnvironment = "unavailable" | "not_configured" | "sandbox" | "production";
 
 export type EcuadorProviderReadiness = {
-  provider: EcuadorProvider;
+  provider: EcuadorProviderId;
   status: EcuadorProviderEnvironment;
   configured: boolean;
   credentialsPresent: boolean;
@@ -16,20 +16,23 @@ export type EcuadorProviderReadiness = {
 };
 
 export type EcuadorProviderDiagnosticsSnapshot = EcuadorProviderReadiness & {
-  provider: "delivereo";
+  providerName: string;
+  logoPath: string;
+  providerStatus: EcuadorQuoteProviderStatus;
   credentialsConfigured: boolean;
-  authTest: "success" | "fail" | "not_tested";
-  tokenReceived: boolean;
-  baseUrl: string | null;
-  enabled: boolean;
-  lastCheckedAt: string | null;
+  authTest?: "success" | "fail" | "not_tested";
+  tokenReceived?: boolean;
+  baseUrl?: string | null;
+  enabled?: boolean;
+  lastCheckedAt?: string | null;
+  lastFailureReason?: string | null;
 };
 
 export function getProviderHealthStatus(): EcuadorProviderEnvironment {
   return "not_configured";
 }
 
-export function getProviderReadiness(provider: EcuadorProvider = "delivereo"): EcuadorProviderReadiness {
+export function getProviderReadiness(provider: EcuadorProviderId = "delivereo"): EcuadorProviderReadiness {
   return {
     provider,
     status: getProviderHealthStatus(),

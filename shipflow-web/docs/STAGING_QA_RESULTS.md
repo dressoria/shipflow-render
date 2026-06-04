@@ -1,6 +1,38 @@
 # Staging QA Results
 
-Last updated: 2026-06-04 (FASE 5.85B Fix address persistence and improve Ecuador address selection UX)
+Last updated: 2026-06-04 (FASE 5.87 Ecuador Provider Adapter Framework)
+
+---
+
+## FASE 5.87 — Ecuador Provider Adapter Framework
+
+Run timestamp: 2026-06-04 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Add Ecuador multicourier provider framework
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Multicourier registry | READY FOR QA | Ecuador quote providers now resolve through a shared registry with Delivereo plus placeholder adapters for Servientrega, LaarCourier, Urbano, Tramaco, and Yobel. |
+| Quote engine resilience | READY FOR QA | Ecuador quote engine returns normalized per-provider results and does not fail the whole customer flow when one provider fails auth or remains pending. |
+| Delivereo auth failure handling | READY FOR QA | Delivereo 401/auth failures now surface as `Proveedor pendiente de activación` instead of raw technical failure copy in the customer quote UI. |
+| Customer quote UX | READY FOR QA | `/ecuador/crear-envio` now presents multicourier results, real prices only when available, and preparation/contact states for non-live adapters. |
+| Admin diagnostics | READY FOR QA | `/admin/ecuador/providers` now shows provider-by-provider readiness, quote/booking support, and last failure reason without exposing secrets. |
+| Operational safety | NOT CHANGED | No bookings, no create/cancel provider calls, no payments, and no USA Shipping Labels logic changes were introduced. |
+
+### Manual QA checklist
+
+- [ ] Open `/ecuador/crear-envio`, calculate quotes, and confirm multiple providers appear in the results grid.
+- [ ] Confirm Delivereo auth failure shows as `Pendiente de activación` instead of a raw 401/provider exception.
+- [ ] Confirm Servientrega, LaarCourier, Urbano, Tramaco, and Yobel show preparation/contact states without fake prices.
+- [ ] Confirm selecting a provider still only saves an Ecuador beta request and does not create a booking or payment.
+- [ ] Open `/admin/ecuador/providers` and verify each provider shows status, quote support, booking support, and last failure reason.
+- [ ] Run the Delivereo auth test and confirm only Delivereo diagnostics change while placeholder providers stay pending.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

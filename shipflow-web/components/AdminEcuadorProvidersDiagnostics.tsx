@@ -1,40 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { AlertTriangle, Ban, Network, ShieldCheck } from "lucide-react";
 import type { EcuadorProviderDiagnosticsSnapshot } from "@/lib/ecuador/providerHealth";
 import { apiTestAdminDelivereoAuth } from "@/lib/services/apiClient";
 
 export function AdminEcuadorProvidersDiagnostics({
-  initialSnapshot,
+  initialSnapshots,
 }: {
-  initialSnapshot: EcuadorProviderDiagnosticsSnapshot;
+  initialSnapshots: EcuadorProviderDiagnosticsSnapshot[];
 }) {
-  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
 
-  const rows = [
-    { label: "Provider", value: "Delivereo" },
-    { label: "Status", value: formatStatus(snapshot) },
-    { label: "Credentials", value: snapshot.credentialsConfigured ? "Configured" : "Not configured" },
-    { label: "Network", value: snapshot.networkTested ? "Login only tested" : "Not tested" },
-    { label: "Orders", value: snapshot.ordersEnabled ? "Enabled" : "Disabled" },
-    { label: "Tracking", value: snapshot.trackingEnabled ? "Enabled" : "Disabled" },
-    { label: "Enabled flag", value: snapshot.enabled ? "true" : "false" },
-    { label: "Auth test", value: formatAuthTest(snapshot.authTest) },
-    { label: "Token received", value: snapshot.tokenReceived ? "Yes" : "No" },
-    { label: "Base URL", value: snapshot.baseUrl || "Not configured" },
-    { label: "Last checked", value: snapshot.lastCheckedAt ? formatTimestamp(snapshot.lastCheckedAt) : "Not tested" },
-  ] as const;
+  const delivereoSnapshot = useMemo(
+    () => snapshots.find((item) => item.provider === "delivereo") ?? snapshots[0],
+    [snapshots],
+  );
 
   async function runAuthTest() {
     setTesting(true);
     setMessage("");
     try {
       const result = await apiTestAdminDelivereoAuth();
-      setSnapshot(result.snapshot);
+      setSnapshots(result.snapshots);
       setMessage(result.message);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Delivereo authentication test failed.");
@@ -51,9 +43,9 @@ export function AdminEcuadorProvidersDiagnostics({
             <AlertTriangle className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-xl font-black text-slate-950">Delivereo is not connected.</h2>
+            <h2 className="text-xl font-black text-slate-950">Framework multicourier Ecuador activo.</h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              No real provider operations are available. This page is diagnostic-only and does not make network calls.
+              Delivereo queda como adapter real preparado pero pendiente de activación. Los demás providers siguen visibles dentro del framework con estado de preparación o contacto pendiente.
             </p>
           </div>
         </div>
@@ -63,7 +55,7 @@ export function AdminEcuadorProvidersDiagnostics({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-black text-slate-950">Provider diagnostics</h3>
-            <p className="text-sm text-slate-500">Sandbox readiness foundation only. No credentials are loaded here.</p>
+            <p className="text-sm text-slate-500">Cotización multicourier sin activar bookings reales ni pagos.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
@@ -83,26 +75,67 @@ export function AdminEcuadorProvidersDiagnostics({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map((row) => (
-            <div key={row.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">{row.label}</p>
-              <p className="mt-2 text-sm font-black text-slate-950">{row.value}</p>
-            </div>
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {snapshots.map((snapshot) => (
+            <article key={snapshot.provider} className="rounded-[1.8rem] border border-slate-200 bg-slate-50/70 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                    <Image
+                      src={snapshot.logoPath}
+                      alt={`${snapshot.providerName} logo`}
+                      width={120}
+                      height={40}
+                      className="max-h-8 w-auto"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-slate-950">{snapshot.providerName}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Estado del adapter: {formatProviderStatus(snapshot.providerStatus)}
+                    </p>
+                  </div>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-black ${statusChip(snapshot)}`}>
+                  {formatEnvironment(snapshot.status)}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <FlagCard label="Quote support" value={snapshot.canQuote ? "Sí" : "No"} icon={Network} />
+                <FlagCard label="Booking support" value={snapshot.canCreateOrders ? "Sí" : "No"} icon={Ban} />
+                <FlagCard label="Credenciales" value={snapshot.credentialsConfigured ? "Configuradas" : "Pendientes"} icon={ShieldCheck} />
+                <FlagCard label="Último auth test" value={formatAuthTest(snapshot.authTest)} icon={ShieldCheck} />
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Último motivo</p>
+                <p className="mt-2 text-sm font-semibold text-slate-700">
+                  {snapshot.lastFailureReason ?? "Sin fallas registradas"}
+                </p>
+                {snapshot.provider === "delivereo" ? (
+                  <div className="mt-3 grid gap-2 text-xs text-slate-500">
+                    <p>Enabled flag: {snapshot.enabled ? "true" : "false"}</p>
+                    <p>Token recibido: {snapshot.tokenReceived ? "Sí" : "No"}</p>
+                    <p>Última revisión: {snapshot.lastCheckedAt ? formatTimestamp(snapshot.lastCheckedAt) : "No probada"}</p>
+                  </div>
+                ) : null}
+              </div>
+            </article>
           ))}
         </div>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-          <h3 className="font-black text-slate-950">Readiness flags</h3>
+          <h3 className="font-black text-slate-950">Delivereo diagnostics</h3>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <FlagCard label="Configured" value={snapshot.configured ? "Yes" : "No"} icon={ShieldCheck} />
-            <FlagCard label="Credentials present" value={snapshot.credentialsPresent ? "Yes" : "No"} icon={Ban} />
-            <FlagCard label="Can quote" value={snapshot.canQuote ? "Yes" : "No"} icon={Network} />
-            <FlagCard label="Can create orders" value={snapshot.canCreateOrders ? "Yes" : "No"} icon={Ban} />
-            <FlagCard label="Can track" value={snapshot.canTrack ? "Yes" : "No"} icon={Network} />
-            <FlagCard label="Environment" value={snapshot.status} icon={ShieldCheck} />
+            <FlagCard label="Configured" value={delivereoSnapshot.configured ? "Yes" : "No"} icon={ShieldCheck} />
+            <FlagCard label="Credentials present" value={delivereoSnapshot.credentialsPresent ? "Yes" : "No"} icon={Ban} />
+            <FlagCard label="Can quote" value={delivereoSnapshot.canQuote ? "Yes" : "No"} icon={Network} />
+            <FlagCard label="Can create orders" value={delivereoSnapshot.canCreateOrders ? "Yes" : "No"} icon={Ban} />
+            <FlagCard label="Can track" value={delivereoSnapshot.canTrack ? "Yes" : "No"} icon={Network} />
+            <FlagCard label="Environment" value={formatEnvironment(delivereoSnapshot.status)} icon={ShieldCheck} />
           </div>
         </section>
 
@@ -110,10 +143,10 @@ export function AdminEcuadorProvidersDiagnostics({
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Operational status</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Beta quote calculation can be prepared from the Ecuador customer flow, while tracking and order creation remain disabled until Delivereo credentials and sandbox validation are fully approved.
+              El motor multicourier puede seguir mostrando opciones y estados de preparación aunque Delivereo continúe bloqueado por auth 401.
             </p>
             {message ? (
-              <p className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${snapshot.authTest === "success" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-700"}`}>
+              <p className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${delivereoSnapshot.authTest === "success" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-700"}`}>
                 {message}
               </p>
             ) : null}
@@ -121,7 +154,7 @@ export function AdminEcuadorProvidersDiagnostics({
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
             <h3 className="font-black text-slate-950">Next step</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Use the roadmap doc to connect auth first, then quote, then create-shipment, then tracking, without activating public Ecuador shipping early.
+              Esperar confirmación del proveedor para la auth de Delivereo mientras el framework Ecuador continúa listo para sumar adapters reales adicionales.
             </p>
             <Link
               href="/admin/ecuador-envios"
@@ -136,15 +169,31 @@ export function AdminEcuadorProvidersDiagnostics({
   );
 }
 
-function formatStatus(snapshot: EcuadorProviderDiagnosticsSnapshot) {
-  if (!snapshot.enabled) return "Not configured";
-  return snapshot.status.replaceAll("_", " ");
+function formatEnvironment(status: EcuadorProviderDiagnosticsSnapshot["status"]) {
+  return status.replaceAll("_", " ");
+}
+
+function formatProviderStatus(status: EcuadorProviderDiagnosticsSnapshot["providerStatus"]) {
+  return status.replaceAll("_", " ");
 }
 
 function formatAuthTest(status: EcuadorProviderDiagnosticsSnapshot["authTest"]) {
-  if (status === "not_tested") return "Not tested";
+  if (!status || status === "not_tested") return "No probado";
   if (status === "success") return "Success";
   return "Fail";
+}
+
+function statusChip(snapshot: EcuadorProviderDiagnosticsSnapshot) {
+  if (snapshot.provider === "delivereo" && snapshot.authTest === "fail") {
+    return "bg-amber-50 text-amber-700";
+  }
+  if (snapshot.providerStatus === "contact_required") {
+    return "bg-orange-50 text-orange-700";
+  }
+  if (snapshot.providerStatus === "integration_pending") {
+    return "bg-slate-100 text-slate-600";
+  }
+  return "bg-sky-50 text-sky-700";
 }
 
 function formatTimestamp(value: string) {

@@ -1,10 +1,29 @@
 # Delivereo Integration Plan
 
-Last updated: 2026-06-03 (FASE 5.81)
+Last updated: 2026-06-04 (FASE 5.87)
 
 Purpose: technical discovery for a future Ecuador Shipping integration using Delivereo as the first potential provider.
 
 This document is investigatory only. It does not authorize implementation, credential setup, public launch, payment activation, or database changes.
+
+## FASE 5.87 provider-auth note
+
+The codebase now includes:
+
+- Business API login aligned to Swagger (`/api/protected/login/business`)
+- business-bookings `calculate` payload mapping
+- safe auth/calculate error staging
+- multicourier framework support with Delivereo plus placeholder adapters
+
+Current blocker:
+
+- Delivereo still returns `401` for the currently available account/API key combination.
+- SendiFlash is now waiting on provider confirmation for API key/email/RUC permissions before continuing Delivereo activation work.
+
+Platform decision:
+
+- Keep Delivereo as a real adapter prepared but pending activation.
+- Continue Ecuador Shipping as a multicourier platform layer with placeholder adapters for other providers until real integrations are approved.
 
 ## FASE 5.81 quote-calculation note
 

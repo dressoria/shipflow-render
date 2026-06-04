@@ -28,10 +28,10 @@ import {
   type AddressBookEntryDraft,
 } from "@/lib/addressBook";
 import { loadGoogleMapsScript, parseAddressComponents } from "@/lib/googleMapsUtils";
-import type { EcuadorQuoteResult } from "@/lib/ecuador/types";
 import {
   apiCreateEcuadorShipmentRequest,
-  apiGetEcuadorDelivereoQuote,
+  apiGetEcuadorQuotes,
+  type EcuadorProviderQuoteResult,
   type CreateEcuadorShipmentRequestBody,
 } from "@/lib/services/apiClient";
 import { formatCurrency } from "@/lib/utils";
@@ -175,7 +175,13 @@ export function EcuadorShipmentRequestForm() {
   const [openPackageId, setOpenPackageId] = useState<string | null>(firstPackage.id);
   const [customerNotes, setCustomerNotes] = useState("");
   const [declaredValue, setDeclaredValue] = useState<number | undefined>(undefined);
-  const [quote, setQuote] = useState<EcuadorQuoteResult | null>(null);
+  const [quoteResults, setQuoteResults] = useState<EcuadorProviderQuoteResult[]>([]);
+  const [quoteSummary, setQuoteSummary] = useState<{
+    totalProviders: number;
+    realQuotesCount: number;
+    pendingProvidersCount: number;
+    failedProvidersCount: number;
+  } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -215,6 +221,7 @@ export function EcuadorShipmentRequestForm() {
       : saveAddressTarget === "destination"
         ? buildAddressBookDraftFromShipment(destination, "recipient")
         : null;
+  const selectedQuoteResult = quoteResults.find((item) => item.ok && item.providerName === selectedOperatorName) ?? null;
 
   const stepLabels = ["Origen y destino", "Paquetes", "Tarifas y cotizaciones"] as const;
 
@@ -291,7 +298,8 @@ export function EcuadorShipmentRequestForm() {
   }
 
   function resetQuoteState() {
-    setQuote(null);
+    setQuoteResults([]);
+    setQuoteSummary(null);
     setQuoteError("");
     setSelectedOperatorName(null);
   }
@@ -317,11 +325,13 @@ export function EcuadorShipmentRequestForm() {
     setQuoteError("");
 
     try {
-      const result = await apiGetEcuadorDelivereoQuote(buildQuoteRequestBody({ origin, destination, packages, customerNotes, declaredValue }));
-      setQuote(result.quote);
+      const result = await apiGetEcuadorQuotes(buildQuoteRequestBody({ origin, destination, packages, customerNotes, declaredValue }));
+      setQuoteResults(result.results);
+      setQuoteSummary(result.summary);
       setSelectedOperatorName(null);
     } catch (nextError) {
-      setQuote(null);
+      setQuoteResults([]);
+      setQuoteSummary(null);
       setSelectedOperatorName(null);
       setQuoteError(nextError instanceof Error ? nextError.message : "No pudimos consultar las cotizaciones para esta ruta.");
     } finally {
@@ -346,7 +356,7 @@ export function EcuadorShipmentRequestForm() {
           customerNotes,
           declaredValue,
           selectedOperatorName,
-          quote,
+          selectedQuoteResult,
           extraDestinations,
         }),
       );
@@ -469,7 +479,8 @@ export function EcuadorShipmentRequestForm() {
           destination={destination}
           extraDestinations={extraDestinations}
           packageTotals={packageTotals}
-          quote={quote}
+          quoteResults={quoteResults}
+          quoteSummary={quoteSummary}
           quoteLoading={quoteLoading}
           quoteError={quoteError}
           selectedOperatorName={selectedOperatorName}
@@ -871,7 +882,8 @@ function StepQuotes({
   destination,
   extraDestinations,
   packageTotals,
-  quote,
+  quoteResults,
+  quoteSummary,
   quoteLoading,
   quoteError,
   selectedOperatorName,
@@ -882,7 +894,13 @@ function StepQuotes({
   destination: ShipmentAddress;
   extraDestinations: MultiDestinationDraft[];
   packageTotals: { totalWeight: number; count: number };
-  quote: EcuadorQuoteResult | null;
+  quoteResults: EcuadorProviderQuoteResult[];
+  quoteSummary: {
+    totalProviders: number;
+    realQuotesCount: number;
+    pendingProvidersCount: number;
+    failedProvidersCount: number;
+  } | null;
   quoteLoading: boolean;
   quoteError: string;
   selectedOperatorName: string | null;
@@ -911,7 +929,7 @@ function StepQuotes({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Buscando mejores precios
               </>
-            ) : quote ? (
+            ) : quoteResults.length > 0 ? (
               "Actualizar cotizaciones"
             ) : (
               "Buscar cotizaciones"
@@ -928,6 +946,11 @@ function StepQuotes({
         <div className="mt-4 flex flex-wrap gap-2">
           <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">Sin cobro</span>
           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">No crea orden real todavía</span>
+          {quoteSummary ? (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+              {quoteSummary.realQuotesCount} cotización(es) reales · {quoteSummary.pendingProvidersCount} en preparación
+            </span>
+          ) : null}
           {extraDestinations.length > 0 ? (
             <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
               {extraDestinations.length} destino(s) adicional(es) en preparación
@@ -957,8 +980,30 @@ function StepQuotes({
 
         <div className="mt-5 grid gap-4 xl:grid-cols-2">
           {ECUADOR_OPERATORS.map((operator) => {
-            const hasLiveQuote = operator.name === "Delivereo" && quote;
+            const providerResult = quoteResults.find((item) => item.providerName === operator.name) ?? null;
+            const hasLiveQuote = providerResult?.ok === true;
             const selected = selectedOperatorName === operator.name;
+            const providerStateLabel = hasLiveQuote
+              ? "Cotización disponible"
+              : providerResult?.reason === "provider_auth_failed"
+                ? "Pendiente de activación"
+                : providerResult?.reason === "contact_required"
+                  ? "Pendiente de contacto"
+                  : "En preparación";
+            const statusValue = hasLiveQuote
+              ? "Sin cobro · solicitud disponible"
+              : providerResult?.userMessage ?? "Visible para preparación";
+            const etaValue = hasLiveQuote
+              ? providerResult.etaLabel || providerResult.estimatedDays || "Por confirmar"
+              : providerResult?.userMessage ?? "En preparación";
+            const amountValue = hasLiveQuote ? formatCurrency(providerResult.amount) : "En preparación";
+            const helperCopy = selected
+              ? "Esta opción quedará asociada a tu solicitud."
+              : hasLiveQuote
+                ? "Selecciona esta opción para guardar la solicitud Ecuador."
+                : providerResult?.reason === "provider_auth_failed"
+                  ? "El proveedor real está preparado, pero sigue pendiente de activación."
+                  : "Puedes dejarla marcada como preferencia para seguimiento interno.";
 
             return (
               <button
@@ -983,44 +1028,42 @@ function StepQuotes({
                       />
                     </div>
                     <div className="min-w-0">
-                    <p className="text-lg font-black text-slate-950">{operator.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {hasLiveQuote ? "Cotización disponible para esta ruta" : "Operador visible dentro del agregador SendiFlash"}
-                    </p>
-                  </div>
+                      <p className="text-lg font-black text-slate-950">{operator.name}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {hasLiveQuote ? "Cotización disponible para esta ruta" : "Operador visible dentro del agregador SendiFlash"}
+                      </p>
+                    </div>
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-black ${
-                      hasLiveQuote ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                      hasLiveQuote
+                        ? "bg-emerald-50 text-emerald-700"
+                        : providerResult?.reason === "provider_auth_failed"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {hasLiveQuote ? "Cotización disponible" : "En preparación"}
+                    {providerStateLabel}
                   </span>
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
                   <ResultInfo
                     label="Precio estimado"
-                    value={hasLiveQuote && quote.customerPrice != null ? formatCurrency(quote.customerPrice) : "En preparación"}
+                    value={amountValue}
                   />
                   <ResultInfo
                     label="Tiempo estimado"
-                    value={hasLiveQuote ? quote.estimatedTime || "Por confirmar" : "En preparación"}
+                    value={etaValue}
                   />
                   <ResultInfo
                     label="Estado"
-                    value={hasLiveQuote ? "Sin cobro · solicitud disponible" : "Visible para preparación"}
+                    value={statusValue}
                   />
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
-                  <p className="text-sm text-slate-500">
-                    {selected
-                      ? "Esta opción quedará asociada a tu solicitud."
-                      : hasLiveQuote
-                        ? "Selecciona esta opción para guardar la solicitud Ecuador."
-                        : "Puedes dejarla marcada como preferencia para seguimiento interno."}
-                  </p>
+                  <p className="text-sm text-slate-500">{helperCopy}</p>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700 shadow-sm">
                     {selected ? "Seleccionada" : hasLiveQuote ? "Seleccionar" : "Solicitar esta opción"}
                   </span>
@@ -1450,14 +1493,14 @@ function buildShipmentRequestBody(input: {
   customerNotes: string;
   declaredValue?: number;
   selectedOperatorName: string | null;
-  quote: EcuadorQuoteResult | null;
+  selectedQuoteResult: EcuadorProviderQuoteResult | null;
   extraDestinations: MultiDestinationDraft[];
 }): CreateEcuadorShipmentRequestBody {
   const aggregate = aggregatePackages(input.packages);
   const extraNotes = [
     input.customerNotes.trim(),
     input.selectedOperatorName ? `Operador solicitado: ${input.selectedOperatorName}.` : "",
-    input.quote?.customerPrice != null ? `Precio estimado visible: ${input.quote.customerPrice} ${input.quote.currency}.` : "",
+    input.selectedQuoteResult?.ok ? `Precio estimado visible: ${input.selectedQuoteResult.amount} ${input.selectedQuoteResult.currency}.` : "",
     input.extraDestinations.length > 0
       ? `Multi-envío preparado: ${input.extraDestinations
           .map((item) => `${item.label || item.name || "Destino"} (${item.city})`)

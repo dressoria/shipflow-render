@@ -1,8 +1,17 @@
 # Ecuador Provider Roadmap
 
-Last updated: 2026-06-04 (FASE 5.85B)
+Last updated: 2026-06-04 (FASE 5.87)
 
 Purpose: staged roadmap for connecting Delivereo safely after credentials arrive, without prematurely activating Ecuador Shipping.
+
+## FASE 5.87 multicourier note
+
+- Delivereo Business API quote/auth integration is implemented in code, but the provider currently returns `401` for the available account/API key combination.
+- SendiFlash should not keep iterating on Delivereo auth hacks until the provider confirms API key, email, and RUC permissions.
+- Ecuador quote flow now advances through a multicourier provider framework:
+  - Delivereo as real adapter prepared but pending activation
+  - Servientrega, LaarCourier, Urbano, Tramaco, and Yobel as placeholder adapters
+- Customer quote UI should keep showing multicourier availability/preparation without implying live booking capability.
 
 ## UX checkpoint before provider activation
 

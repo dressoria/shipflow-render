@@ -1,6 +1,6 @@
-import { apiError, apiErrorFromUnknown, apiSuccess } from "@/lib/server/apiResponse";
+import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import { requireAdminUser } from "@/lib/server/adminAuth";
-import { getDelivereoAuthSnapshot, testDelivereoAuthentication } from "@/lib/server/delivereoAuth";
+import { getEcuadorProviderDiagnosticsSnapshots, testDelivereoAuthentication } from "@/lib/server/delivereoAuth";
 import { isServerSupabaseConfigured, isServiceRoleConfigured } from "@/lib/server/supabaseServer";
 
 export async function POST(request: Request) {
@@ -10,17 +10,21 @@ export async function POST(request: Request) {
 
   try {
     await requireAdminUser(request);
-    const snapshot = await testDelivereoAuthentication();
-    return apiSuccess({ snapshot, ok: true, message: "Delivereo authentication validated." });
+    await testDelivereoAuthentication();
+    return apiSuccess({ snapshots: getEcuadorProviderDiagnosticsSnapshots(), ok: true, message: "Delivereo authentication validated." });
   } catch (error) {
-    if (error instanceof Response) {
-      const snapshot = getDelivereoAuthSnapshot();
-      return apiSuccess({
-        snapshot,
-        ok: false,
-        message: (await error.text()) || "Delivereo authentication failed.",
-      });
-    }
-    return apiErrorFromUnknown(error, "Delivereo authentication failed.");
+    const snapshots = getEcuadorProviderDiagnosticsSnapshots();
+    const message =
+      error instanceof Response
+        ? (await error.text()) || "Delivereo authentication failed."
+        : error instanceof Error
+          ? error.message || "Delivereo authentication failed."
+          : "Delivereo authentication failed.";
+
+    return apiSuccess({
+      snapshots,
+      ok: false,
+      message,
+    });
   }
 }
