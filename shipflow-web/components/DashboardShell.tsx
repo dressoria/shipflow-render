@@ -39,6 +39,11 @@ type NavItem = {
   secondary?: boolean;
 };
 
+type NavGroup = {
+  heading?: string;
+  items: NavItem[];
+};
+
 const usaMenu: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
@@ -51,11 +56,12 @@ const usaMenu: NavItem[] = [
   { label: "Help", href: "/support", icon: HelpCircle },
 ];
 
+// Ecuador flat list (for mobile)
 const ecuadorMenu: NavItem[] = [
   { label: "Panel", href: "/dashboard", icon: Home },
   { label: "Nueva solicitud", href: "/ecuador/crear-envio", icon: PlusCircle },
-  { label: "Libreta de Direcciones", href: "/direcciones", icon: BookMarked },
-  { label: "Mis solicitudes", href: "/ecuador/envios", icon: MapPinned },
+  { label: "Mis solicitudes", href: "/ecuador/envios", icon: PackageCheck },
+  { label: "Libreta de direcciones", href: "/direcciones", icon: BookMarked },
   { label: "Soporte", href: "/support", icon: HelpCircle },
   { label: "Perfil", href: "/perfil", icon: Settings },
   { label: "Etiquetas USA", href: "/shipping-labels", icon: Truck, badge: "USA", secondary: true },
@@ -63,6 +69,40 @@ const ecuadorMenu: NavItem[] = [
   { label: "Saldo", href: "/saldo", icon: CreditCard, secondary: true },
   { label: "FBA Prep", href: "/prep", icon: ClipboardList, badge: "Próx.", secondary: true },
 ];
+
+// Ecuador grouped structure (for desktop sidebar)
+const ECUADOR_PRIMARY_GROUPS: NavGroup[] = [
+  {
+    heading: "Plataforma",
+    items: [
+      { label: "Panel", href: "/dashboard", icon: Home },
+      { label: "Nueva solicitud", href: "/ecuador/crear-envio", icon: PlusCircle },
+      { label: "Mis solicitudes", href: "/ecuador/envios", icon: PackageCheck },
+    ],
+  },
+  {
+    heading: "Direcciones",
+    items: [
+      { label: "Libreta de direcciones", href: "/direcciones", icon: BookMarked },
+    ],
+  },
+  {
+    heading: "Soporte",
+    items: [
+      { label: "Soporte", href: "/support", icon: HelpCircle },
+      { label: "Perfil", href: "/perfil", icon: Settings },
+    ],
+  },
+];
+
+const ECUADOR_SECONDARY_GROUP: NavGroup = {
+  items: [
+    { label: "Etiquetas USA", href: "/shipping-labels", icon: Truck, badge: "USA", secondary: true },
+    { label: "Envíos USA", href: "/envios", icon: Truck, secondary: true },
+    { label: "Saldo", href: "/saldo", icon: CreditCard, secondary: true },
+    { label: "FBA Prep", href: "/prep", icon: ClipboardList, badge: "Próx.", secondary: true },
+  ],
+};
 
 const SIDEBAR_COLLAPSED_KEY = "sendiflash-sidebar-collapsed";
 
@@ -92,12 +132,33 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     });
   }
 
-  const baseNavItems = (isEcuadorMode ? ecuadorMenu : usaMenu).map((item) =>
-    item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge: isEcuadorMode ? "Próx." : "Soon" } : item,
-  );
+  const applyPrepBadge = (items: NavItem[], badge: string): NavItem[] =>
+    items.map((item) => (item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge } : item));
+
+  const applyPrepBadgeToGroups = (groups: NavGroup[], badge: string): NavGroup[] =>
+    groups.map((group) => ({ ...group, items: applyPrepBadge(group.items, badge) }));
+
+  // Flat items for mobile menu (kept simple — no section headers on mobile)
+  const baseNavItems = applyPrepBadge(isEcuadorMode ? ecuadorMenu : usaMenu, isEcuadorMode ? "Próx." : "Soon");
   const navItems = isAdmin ? [...baseNavItems, { label: "Admin", href: "/admin", icon: ShieldCheck }] : baseNavItems;
   const primaryNavItems = navItems.filter((item) => !item.secondary);
   const secondaryNavItems = navItems.filter((item) => item.secondary);
+
+  // Grouped structure for desktop Ecuador sidebar
+  const ecuadorPrimaryGroups: NavGroup[] = (() => {
+    const groups = applyPrepBadgeToGroups(ECUADOR_PRIMARY_GROUPS, "Próx.");
+    if (!isAdmin) return groups;
+    const last = groups[groups.length - 1];
+    return [
+      ...groups.slice(0, -1),
+      { ...last, items: [...last.items, { label: "Admin", href: "/admin", icon: ShieldCheck }] },
+    ];
+  })();
+
+  const ecuadorSecondaryGroups: NavGroup[] = [
+    applyPrepBadgeToGroups([ECUADOR_SECONDARY_GROUP], "Próx.")[0],
+  ];
+
   const accentClass = isEcuadorMode ? "text-sky-700" : "text-[#F97316]";
   const activeClass = isEcuadorMode
     ? "bg-sky-600 text-white shadow-lg shadow-sky-600/30"
@@ -195,7 +256,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             : "lg:grid-cols-[236px_minmax(0,1fr)]"
         }`}
       >
-        <aside className="sticky top-[76px] hidden h-[calc(100vh-92px)] min-w-0 rounded-3xl border border-white/10 bg-[#12182B] p-2 shadow-2xl shadow-[#12182B]/15 lg:block">
+        <aside className="sticky top-[76px] hidden h-[calc(100vh-92px)] min-w-0 overflow-y-auto rounded-3xl border border-white/10 bg-[#12182B] p-2 shadow-2xl shadow-[#12182B]/15 lg:block">
           <div className={`dark-glass rounded-2xl text-white ${sidebarCollapsed ? "p-2" : "p-3"}`}>
             <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/10">
@@ -209,13 +270,29 @@ export function DashboardShell({ title, description, children }: DashboardShellP
               ) : null}
             </div>
           </div>
-          <NavigationList items={primaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
-          {!sidebarCollapsed && secondaryNavItems.length > 0 ? (
+          {isEcuadorMode ? (
             <>
-              <p className="mt-5 px-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">También disponible</p>
-              <NavigationList items={secondaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+              <GroupedNavigationList groups={ecuadorPrimaryGroups} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+              {!sidebarCollapsed ? (
+                <>
+                  <p className="mt-4 px-3 text-[9px] font-black uppercase tracking-[0.26em] text-slate-500">También disponible</p>
+                  <GroupedNavigationList groups={ecuadorSecondaryGroups} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+                </>
+              ) : (
+                <GroupedNavigationList groups={ecuadorSecondaryGroups} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+              )}
             </>
-          ) : null}
+          ) : (
+            <>
+              <NavigationList items={primaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+              {!sidebarCollapsed && secondaryNavItems.length > 0 ? (
+                <>
+                  <p className="mt-5 px-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">También disponible</p>
+                  <NavigationList items={secondaryNavItems} pathname={pathname} collapsed={sidebarCollapsed} activeClass={activeClass} />
+                </>
+              ) : null}
+            </>
+          )}
           <button
             type="button"
             onClick={toggleSidebar}
@@ -260,39 +337,101 @@ function NavigationList({
 }) {
   return (
     <nav className="mt-2 grid gap-1">
-      {items.map((item) => {
-        const Icon = item.icon;
-        const active = item.href === "/admin" ? pathname.startsWith("/admin") : pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={collapsed ? item.label : undefined}
-            onClick={onNavigate}
-            className={`flex items-center rounded-2xl text-sm font-bold transition ${
-              collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-2.5"
-            } ${
-              active
-                ? activeClass
-                : "text-slate-300 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {!collapsed ? (
-              <>
-                <span className="truncate">{item.label}</span>
-                {item.badge ? (
-                  <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-black ${
-                    active ? "bg-white/20 text-white" : "bg-orange-500/15 text-orange-200"
-                  }`}>
-                    {item.badge}
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-          </Link>
-        );
-      })}
+      {items.map((item) => (
+        <NavItemLink
+          key={item.href}
+          item={item}
+          pathname={pathname}
+          collapsed={collapsed}
+          activeClass={activeClass}
+          onNavigate={onNavigate}
+        />
+      ))}
     </nav>
+  );
+}
+
+function GroupedNavigationList({
+  groups,
+  pathname,
+  collapsed,
+  activeClass,
+  onNavigate,
+}: {
+  groups: NavGroup[];
+  pathname: string;
+  collapsed: boolean;
+  activeClass: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav className="mt-1 grid gap-0">
+      {groups.map((group, index) => (
+        <div key={index}>
+          {!collapsed && group.heading ? (
+            <p className="mt-4 px-3 pb-1 text-[9px] font-black uppercase tracking-[0.26em] text-slate-500">
+              {group.heading}
+            </p>
+          ) : null}
+          <div className="grid gap-0.5">
+            {group.items.map((item) => (
+              <NavItemLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                collapsed={collapsed}
+                activeClass={activeClass}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function NavItemLink({
+  item,
+  pathname,
+  collapsed,
+  activeClass,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+  activeClass: string;
+  onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+  const active = item.href === "/admin" ? pathname.startsWith("/admin") : pathname === item.href;
+  return (
+    <Link
+      href={item.href}
+      title={collapsed ? item.label : undefined}
+      onClick={onNavigate}
+      className={`flex items-center rounded-2xl text-sm font-bold transition ${
+        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2"
+      } ${
+        active
+          ? activeClass
+          : "text-slate-300 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed ? (
+        <>
+          <span className="truncate">{item.label}</span>
+          {item.badge ? (
+            <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-black ${
+              active ? "bg-white/20 text-white" : "bg-orange-500/15 text-orange-200"
+            }`}>
+              {item.badge}
+            </span>
+          ) : null}
+        </>
+      ) : null}
+    </Link>
   );
 }

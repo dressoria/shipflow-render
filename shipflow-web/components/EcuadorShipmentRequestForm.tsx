@@ -158,6 +158,12 @@ const createMultiDestinationDraft = (): MultiDestinationDraft => ({
 
 const STEP_LABELS = ["Origen y destino", "Productos / paquetes", "Transportadora", "Resumen"] as const;
 
+const PACKAGE_SIZE_PRESETS = [
+  { label: "Pequeño", dims: { lengthCm: 10, widthCm: 10, heightCm: 20 } },
+  { label: "Mediano", dims: { lengthCm: 20, widthCm: 20, heightCm: 25 } },
+  { label: "Grande", dims: { lengthCm: 30, widthCm: 30, heightCm: 30 } },
+] as const;
+
 export function EcuadorShipmentRequestForm() {
   const router = useRouter();
   const { entries, upsertEntry } = useAddressBook();
@@ -758,63 +764,117 @@ function StepPackages({
   onCustomerNotesChange: (value: string) => void;
 }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_340px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 2</p>
             <h3 className="mt-2 text-2xl font-black text-slate-950">Productos / paquetes</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Usa centímetros y kilogramos para preparar cada bulto. Puedes añadir varios paquetes antes de consultar tarifas.
+              Centímetros y kilogramos. Puedes añadir varios bultos antes de consultar tarifas.
             </p>
           </div>
           <button
             type="button"
             onClick={onAddPackage}
-            className="inline-flex h-11 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-5 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
           >
             <Plus className="mr-2 h-4 w-4" />
             Añadir otro paquete
           </button>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-5 grid gap-3">
           {packages.map((pkg, index) => {
             const open = openPackageId === pkg.id;
+            const activePreset = PACKAGE_SIZE_PRESETS.find(
+              (p) => p.dims.lengthCm === pkg.lengthCm && p.dims.widthCm === pkg.widthCm && p.dims.heightCm === pkg.heightCm,
+            );
             return (
-              <div key={pkg.id} className="rounded-[1.8rem] border border-slate-200 bg-slate-50/70 p-4">
+              <div
+                key={pkg.id}
+                className={`rounded-[1.8rem] border transition ${open ? "border-sky-200 bg-sky-50/40" : "border-slate-200 bg-slate-50/60"}`}
+              >
+                {/* Accordion header */}
                 <button
                   type="button"
                   onClick={() => onTogglePackage(open ? null : pkg.id)}
-                  className="flex w-full items-center justify-between gap-3 text-left"
+                  className="flex w-full items-center gap-3 rounded-[1.8rem] p-4 text-left"
                 >
-                  <div>
-                    <p className="text-sm font-black text-slate-950">Paquete {index + 1}</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm} cm · {pkg.weightKg} kg · {pkg.quantity} unidad(es)
+                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl ${open ? "bg-sky-600 text-white" : "bg-white text-slate-500 border border-slate-200"}`}>
+                    <Package className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-slate-950">
+                      Paquete {index + 1}
+                      {pkg.content ? <span className="ml-2 font-semibold text-slate-500">· {pkg.content}</span> : null}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm}&thinsp;cm · {pkg.weightKg}&thinsp;kg · {pkg.quantity} ud.
+                      {activePreset ? <span className="ml-1.5 text-sky-600">({activePreset.label})</span> : null}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {packages.length > 1 ? (
-                      <span
+                      <button
+                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           onRemovePackage(pkg.id);
                         }}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500"
+                        className="grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400 transition hover:border-red-200 hover:text-red-500"
+                        aria-label="Eliminar paquete"
                       >
-                        <X className="h-4 w-4" />
-                      </span>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     ) : null}
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500">
-                      <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
+                    <span className="grid h-8 w-8 place-items-center rounded-xl border border-slate-200 bg-white text-slate-400">
+                      <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
                     </span>
                   </div>
                 </button>
 
                 {open ? (
-                  <div className="mt-4 grid gap-4">
-                    <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 px-4 pb-5">
+                    {/* Size presets */}
+                    <div>
+                      <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Tamaño rápido</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {PACKAGE_SIZE_PRESETS.map((preset) => {
+                          const isActive =
+                            pkg.lengthCm === preset.dims.lengthCm &&
+                            pkg.widthCm === preset.dims.widthCm &&
+                            pkg.heightCm === preset.dims.heightCm;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => {
+                                onUpdatePackage(pkg.id, "lengthCm", preset.dims.lengthCm);
+                                onUpdatePackage(pkg.id, "widthCm", preset.dims.widthCm);
+                                onUpdatePackage(pkg.id, "heightCm", preset.dims.heightCm);
+                              }}
+                              className={`rounded-2xl border p-3 text-left transition ${
+                                isActive
+                                  ? "border-sky-300 bg-sky-50 shadow-sm"
+                                  : "border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/50"
+                              }`}
+                            >
+                              <div className={`grid h-8 w-8 place-items-center rounded-xl ${isActive ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                <Package className="h-4 w-4" />
+                              </div>
+                              <p className={`mt-2 text-sm font-black ${isActive ? "text-sky-700" : "text-slate-800"}`}>{preset.label}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {preset.dims.lengthCm}×{preset.dims.widthCm}×{preset.dims.heightCm}&thinsp;cm
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Fields */}
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <TextField
                         label="Contenido"
                         value={pkg.content}
@@ -828,7 +888,7 @@ function StepPackages({
                         min={1}
                       />
                     </div>
-                    <div className="grid gap-4 md:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                       <NumberField
                         label="Peso (kg)"
                         value={pkg.weightKg}
@@ -857,39 +917,43 @@ function StepPackages({
           })}
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <NumberField label="Valor declarado total (USD)" value={declaredValue ?? 0} onChange={(value) => onDeclaredValueChange(value || undefined)} />
           <label className="block">
             <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Notas de solicitud</span>
             <textarea
               value={customerNotes}
               onChange={(event) => onCustomerNotesChange(event.target.value)}
-              className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-              placeholder="Horarios, fragilidad, volumen especial o instrucciones para la revisión interna."
+              className="mt-2 min-h-[88px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              placeholder="Fragilidad, horarios, instrucciones para revisión interna."
             />
           </label>
         </div>
       </section>
 
       <aside className="grid content-start gap-5">
-        <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Resumen lateral</p>
-          <h3 className="mt-2 text-xl font-black text-slate-950">Tu carga actual</h3>
-          <div className="mt-4 grid gap-3">
-            <MiniStat label="Paquetes" value={String(packageTotals.count)} />
-            <MiniStat label="Peso total" value={`${packageTotals.totalWeight.toFixed(2)} kg`} />
-            <MiniStat label="Unidad" value="cm / kg" />
+        <section className="rounded-[2rem] border border-sky-100 bg-sky-50/40 p-5 shadow-sm shadow-slate-950/5">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Resumen de carga</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-sky-200 bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Bultos</p>
+              <p className="mt-1 text-2xl font-black text-sky-700">{packageTotals.count}</p>
+            </div>
+            <div className="rounded-2xl border border-sky-200 bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Peso total</p>
+              <p className="mt-1 text-2xl font-black text-sky-700">{packageTotals.totalWeight.toFixed(1)}<span className="ml-1 text-sm font-bold text-slate-500">kg</span></p>
+            </div>
           </div>
-          <div className="mt-4 grid gap-3">
-            {packages.map((pkg, index) => (
-              <div key={pkg.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Paquete {index + 1}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-700">
-                  {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm} cm · {pkg.weightKg} kg
-                </p>
-                <p className="mt-1 text-sm text-slate-500">{pkg.content || "Contenido por definir"}</p>
-              </div>
-            ))}
+          {declaredValue ? (
+            <div className="mt-3 rounded-2xl border border-sky-200 bg-white p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Valor declarado</p>
+              <p className="mt-1 text-lg font-black text-slate-950">${declaredValue}</p>
+            </div>
+          ) : null}
+          <div className="mt-4 rounded-2xl border border-sky-100 bg-white p-3">
+            <p className="text-xs leading-5 text-sky-700">
+              <span className="font-black">Sin cobro.</span> El peso y dimensiones se usan solo para calcular tarifas referenciales.
+            </p>
           </div>
         </section>
       </aside>

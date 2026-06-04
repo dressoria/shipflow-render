@@ -85,9 +85,10 @@ export function AddressBookDialog({
       ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6">
+      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-t-[2rem] border border-slate-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem]">
+        {/* Sticky header */}
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">
               {isEcuadorMode ? "Libreta de direcciones" : "Address book"}
@@ -112,6 +113,7 @@ export function AddressBookDialog({
           </button>
         </div>
 
+        {/* Form — scrollable body + sticky footer */}
         <form
           onSubmit={async (event) => {
             event.preventDefault();
@@ -134,86 +136,102 @@ export function AddressBookDialog({
               setSaving(false);
             }
           }}
-          className="grid gap-5 px-6 py-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <TextField label={isEcuadorMode ? "Etiqueta" : "Label"} value={draft.label} onChange={(value) => setDraft((current) => ({ ...current, label: value }))} required />
-            <SelectField
-              label={isEcuadorMode ? "Tipo" : "Role"}
-              value={draft.role}
-              options={roleOptions}
-              onChange={(value) => setDraft((current) => ({ ...current, role: value as AddressBookRole }))}
-            />
-            <SelectField
-              label={isEcuadorMode ? "País" : "Country"}
-              value={draft.country}
-              options={[
-                { value: "EC", label: isEcuadorMode ? "Ecuador" : "Ecuador" },
-                { value: "US", label: isEcuadorMode ? "Estados Unidos" : "United States" },
-              ]}
-              onChange={(value) => setDraft((current) => ({ ...current, country: value as AddressBookCountry }))}
-            />
-            <TextField label={isEcuadorMode ? "Nombre / contacto" : "Contact name"} value={draft.contactName} onChange={(value) => setDraft((current) => ({ ...current, contactName: value }))} required />
-            <TextField label={isEcuadorMode ? "Empresa" : "Company"} value={draft.company ?? ""} onChange={(value) => setDraft((current) => ({ ...current, company: value }))} />
-            <TextField label={isEcuadorMode ? "Teléfono" : "Phone"} value={draft.phone} onChange={(value) => setDraft((current) => ({ ...current, phone: value }))} required />
-            <TextField label="Email" value={draft.email ?? ""} onChange={(value) => setDraft((current) => ({ ...current, email: value }))} />
-          </div>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid gap-5 px-6 py-6">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <TextField label={isEcuadorMode ? "Etiqueta" : "Label"} value={draft.label} onChange={(value) => setDraft((current) => ({ ...current, label: value }))} required />
+                <SelectField
+                  label={isEcuadorMode ? "Tipo" : "Role"}
+                  value={draft.role}
+                  options={roleOptions}
+                  onChange={(value) => setDraft((current) => ({ ...current, role: value as AddressBookRole }))}
+                />
+                <SelectField
+                  label={isEcuadorMode ? "País" : "Country"}
+                  value={draft.country}
+                  options={[
+                    { value: "EC", label: isEcuadorMode ? "Ecuador" : "Ecuador" },
+                    { value: "US", label: isEcuadorMode ? "Estados Unidos" : "United States" },
+                  ]}
+                  onChange={(value) => setDraft((current) => ({ ...current, country: value as AddressBookCountry }))}
+                />
+                <TextField label={isEcuadorMode ? "Nombre / contacto" : "Contact name"} value={draft.contactName} onChange={(value) => setDraft((current) => ({ ...current, contactName: value }))} required />
+                <TextField label={isEcuadorMode ? "Empresa" : "Company"} value={draft.company ?? ""} onChange={(value) => setDraft((current) => ({ ...current, company: value }))} />
+                <TextField label={isEcuadorMode ? "Teléfono" : "Phone"} value={draft.phone} onChange={(value) => setDraft((current) => ({ ...current, phone: value }))} required />
+                <TextField label="Email" value={draft.email ?? ""} onChange={(value) => setDraft((current) => ({ ...current, email: value }))} />
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label={isEcuadorMode ? "Dirección" : "Address"} value={draft.addressLine1} onChange={(value) => setDraft((current) => ({ ...current, addressLine1: value }))} required />
-            <TextField label={isEcuadorMode ? "Complemento" : "Address line 2"} value={draft.addressLine2 ?? ""} onChange={(value) => setDraft((current) => ({ ...current, addressLine2: value }))} />
-            <TextField label={isEcuadorMode ? "Ciudad" : "City"} value={draft.city} onChange={(value) => setDraft((current) => ({ ...current, city: value }))} required />
-            <TextField label={isEcuadorMode ? "Provincia / estado" : "State / province"} value={draft.region} onChange={(value) => setDraft((current) => ({ ...current, region: value }))} required />
-            <TextField label={isEcuadorMode ? "Código postal" : "Postal code"} value={draft.postalCode ?? ""} onChange={(value) => setDraft((current) => ({ ...current, postalCode: value }))} />
-          </div>
+              {isEcuadorMode ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <TextField label="Ciudad / cantón" value={draft.city} onChange={(value) => setDraft((current) => ({ ...current, city: value }))} required />
+                  <TextField label="Provincia" value={draft.region} onChange={(value) => setDraft((current) => ({ ...current, region: value }))} required />
+                  <TextField label="Calle principal" value={draft.addressLine1} onChange={(value) => setDraft((current) => ({ ...current, addressLine1: value }))} required />
+                  <TextField label="Numeración / intersección" value={draft.addressLine2 ?? ""} onChange={(value) => setDraft((current) => ({ ...current, addressLine2: value }))} />
+                  <TextField label="Código postal (opcional)" value={draft.postalCode ?? ""} onChange={(value) => setDraft((current) => ({ ...current, postalCode: value }))} />
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <TextField label="Address" value={draft.addressLine1} onChange={(value) => setDraft((current) => ({ ...current, addressLine1: value }))} required />
+                  <TextField label="Address line 2" value={draft.addressLine2 ?? ""} onChange={(value) => setDraft((current) => ({ ...current, addressLine2: value }))} />
+                  <TextField label="City" value={draft.city} onChange={(value) => setDraft((current) => ({ ...current, city: value }))} required />
+                  <TextField label="State / province" value={draft.region} onChange={(value) => setDraft((current) => ({ ...current, region: value }))} required />
+                  <TextField label="Postal code" value={draft.postalCode ?? ""} onChange={(value) => setDraft((current) => ({ ...current, postalCode: value }))} />
+                </div>
+              )}
 
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-              {isEcuadorMode ? "Referencia" : "Reference"}
-            </span>
-            <textarea
-              value={draft.reference ?? ""}
-              onChange={(event) => setDraft((current) => ({ ...current, reference: event.target.value }))}
-              className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-              placeholder={isEcuadorMode ? "Puntos de referencia, edificio o instrucciones" : "Landmarks, building, or instructions"}
-            />
-          </label>
+              <label className="block">
+                <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                  {isEcuadorMode ? "Referencia" : "Reference"}
+                </span>
+                <textarea
+                  value={draft.reference ?? ""}
+                  onChange={(event) => setDraft((current) => ({ ...current, reference: event.target.value }))}
+                  className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                  placeholder={isEcuadorMode ? "Edificio, barrio, puntos de referencia o instrucciones" : "Landmarks, building, or instructions"}
+                />
+              </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={draft.isDefaultSender}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  isDefaultSender: event.target.checked,
-                }))
-              }
-            />
-            <span>{isEcuadorMode ? "Usar como remitente predeterminado" : "Use as default sender"}</span>
-          </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={draft.isDefaultSender}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      isDefaultSender: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{isEcuadorMode ? "Usar como remitente predeterminado" : "Use as default sender"}</span>
+              </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={draft.isDefaultRecipient}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  isDefaultRecipient: event.target.checked,
-                }))
-              }
-            />
-            <span>{isEcuadorMode ? "Usar como destinatario predeterminado" : "Use as default recipient"}</span>
-          </label>
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={draft.isDefaultRecipient}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      isDefaultRecipient: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{isEcuadorMode ? "Usar como destinatario predeterminado" : "Use as default recipient"}</span>
+              </label>
 
-          {error ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-              {error}
+              {error ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                  {error}
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+          {/* Sticky footer with action buttons */}
+          <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
