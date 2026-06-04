@@ -28,11 +28,13 @@ const DEFAULT_DRAFT: AddressBookEntryDraft = {
 export function AddressBookDialog({
   open,
   initialValue,
+  draftSeed,
   onClose,
   onSave,
 }: {
   open: boolean;
   initialValue?: AddressBookEntry | null;
+  draftSeed?: Partial<AddressBookEntryDraft> | null;
   onClose: () => void;
   onSave: (draft: AddressBookEntryDraft, existingId?: string) => Promise<void>;
 }) {
@@ -61,7 +63,11 @@ export function AddressBookDialog({
           isDefaultSender: initialValue.isDefaultSender,
           isDefaultRecipient: initialValue.isDefaultRecipient,
         }
-      : { ...DEFAULT_DRAFT, country: isEcuadorMode ? "EC" : "US" },
+      : {
+          ...DEFAULT_DRAFT,
+          country: isEcuadorMode ? "EC" : "US",
+          ...draftSeed,
+        },
   );
 
   if (!open) return null;

@@ -1,6 +1,8 @@
 import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import {
   deleteUserAddress,
+  getUserAddressErrorDetails,
+  logUserAddressServerError,
   normalizeUserAddressInput,
   setUserAddressDefault,
   updateUserAddress,
@@ -22,7 +24,7 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const addressId = normalizeAddressId(id);
-    if (!addressId) return apiError("Address id is required.", 400);
+    if (!addressId) return apiError("No pudimos actualizar la dirección.", 400, "Falta el identificador de la dirección.");
 
     const { supabase, user } = await requireVerifiedUser(request);
     const body = (await request.json()) as Record<string, unknown>;
@@ -37,10 +39,11 @@ export async function PATCH(
     const address = await updateUserAddress(supabase, user.id, addressId, input);
     return apiSuccess({ address });
   } catch (error) {
+    logUserAddressServerError("update", error);
     if (error instanceof Response) {
-      return apiError((await error.text()) || "We could not update the address.", error.status);
+      return apiError("No pudimos actualizar la dirección.", error.status, getUserAddressErrorDetails(error));
     }
-    return apiError(error instanceof Error ? error.message : "We could not update the address.", 500);
+    return apiError("No pudimos actualizar la dirección.", 500, getUserAddressErrorDetails(error));
   }
 }
 
@@ -55,15 +58,16 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const addressId = normalizeAddressId(id);
-    if (!addressId) return apiError("Address id is required.", 400);
+    if (!addressId) return apiError("No pudimos eliminar la dirección.", 400, "Falta el identificador de la dirección.");
 
     const { supabase, user } = await requireVerifiedUser(request);
     await deleteUserAddress(supabase, user.id, addressId);
     return apiSuccess({ deleted: true });
   } catch (error) {
+    logUserAddressServerError("delete", error);
     if (error instanceof Response) {
-      return apiError((await error.text()) || "We could not delete the address.", error.status);
+      return apiError("No pudimos eliminar la dirección.", error.status, getUserAddressErrorDetails(error));
     }
-    return apiError(error instanceof Error ? error.message : "We could not delete the address.", 500);
+    return apiError("No pudimos eliminar la dirección.", 500, getUserAddressErrorDetails(error));
   }
 }

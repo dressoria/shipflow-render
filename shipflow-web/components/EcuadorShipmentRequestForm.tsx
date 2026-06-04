@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -18,10 +18,16 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/Badge";
+import { AddressBookDialog } from "@/components/AddressBookDialog";
 import { AddressBookSelector } from "@/components/AddressBookSelector";
 import { ECUADOR_OPERATORS } from "@/components/EcuadorOperatorsLogos";
 import { useAddressBook } from "@/hooks/useAddressBook";
-import { readLastUsedAddress, type AddressBookEntry } from "@/lib/addressBook";
+import {
+  readLastUsedAddress,
+  type AddressBookEntry,
+  type AddressBookEntryDraft,
+} from "@/lib/addressBook";
+import { loadGoogleMapsScript, parseAddressComponents } from "@/lib/googleMapsUtils";
 import type { EcuadorQuoteResult } from "@/lib/ecuador/types";
 import {
   apiCreateEcuadorShipmentRequest,
@@ -40,6 +46,22 @@ type ShipmentAddress = {
   reference: string;
   region: string;
   postalCode: string;
+};
+
+type EcuadorGoogleAddressComponent = {
+  long_name: string;
+  short_name: string;
+  types: string[];
+};
+
+type EcuadorGooglePlace = {
+  address_components?: EcuadorGoogleAddressComponent[];
+  formatted_address?: string;
+};
+
+type EcuadorGoogleAutocomplete = {
+  addListener(event: string, fn: () => void): void;
+  getPlace(): EcuadorGooglePlace;
 };
 
 type MultiDestinationDraft = {
@@ -62,6 +84,34 @@ type PackageDraft = {
 };
 
 const CITY_OPTIONS = ["Quito", "Guayaquil", "Cuenca", "Manta", "Ambato", "Loja"];
+const ECUADOR_PROVINCES = [
+  "Azuay",
+  "Bolivar",
+  "Cañar",
+  "Carchi",
+  "Chimborazo",
+  "Cotopaxi",
+  "El Oro",
+  "Esmeraldas",
+  "Galápagos",
+  "Guayas",
+  "Imbabura",
+  "Loja",
+  "Los Ríos",
+  "Manabí",
+  "Morona Santiago",
+  "Napo",
+  "Orellana",
+  "Pastaza",
+  "Pichincha",
+  "Santa Elena",
+  "Santo Domingo de los Tsáchilas",
+  "Sucumbíos",
+  "Tungurahua",
+  "Zamora Chinchipe",
+] as const;
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+const HAS_ECUADOR_GOOGLE_AUTOCOMPLETE = Boolean(GOOGLE_MAPS_KEY);
 
 const initialAddress = (): ShipmentAddress => ({
   name: "",
@@ -94,7 +144,7 @@ const createMultiDestinationDraft = (): MultiDestinationDraft => ({
 
 export function EcuadorShipmentRequestForm() {
   const router = useRouter();
-  const { entries } = useAddressBook();
+  const { entries, upsertEntry } = useAddressBook();
   const initialSelections = getInitialAddressSelections(entries);
   const firstPackage = useMemo(() => createPackageDraft(), []);
   const [step, setStep] = useState<WizardStep>(1);
@@ -121,6 +171,7 @@ export function EcuadorShipmentRequestForm() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [selectedOperatorName, setSelectedOperatorName] = useState<string | null>(null);
+  const [saveAddressTarget, setSaveAddressTarget] = useState<"origin" | "destination" | null>(null);
 
   const packageTotals = useMemo(() => {
     const totalWeight = packages.reduce((sum, item) => sum + item.weightKg * Math.max(1, item.quantity), 0);
@@ -143,6 +194,17 @@ export function EcuadorShipmentRequestForm() {
       }
     });
   }, [entries, selectedDestinationAddressId, selectedOriginAddressId]);
+
+  const defaultSenderAddress =
+    entries.find((entry) => entry.isDefaultSender && (entry.role === "sender" || entry.role === "both")) ?? null;
+  const defaultRecipientAddress =
+    entries.find((entry) => entry.isDefaultRecipient && (entry.role === "recipient" || entry.role === "both")) ?? null;
+  const saveAddressDraft =
+    saveAddressTarget === "origin"
+      ? buildAddressBookDraftFromShipment(origin, "sender")
+      : saveAddressTarget === "destination"
+        ? buildAddressBookDraftFromShipment(destination, "recipient")
+        : null;
 
   const stepLabels = ["Origen y destino", "Paquetes", "Tarifas y cotizaciones"] as const;
 
@@ -346,10 +408,13 @@ export function EcuadorShipmentRequestForm() {
 
       {step === 1 ? (
         <StepAddresses
+          entries={entries}
           origin={origin}
           destination={destination}
           selectedOriginAddressId={selectedOriginAddressId}
           selectedDestinationAddressId={selectedDestinationAddressId}
+          defaultSenderAddress={defaultSenderAddress}
+          defaultRecipientAddress={defaultRecipientAddress}
           extraDestinations={extraDestinations}
           onOriginSelect={(entry) => handleAddressSelect("origin", entry)}
           onDestinationSelect={(entry) => handleAddressSelect("destination", entry)}
@@ -357,6 +422,7 @@ export function EcuadorShipmentRequestForm() {
           onAddMultiDestination={addMultiDestination}
           onUpdateMultiDestination={updateMultiDestination}
           onRemoveMultiDestination={removeMultiDestination}
+          onOpenSaveAddress={setSaveAddressTarget}
         />
       ) : null}
 
@@ -433,15 +499,31 @@ export function EcuadorShipmentRequestForm() {
           </div>
         </div>
       </section>
+
+      {saveAddressDraft ? (
+        <AddressBookDialog
+          key={`${saveAddressTarget}-${saveAddressDraft.label}-${saveAddressDraft.addressLine1}`}
+          open={Boolean(saveAddressTarget)}
+          draftSeed={saveAddressDraft}
+          onClose={() => setSaveAddressTarget(null)}
+          onSave={async (draft) => {
+            await upsertEntry(draft);
+            setSaveAddressTarget(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 function StepAddresses({
+  entries,
   origin,
   destination,
   selectedOriginAddressId,
   selectedDestinationAddressId,
+  defaultSenderAddress,
+  defaultRecipientAddress,
   extraDestinations,
   onOriginSelect,
   onDestinationSelect,
@@ -449,11 +531,15 @@ function StepAddresses({
   onAddMultiDestination,
   onUpdateMultiDestination,
   onRemoveMultiDestination,
+  onOpenSaveAddress,
 }: {
+  entries: AddressBookEntry[];
   origin: ShipmentAddress;
   destination: ShipmentAddress;
   selectedOriginAddressId: string | null;
   selectedDestinationAddressId: string | null;
+  defaultSenderAddress: AddressBookEntry | null;
+  defaultRecipientAddress: AddressBookEntry | null;
   extraDestinations: MultiDestinationDraft[];
   onOriginSelect: (entry: AddressBookEntry) => void;
   onDestinationSelect: (entry: AddressBookEntry) => void;
@@ -461,6 +547,7 @@ function StepAddresses({
   onAddMultiDestination: () => void;
   onUpdateMultiDestination: (id: string, key: keyof MultiDestinationDraft, value: string) => void;
   onRemoveMultiDestination: (id: string) => void;
+  onOpenSaveAddress: (target: "origin" | "destination") => void;
 }) {
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
@@ -489,21 +576,29 @@ function StepAddresses({
               title="Origen"
               label="Remitente"
               address={origin}
+              hasSavedAddresses={entries.length > 0}
               selectedAddressId={selectedOriginAddressId}
+              defaultEntry={defaultSenderAddress}
               role="sender"
               accent="sky"
               onAddressSelect={onOriginSelect}
               onAddressChange={(key, value) => onAddressChange("origin", key, value)}
+              onUseDefault={() => defaultSenderAddress && onOriginSelect(defaultSenderAddress)}
+              onSaveAddress={() => onOpenSaveAddress("origin")}
             />
             <AddressPanel
               title="Destino"
               label="Destinatario"
               address={destination}
+              hasSavedAddresses={entries.length > 0}
               selectedAddressId={selectedDestinationAddressId}
+              defaultEntry={defaultRecipientAddress}
               role="recipient"
               accent="orange"
               onAddressSelect={onDestinationSelect}
               onAddressChange={(key, value) => onAddressChange("destination", key, value)}
+              onUseDefault={() => defaultRecipientAddress && onDestinationSelect(defaultRecipientAddress)}
+              onSaveAddress={() => onOpenSaveAddress("destination")}
             />
           </div>
         </section>
@@ -556,34 +651,29 @@ function StepAddresses({
       </div>
 
       <aside className="grid content-start gap-5">
-        <section className="overflow-hidden rounded-[2rem] border border-sky-100 bg-white shadow-sm shadow-slate-950/5">
-          <div className="relative aspect-[4/3]">
-            <Image
-              src="/images/ecuador/maps/ecuador-map-coverage.webp"
-              alt="Cobertura Ecuador con rutas y ciudades principales"
-              fill
-              sizes="360px"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(15,23,42,0.12)_100%)]" />
-            <div className="absolute left-4 top-4 rounded-2xl border border-white/80 bg-white/92 px-4 py-3 shadow-lg backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Mapa visual</p>
-              <p className="mt-1 text-sm font-semibold text-slate-600">Cobertura local y nacional en preparación</p>
-            </div>
+        <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Direcciones rápidas</p>
+          <h3 className="mt-2 text-xl font-black text-slate-950">Completa más rápido sin depender de un mapa falso</h3>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Usa direcciones guardadas, ciudades frecuentes y dirección completa manual. Cuando el entorno tenga geocodificación habilitada, el autocomplete se conecta sin cambiar este flujo.
+          </p>
+          <div className="mt-4 grid gap-3">
+            <MiniStat label="Libreta guardada" value={entries.length > 0 ? `${entries.length} dirección(es)` : "Vacía por ahora"} />
+            <MiniStat label="Autocomplete" value={HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? "Disponible" : "Pendiente de configuración"} />
+            <MiniStat label="País activo" value="Ecuador (EC)" />
           </div>
-          <div className="p-5">
-            <p className="text-sm font-bold text-slate-700">Selecciona ciudades frecuentes para completar más rápido:</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {CITY_OPTIONS.map((city) => (
-                <span key={city} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
-                  {city}
-                </span>
-              ))}
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              El buscador de direcciones y el mapa quedan listos para conectarse a autocomplete cuando el entorno lo habilite. Mientras tanto, puedes pegar direcciones completas y apoyarte en la libreta.
-            </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {CITY_OPTIONS.map((city) => (
+              <span key={city} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                {city}
+              </span>
+            ))}
           </div>
+          <p className="mt-4 text-xs leading-5 text-slate-500">
+            {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE
+              ? "Autocomplete activo para Ecuador. Si una dirección no aparece, puedes pegarla completa y completar ciudad y provincia manualmente."
+              : "El buscador con mapa se habilitará cuando el servicio de geocodificación esté configurado. Mientras tanto, puedes pegar la dirección completa y apoyarte en la libreta."}
+          </p>
         </section>
       </aside>
     </div>
@@ -927,23 +1017,75 @@ function AddressPanel({
   title,
   label,
   address,
+  hasSavedAddresses,
   selectedAddressId,
+  defaultEntry,
   role,
   accent,
   onAddressSelect,
   onAddressChange,
+  onUseDefault,
+  onSaveAddress,
 }: {
   title: string;
   label: string;
   address: ShipmentAddress;
+  hasSavedAddresses: boolean;
   selectedAddressId: string | null;
+  defaultEntry: AddressBookEntry | null;
   role: "sender" | "recipient";
   accent: "sky" | "orange";
   onAddressSelect: (entry: AddressBookEntry) => void;
   onAddressChange: (key: keyof ShipmentAddress, value: string) => void;
+  onUseDefault: () => void;
+  onSaveAddress: () => void;
 }) {
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [mapsReady, setMapsReady] = useState(false);
   const toneClasses =
     accent === "sky" ? "border-sky-100 bg-sky-50/50" : "border-orange-100 bg-orange-50/60";
+
+  useEffect(() => {
+    if (!HAS_ECUADOR_GOOGLE_AUTOCOMPLETE) return;
+    loadGoogleMapsScript(GOOGLE_MAPS_KEY, () => setMapsReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!mapsReady || !searchRef.current) return;
+    const googleWindow = window as Window & {
+      google?: {
+        maps: {
+          places: {
+            Autocomplete: new (
+              el: HTMLInputElement,
+              opts?: {
+                types?: string[];
+                fields?: string[];
+                componentRestrictions?: { country: string | string[] };
+              },
+            ) => EcuadorGoogleAutocomplete;
+          };
+        };
+      };
+    };
+    if (!googleWindow.google) return;
+
+    const autocomplete = new googleWindow.google.maps.places.Autocomplete(searchRef.current, {
+      types: ["geocode"],
+      fields: ["address_components", "formatted_address"],
+      componentRestrictions: { country: "ec" },
+    });
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      const parsed = parseAddressComponents(place.address_components ?? [], undefined, place.formatted_address, undefined, "google_places");
+      onAddressChange("address", parsed.street1?.trim() || place.formatted_address?.trim() || "");
+      if (parsed.city) onAddressChange("city", parsed.city.trim());
+      if (parsed.state) onAddressChange("region", parsed.state.trim());
+      if (parsed.postalCode) onAddressChange("postalCode", parsed.postalCode.trim());
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapsReady]);
 
   return (
     <div className={`rounded-[1.8rem] border p-4 ${toneClasses}`}>
@@ -966,20 +1108,47 @@ function AddressPanel({
         />
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onUseDefault}
+          disabled={!defaultEntry}
+          className="inline-flex h-10 items-center justify-center rounded-2xl border border-sky-200 bg-white px-4 text-sm font-bold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {role === "sender" ? "Usar remitente predeterminado" : "Usar destinatario predeterminado"}
+        </button>
+        <button
+          type="button"
+          onClick={onSaveAddress}
+          disabled={!address.address.trim() || !address.city.trim()}
+          className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Guardar esta dirección en libreta
+        </button>
+        {!hasSavedAddresses ? (
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+            Todavía no tienes direcciones guardadas
+          </span>
+        ) : null}
+      </div>
+
       <div className="mt-4 grid gap-4">
         <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
             <Search className="h-3.5 w-3.5" />
-            Buscar o pegar dirección
+            Dirección completa
           </div>
           <input
+            ref={searchRef}
             value={address.address}
             onChange={(event) => onAddressChange("address", event.target.value)}
-            placeholder="Escribe o pega una dirección completa"
+            placeholder="Pega una dirección completa o busca si el autocomplete está disponible"
             className="mt-3 min-h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
           />
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            Campo listo para conectarse a autocomplete cuando el entorno lo habilite. Mientras tanto, puedes pegar direcciones completas sin romper el flujo.
+            {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE
+              ? "Puedes escribir, pegar o elegir una sugerencia real de autocomplete para Ecuador."
+              : "El buscador con mapa se habilitará cuando el servicio de geocodificación esté configurado."}
           </p>
         </div>
 
@@ -987,7 +1156,13 @@ function AddressPanel({
           <TextField label="Nombre / contacto" value={address.name} onChange={(value) => onAddressChange("name", value)} placeholder="Andrea Torres" />
           <TextField label="Teléfono" value={address.phone} onChange={(value) => onAddressChange("phone", value)} placeholder="+593 99 123 4567" />
           <TextField label="Ciudad" value={address.city} onChange={(value) => onAddressChange("city", value)} placeholder="Quito" />
-          <TextField label="Provincia / estado" value={address.region} onChange={(value) => onAddressChange("region", value)} placeholder="Pichincha" />
+          <SelectField
+            label="Provincia"
+            value={address.region}
+            onChange={(value) => onAddressChange("region", value)}
+            options={ECUADOR_PROVINCES.map((province) => ({ value: province, label: province }))}
+            placeholder="Selecciona una provincia"
+          />
           <TextField label="Código postal" value={address.postalCode} onChange={(value) => onAddressChange("postalCode", value)} placeholder="170150" />
         </div>
       </div>
@@ -1087,6 +1262,38 @@ function TextField({
   );
 }
 
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+      >
+        <option value="">{placeholder ?? "Selecciona una opción"}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -1125,6 +1332,32 @@ function mapAddressEntryToShipment(entry: AddressBookEntry): ShipmentAddress {
   };
 }
 
+function buildAddressBookDraftFromShipment(
+  address: ShipmentAddress,
+  role: "sender" | "recipient",
+): AddressBookEntryDraft {
+  const labelBase = address.name.trim() || address.city.trim() || (role === "sender" ? "Remitente" : "Destinatario");
+  return {
+    label: labelBase,
+    country: "EC",
+    role,
+    contactName: address.name.trim(),
+    company: "",
+    addressLine1: address.address.trim(),
+    addressLine2: "",
+    city: address.city.trim(),
+    region: address.region.trim(),
+    postalCode: address.postalCode.trim(),
+    phone: address.phone.trim(),
+    email: "",
+    reference: address.reference.trim(),
+    latitude: undefined,
+    longitude: undefined,
+    isDefaultSender: role === "sender",
+    isDefaultRecipient: role === "recipient",
+  };
+}
+
 function getInitialAddressSelections(entries: AddressBookEntry[]) {
   const defaultOrigin =
     entries.find((entry) => entry.isDefaultSender && (entry.role === "sender" || entry.role === "both")) ?? null;
@@ -1152,14 +1385,14 @@ function buildQuoteRequestBody(input: {
   const aggregate = aggregatePackages(input.packages);
 
   return {
-    originName: input.origin.name,
-    originPhone: input.origin.phone,
-    originAddress: input.origin.address,
+    originName: input.origin.name || "Remitente Ecuador",
+    originPhone: input.origin.phone || "+593000000000",
+    originAddress: input.origin.address || input.origin.city,
     originCity: input.origin.city,
     originReference: input.origin.reference,
-    destinationName: input.destination.name,
-    destinationPhone: input.destination.phone,
-    destinationAddress: input.destination.address,
+    destinationName: input.destination.name || "Destinatario Ecuador",
+    destinationPhone: input.destination.phone || "+593000000000",
+    destinationAddress: input.destination.address || input.destination.city,
     destinationCity: input.destination.city,
     destinationReference: input.destination.reference,
     packageDescription: aggregate.description,
@@ -1202,12 +1435,12 @@ function buildShipmentRequestBody(input: {
     status: "quote_requested",
     originName: input.origin.name,
     originPhone: input.origin.phone,
-    originAddress: input.origin.address,
+    originAddress: input.origin.address || input.origin.city,
     originCity: input.origin.city,
     originReference: joinReference(input.origin),
     destinationName: input.destination.name,
     destinationPhone: input.destination.phone,
-    destinationAddress: input.destination.address,
+    destinationAddress: input.destination.address || input.destination.city,
     destinationCity: input.destination.city,
     destinationReference: joinReference(input.destination),
     packageDescription: aggregate.description,
@@ -1240,11 +1473,20 @@ function aggregatePackages(packages: PackageDraft[]) {
 
 function validateStep(step: WizardStep, input: { origin: ShipmentAddress; destination: ShipmentAddress; packages: PackageDraft[] }) {
   if (step >= 1) {
-    if (!input.origin.name || !input.origin.phone || !input.origin.address || !input.origin.city) {
-      return "Completa nombre, teléfono, dirección y ciudad del origen antes de continuar.";
+    if (!input.origin.city || (!input.origin.address && !input.origin.city)) {
+      return "Completa al menos ciudad y una referencia de dirección para el origen antes de continuar.";
     }
-    if (!input.destination.name || !input.destination.phone || !input.destination.address || !input.destination.city) {
-      return "Completa nombre, teléfono, dirección y ciudad del destino antes de continuar.";
+    if (!input.destination.city || (!input.destination.address && !input.destination.city)) {
+      return "Completa al menos ciudad y una referencia de dirección para el destino antes de continuar.";
+    }
+  }
+
+  if (step >= 3) {
+    if (!input.origin.name || !input.origin.phone || !input.origin.city) {
+      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del origen.";
+    }
+    if (!input.destination.name || !input.destination.phone || !input.destination.city) {
+      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del destino.";
     }
   }
 

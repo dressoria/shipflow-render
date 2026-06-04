@@ -234,7 +234,12 @@ function mapAddressRow(row: AddressApiRow): AddressBookEntry {
   };
 }
 
-type AddressApiEnvelope<T> = { success: boolean; data: T | null; error: string | null };
+type AddressApiEnvelope<T> = {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+  details?: string | null;
+};
 
 async function getToken() {
   const { supabase } = await import("@/lib/supabase");
@@ -253,7 +258,8 @@ async function addressBookFetch<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(path, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) } });
   const json = (await response.json()) as AddressApiEnvelope<T>;
   if (!response.ok || !json.success || !json.data) {
-    throw new Error(json.error ?? `API error (${response.status})`);
+    const message = [json.error, json.details].filter(Boolean).join(" ");
+    throw new Error(message || `API error (${response.status})`);
   }
   return json.data;
 }

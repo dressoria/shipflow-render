@@ -1,7 +1,9 @@
 import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import {
   createUserAddress,
+  getUserAddressErrorDetails,
   listUserAddresses,
+  logUserAddressServerError,
   normalizeUserAddressInput,
 } from "@/lib/server/userAddresses";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
@@ -50,9 +52,10 @@ export async function POST(request: Request) {
     const refreshed = await listUserAddresses(supabase, user.id);
     return apiSuccess({ imported, addresses: refreshed });
   } catch (error) {
+    logUserAddressServerError("import", error);
     if (error instanceof Response) {
-      return apiError((await error.text()) || "We could not import the saved addresses.", error.status);
+      return apiError("No pudimos importar las direcciones guardadas.", error.status, getUserAddressErrorDetails(error));
     }
-    return apiError(error instanceof Error ? error.message : "We could not import the saved addresses.", 500);
+    return apiError("No pudimos importar las direcciones guardadas.", 500, getUserAddressErrorDetails(error));
   }
 }

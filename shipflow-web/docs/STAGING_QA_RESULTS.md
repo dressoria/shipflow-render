@@ -1,6 +1,39 @@
 # Staging QA Results
 
-Last updated: 2026-06-04 (FASE 5.85 Address Book Supabase Persistence)
+Last updated: 2026-06-04 (FASE 5.85B Fix address persistence and improve Ecuador address selection UX)
+
+---
+
+## FASE 5.85B — Fix Address Persistence And Improve Ecuador Address Selection UX
+
+Run timestamp: 2026-06-04 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Fix address book persistence and Ecuador address selection
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Address create/import | READY FOR QA | Address APIs now return safe `error` plus `details`, log sanitized server context, and tolerate `user_addresses` schemas that still lack `reference`. |
+| Address CRUD persistence | READY FOR QA | `/direcciones` create/edit/delete/default/import flows stay behind authenticated Supabase user context without bypassing RLS. |
+| Ecuador address UX | READY FOR QA | Step 1 now emphasizes saved addresses, default sender/recipient reuse, quick-save to address book, province selection, and honest manual/autocomplete entry. |
+| Fake map removal | READY FOR QA | The non-interactive visual map block was removed from the Ecuador quote flow and replaced with a useful quick-address panel. |
+| Operational safety | NOT CHANGED | No payments, no real bookings/orders, no ShipStation USA logic, and no live Ecuador operations were enabled. |
+
+### Manual QA checklist
+
+- [ ] Open `/direcciones` while signed in and create one Ecuador address plus one USA address.
+- [ ] Edit, delete, and mark default sender/default recipient, then refresh to confirm persistence.
+- [ ] If browser localStorage contains older addresses, confirm import works and the banner clears afterward.
+- [ ] Confirm unauthorized or expired sessions now show a useful message such as `Revisa los campos obligatorios o vuelve a iniciar sesión.`
+- [ ] Open `/ecuador/crear-envio` and choose origin/destination from saved addresses.
+- [ ] Confirm the default sender/destination quick actions populate Step 1 correctly.
+- [ ] If Google Places is configured, confirm Ecuador autocomplete fills address/city/province/postal code. If not configured, confirm the UI stays honest and usable without a fake map.
+- [ ] Confirm quote results still do not create real orders or payments.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

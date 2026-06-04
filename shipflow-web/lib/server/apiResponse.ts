@@ -5,6 +5,7 @@ export type ApiResponse<T> = {
   success: boolean;
   data: T | null;
   error: string | null;
+  details?: string | null;
 };
 
 export function apiSuccess<T>(data: T, status = 200) {
@@ -18,12 +19,13 @@ export function apiSuccess<T>(data: T, status = 200) {
   );
 }
 
-export function apiError(message: string, status = 400) {
+export function apiError(message: string, status = 400, details?: string | null) {
   return NextResponse.json<ApiResponse<never>>(
     {
       success: false,
       data: null,
       error: message,
+      details: details ?? null,
     },
     { status },
   );

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isMissingSchemaColumnError } from "@/lib/server/apiResponse";
 
 export type UserAddressRow = {
   id: string;
@@ -24,6 +25,67 @@ export type UserAddressRow = {
   updated_at: string;
 };
 
+type SupabaseLikeError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+export function logUserAddressServerError(scope: string, error: unknown) {
+  const candidate = error as SupabaseLikeError | Response | Error | undefined;
+  if (candidate instanceof Response) {
+    console.error(`[user-addresses:${scope}]`, { status: candidate.status });
+    return;
+  }
+  if (candidate instanceof Error) {
+    console.error(`[user-addresses:${scope}]`, { message: candidate.message });
+    return;
+  }
+  if (candidate && typeof candidate === "object") {
+    console.error(`[user-addresses:${scope}]`, {
+      code: candidate.code,
+      message: candidate.message,
+      details: candidate.details,
+      hint: candidate.hint,
+    });
+    return;
+  }
+  console.error(`[user-addresses:${scope}]`, { error: String(error) });
+}
+
+export function getUserAddressErrorDetails(error: unknown) {
+  if (error instanceof Response) {
+    if (error.status === 401) return "Unauthorized";
+    if (error.status === 403) return "Debes verificar tu correo o volver a iniciar sesión.";
+    return `Error ${error.status}`;
+  }
+
+  if (error instanceof Error) {
+    if (error.message === "Missing authorization token." || error.message === "Invalid authorization token.") {
+      return "Unauthorized";
+    }
+    if (error.message === "EMAIL_NOT_VERIFIED") {
+      return "Debes verificar tu correo antes de guardar direcciones.";
+    }
+    return error.message;
+  }
+
+  const candidate = error as SupabaseLikeError | undefined;
+  const code = candidate?.code?.toUpperCase();
+  const message = candidate?.message?.trim();
+  const details = candidate?.details?.trim();
+
+  if (code === "42501") return "No tienes permisos para modificar esta dirección.";
+  if (code === "23505") return "Ya existe una dirección igual en tu libreta.";
+  if (code === "PGRST116") return "No encontramos la dirección solicitada.";
+  if (isMissingReferenceColumnError(error)) {
+    return "La tabla de direcciones actual no tiene el campo de referencia. El guardado continuará sin ese dato cuando sea posible.";
+  }
+
+  return details || message || "Revisa los campos obligatorios o vuelve a iniciar sesión.";
+}
+
 export type UserAddressInput = {
   label: string;
   country: "EC" | "US";
@@ -43,6 +105,16 @@ export type UserAddressInput = {
   isDefaultSender?: boolean;
   isDefaultRecipient?: boolean;
 };
+
+function isMissingReferenceColumnError(error: unknown) {
+  if (!isMissingSchemaColumnError(error)) return false;
+  const candidate = error as SupabaseLikeError;
+  const haystack = [candidate.message, candidate.details, candidate.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes("reference");
+}
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -83,12 +155,12 @@ export function normalizeUserAddressInput(body: unknown): UserAddressInput {
     isDefaultRecipient: input.isDefaultRecipient === true,
   };
 
-  if (!normalized.label) throw new Error("Address label is required.");
-  if (!normalized.contactName) throw new Error("Contact name is required.");
-  if (!normalized.phone) throw new Error("Phone is required.");
-  if (!normalized.addressLine1) throw new Error("Address line 1 is required.");
-  if (!normalized.city) throw new Error("City is required.");
-  if (!normalized.region) throw new Error("State or province is required.");
+  if (!normalized.label) throw new Error("Falta el campo obligatorio: etiqueta.");
+  if (!normalized.contactName) throw new Error("Falta el campo obligatorio: nombre de contacto.");
+  if (!normalized.phone) throw new Error("Falta el campo obligatorio: teléfono.");
+  if (!normalized.addressLine1) throw new Error("Falta el campo obligatorio: dirección.");
+  if (!normalized.city) throw new Error("Falta el campo obligatorio: ciudad.");
+  if (!normalized.region) throw new Error("Falta el campo obligatorio: provincia o estado.");
 
   return normalized;
 }
@@ -147,7 +219,6 @@ function toRowInsert(userId: string, input: UserAddressInput) {
     email: input.email ?? null,
     address_line1: input.addressLine1,
     address_line2: input.addressLine2 ?? null,
-    reference: input.reference ?? null,
     city: input.city,
     state_province: input.region,
     postal_code: input.postalCode ?? null,
@@ -158,16 +229,78 @@ function toRowInsert(userId: string, input: UserAddressInput) {
   };
 }
 
-export async function createUserAddress(supabase: SupabaseClient, userId: string, input: UserAddressInput) {
-  const { data, error } = await supabase
+function toRowInsertWithReference(userId: string, input: UserAddressInput) {
+  return {
+    ...toRowInsert(userId, input),
+    reference: input.reference ?? null,
+  };
+}
+
+async function insertUserAddressRow(
+  supabase: SupabaseClient,
+  userId: string,
+  input: UserAddressInput,
+) {
+  const initialInsert = await supabase
+    .from("user_addresses")
+    .insert(toRowInsertWithReference(userId, input))
+    .select("*")
+    .single();
+
+  if (!initialInsert.error) {
+    return initialInsert.data as UserAddressRow;
+  }
+
+  if (!isMissingReferenceColumnError(initialInsert.error)) {
+    throw initialInsert.error;
+  }
+
+  const fallbackInsert = await supabase
     .from("user_addresses")
     .insert(toRowInsert(userId, input))
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (fallbackInsert.error) throw fallbackInsert.error;
+  return fallbackInsert.data as UserAddressRow;
+}
 
-  const row = data as UserAddressRow;
+async function updateUserAddressRow(
+  supabase: SupabaseClient,
+  userId: string,
+  addressId: string,
+  input: UserAddressInput,
+) {
+  const initialUpdate = await supabase
+    .from("user_addresses")
+    .update(toRowInsertWithReference(userId, input))
+    .eq("id", addressId)
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+
+  if (!initialUpdate.error) {
+    return initialUpdate.data as UserAddressRow;
+  }
+
+  if (!isMissingReferenceColumnError(initialUpdate.error)) {
+    throw initialUpdate.error;
+  }
+
+  const fallbackUpdate = await supabase
+    .from("user_addresses")
+    .update(toRowInsert(userId, input))
+    .eq("id", addressId)
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+
+  if (fallbackUpdate.error) throw fallbackUpdate.error;
+  return fallbackUpdate.data as UserAddressRow;
+}
+
+export async function createUserAddress(supabase: SupabaseClient, userId: string, input: UserAddressInput) {
+  const row = await insertUserAddressRow(supabase, userId, input);
   await clearDefaultFlags(
     supabase,
     userId,
@@ -186,17 +319,7 @@ export async function updateUserAddress(
   addressId: string,
   input: UserAddressInput,
 ) {
-  const { data, error } = await supabase
-    .from("user_addresses")
-    .update(toRowInsert(userId, input))
-    .eq("id", addressId)
-    .eq("user_id", userId)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-
-  const row = data as UserAddressRow;
+  const row = await updateUserAddressRow(supabase, userId, addressId, input);
   await clearDefaultFlags(
     supabase,
     userId,
