@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, MapPinned, Package, Truck } from "lucide-react";
+import Image from "next/image";
 
 const cityNodes = [
   { name: "Quito", top: "12%", left: "58%" },
@@ -39,27 +40,26 @@ export function EcuadorMapVisual() {
               </span>
             </div>
 
-            <div className="relative mt-5 overflow-hidden rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] p-5">
-              <div className="absolute inset-0 opacity-80">
-                <div className="absolute left-[22%] top-[40%] h-px w-[38%] -rotate-[8deg] bg-sky-200" />
-                <div className="absolute left-[32%] top-[58%] h-px w-[22%] rotate-[24deg] bg-sky-200" />
-                <div className="absolute left-[44%] top-[22%] h-px w-[16%] rotate-[72deg] bg-sky-200" />
-                <div className="absolute left-[46%] top-[44%] h-px w-[16%] rotate-[85deg] bg-sky-200" />
-                <div className="absolute left-[38%] top-[72%] h-px w-[10%] -rotate-[58deg] bg-sky-200" />
-              </div>
-
-              <div className="relative h-[320px] rounded-[1.5rem] bg-[radial-gradient(circle_at_20%_20%,#ffffff,transparent_26%),linear-gradient(180deg,#dbeafe_0%,#f8fafc_100%)]">
-                <div className="absolute inset-y-8 left-[28%] w-[42%] rounded-[42%_36%_48%_34%/26%_44%_34%_52%] border border-sky-200 bg-white/75 shadow-inner shadow-sky-100" />
+            <div className="relative mt-5 overflow-hidden rounded-[1.75rem] border border-sky-100 bg-[linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)]">
+              <div className="relative aspect-[16/11]">
+                <Image
+                  src="/images/ecuador/maps/ecuador-map-coverage.webp"
+                  alt="Cobertura multicourier en Ecuador con rutas entre ciudades principales"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 560px"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.14)_100%)]" />
                 {cityNodes.map((city) => (
                   <div key={city.name} className="absolute" style={{ top: city.top, left: city.left }}>
                     <span className="absolute -left-2 -top-2 h-4 w-4 rounded-full border-2 border-white bg-sky-600 shadow-md shadow-sky-600/20" />
-                    <span className="ml-4 inline-flex rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-black text-slate-700 shadow-sm">
+                    <span className="ml-4 inline-flex rounded-full bg-white/92 px-2.5 py-1 text-[11px] font-black text-slate-700 shadow-sm">
                       {city.name}
                     </span>
                   </div>
                 ))}
 
-                <div className="absolute right-[18%] top-[14%] rounded-2xl border border-sky-100 bg-white px-3 py-2 shadow-lg">
+                <div className="absolute right-[5%] top-[8%] rounded-2xl border border-sky-100 bg-white/96 px-3 py-2 shadow-lg backdrop-blur">
                   <div className="flex items-center gap-2 text-xs font-black text-sky-700">
                     <Truck className="h-3.5 w-3.5" />
                     Operadores en preparación
@@ -67,7 +67,7 @@ export function EcuadorMapVisual() {
                   <p className="mt-1 text-[11px] text-slate-500">Servientrega, LaarCourier, Tramaco, Delivereo</p>
                 </div>
 
-                <div className="absolute bottom-[10%] left-[10%] rounded-2xl border border-sky-100 bg-white px-3 py-2 shadow-lg">
+                <div className="absolute bottom-[10%] left-[6%] rounded-2xl border border-sky-100 bg-white/96 px-3 py-2 shadow-lg backdrop-blur">
                   <div className="flex items-center gap-2 text-xs font-black text-sky-700">
                     <Package className="h-3.5 w-3.5" />
                     Cotización beta
@@ -75,7 +75,7 @@ export function EcuadorMapVisual() {
                   <p className="mt-1 text-[11px] text-slate-500">Sin cobro y sin orden real</p>
                 </div>
 
-                <div className="absolute bottom-[20%] right-[22%] flex items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-1 text-[11px] font-black text-slate-700 shadow-md">
+                <div className="absolute bottom-[24%] right-[10%] flex items-center gap-2 rounded-full border border-sky-100 bg-white/96 px-3 py-1 text-[11px] font-black text-slate-700 shadow-md backdrop-blur">
                   <MapPinned className="h-3.5 w-3.5 text-sky-700" />
                   Quito
                   <ArrowRight className="h-3 w-3 text-slate-400" />

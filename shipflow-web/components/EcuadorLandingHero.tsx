@@ -1,13 +1,13 @@
 "use client";
 
 import { ArrowRight, Building2, CheckCircle2, MapPinned, Package, ShoppingBag, Store, Truck, Users } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { EcuadorOperatorsLogos } from "@/components/EcuadorOperatorsLogos";
 import { MotionCard, MotionReveal } from "@/components/Motion";
-import { EcuadorMapVisual } from "@/components/EcuadorMapVisual";
 import { useRegionMode } from "@/contexts/RegionModeContext";
 
 export function EcuadorLandingHero({ compact = false }: { compact?: boolean }) {
@@ -77,7 +77,36 @@ export function EcuadorLandingHero({ compact = false }: { compact?: boolean }) {
           </MotionReveal>
 
           <MotionReveal delay={0.18}>
-            <EcuadorMapVisual />
+            <div className="relative mx-auto max-w-2xl">
+              <div className="absolute -left-10 top-14 hidden h-32 w-32 rounded-full bg-sky-200/40 blur-3xl lg:block" />
+              <div className="absolute -right-8 bottom-10 hidden h-36 w-36 rounded-full bg-blue-200/40 blur-3xl lg:block" />
+              <div className="relative overflow-hidden rounded-[2.25rem] border border-sky-100 bg-white p-3 shadow-[0_28px_90px_rgba(2,32,71,0.14)]">
+                <div className="relative aspect-[16/10] overflow-hidden rounded-[1.8rem] bg-[linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)]">
+                  <Image
+                    src="/images/ecuador/hero/ecuador-hero-main.webp"
+                    alt="Visual multicourier de Ecuador con cobertura entre ciudades y estados beta"
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 640px"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(15,23,42,0.08)_100%)]" />
+
+                  <div className="absolute left-4 top-4 rounded-2xl border border-white/70 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
+                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-sky-700">Multicourier Ecuador</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-700">Cotización beta, cobertura nacional y operadores en preparación</p>
+                  </div>
+
+                  <div className="absolute bottom-4 right-4 rounded-2xl border border-sky-100 bg-white/92 px-4 py-3 shadow-lg backdrop-blur">
+                    <div className="flex items-center gap-2 text-xs font-black text-sky-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Sin cobro y sin orden real
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Explora el flujo Ecuador mientras terminamos activación por operador.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </MotionReveal>
         </div>
       </div>
@@ -89,38 +118,63 @@ export function EcuadorValueSection() {
   return (
     <section className="bg-white py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-700">Todo tu envío en un solo lugar</p>
-          <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-            Una sola vista para cotizar, organizar y preparar tus entregas en Ecuador
-          </h2>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            SendiFlash Ecuador se está construyendo como una plataforma multicourier para negocios, tiendas online y equipos que quieren centralizar sus envíos.
-          </p>
-        </div>
+        <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr]">
+          <MotionReveal>
+            <div className="max-w-3xl">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-700">Todo tu envío en un solo lugar</p>
+              <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+                Organiza tus entregas desde una sola vista comercial para Ecuador
+              </h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">
+                SendiFlash Ecuador se está construyendo para tiendas online, ventas por WhatsApp y pymes que quieren cotizar, preparar y centralizar envíos sin depender de múltiples portales.
+              </p>
+            </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { icon: Truck, title: "Cotiza con operadores", text: "Recibe estimados beta para rutas locales y nacionales sin abrir portales separados." },
-            { icon: Package, title: "Organiza solicitudes", text: "Guarda datos de origen, destino y paquete en una solicitud clara para revisión interna." },
-            { icon: MapPinned, title: "Da seguimiento", text: "Prepara una futura vista de seguimiento y estados visibles para el cliente." },
-            { icon: Building2, title: "Prepara cobertura nacional", text: "Construye tu operación con foco en Quito, Guayaquil, Cuenca, Manta, Loja y Ambato." },
-          ].map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <MotionCard
-                key={item.title}
-                delay={index * 0.06}
-                className="rounded-3xl border border-sky-100 bg-[linear-gradient(180deg,#f8fdff_0%,#ffffff_100%)] p-6 shadow-sm shadow-sky-950/5"
-              >
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700">
-                  <Icon className="h-6 w-6" />
-                </span>
-                <h3 className="mt-5 font-black text-slate-950">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
-              </MotionCard>
-            );
-          })}
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              {[
+                { icon: Truck, title: "Cotiza con operadores", text: "Recibe estimados beta para rutas locales y nacionales sin abrir portales separados." },
+                { icon: Package, title: "Organiza solicitudes", text: "Guarda datos de origen, destino y paquete en una solicitud clara para revisión interna." },
+                { icon: MapPinned, title: "Da seguimiento", text: "Prepara una futura vista de seguimiento y estados visibles para el cliente." },
+                { icon: Building2, title: "Prepara cobertura nacional", text: "Construye tu operación con foco en Quito, Guayaquil, Cuenca, Manta, Loja y Ambato." },
+              ].map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <MotionCard
+                    key={item.title}
+                    delay={index * 0.06}
+                    className="rounded-3xl border border-sky-100 bg-[linear-gradient(180deg,#f8fdff_0%,#ffffff_100%)] p-6 shadow-sm shadow-sky-950/5"
+                  >
+                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700">
+                      <Icon className="h-6 w-6" />
+                    </span>
+                    <h3 className="mt-5 font-black text-slate-950">{item.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{item.text}</p>
+                  </MotionCard>
+                );
+              })}
+            </div>
+          </MotionReveal>
+
+          <MotionReveal delay={0.12}>
+            <div className="relative overflow-hidden rounded-[2.25rem] border border-sky-100 bg-white p-3 shadow-[0_20px_70px_rgba(2,32,71,0.1)]">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-[1.8rem]">
+                <Image
+                  src="/images/ecuador/hero/ecuador-logistics-workspace.webp"
+                  alt="Espacio de trabajo logístico para negocios ecuatorianos con pedidos, etiquetas y control desde un solo lugar"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 560px"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(15,23,42,0.1)_100%)]" />
+              </div>
+              <div className="absolute inset-x-7 bottom-7 rounded-[1.6rem] border border-white/70 bg-white/92 p-4 shadow-lg backdrop-blur">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Ventas por WhatsApp, tiendas online y pymes</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Una experiencia pensada para coordinar pedidos, preparar paquetes y visualizar cobertura Ecuador en modo beta.
+                </p>
+              </div>
+            </div>
+          </MotionReveal>
         </div>
       </div>
     </section>
