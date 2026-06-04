@@ -9,6 +9,7 @@ import { useAddressBook } from "@/hooks/useAddressBook";
 import {
   filterAddressEntries,
   formatAddressSummary,
+  isDefaultForRole,
   rememberLastUsedAddress,
   type AddressBookEntry,
   type AddressBookRole,
@@ -147,7 +148,7 @@ export function AddressBookSelector({
                         <p className="text-sm font-black text-slate-950">{entry.label}</p>
                         <p className="mt-1 text-sm font-semibold text-slate-500">{entry.contactName}</p>
                       </div>
-                      {entry.isDefault ? (
+                      {isDefaultForRole(entry, role) ? (
                         <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">
                           {isEcuadorMode ? "Predeterminada" : "Default"}
                         </span>
@@ -167,8 +168,8 @@ export function AddressBookSelector({
           key="new"
           open={dialogOpen}
           onClose={() => setDialogOpen(false)}
-          onSave={(draft, existingId) => {
-            upsertEntry(draft, existingId);
+          onSave={async (draft, existingId) => {
+            await upsertEntry(draft, existingId);
             setDialogOpen(false);
           }}
         />

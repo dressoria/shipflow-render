@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -127,6 +127,22 @@ export function EcuadorShipmentRequestForm() {
     const count = packages.reduce((sum, item) => sum + Math.max(1, item.quantity), 0);
     return { totalWeight, count };
   }, [packages]);
+
+  useEffect(() => {
+    if (entries.length === 0) return;
+    const defaults = getInitialAddressSelections(entries);
+
+    Promise.resolve().then(() => {
+      if (!selectedOriginAddressId && defaults.origin) {
+        setSelectedOriginAddressId(defaults.origin.id);
+        setOrigin((current) => (current.address ? current : mapAddressEntryToShipment(defaults.origin as AddressBookEntry)));
+      }
+      if (!selectedDestinationAddressId && defaults.destination) {
+        setSelectedDestinationAddressId(defaults.destination.id);
+        setDestination((current) => (current.address ? current : mapAddressEntryToShipment(defaults.destination as AddressBookEntry)));
+      }
+    });
+  }, [entries, selectedDestinationAddressId, selectedOriginAddressId]);
 
   const stepLabels = ["Origen y destino", "Paquetes", "Tarifas y cotizaciones"] as const;
 
@@ -1110,8 +1126,10 @@ function mapAddressEntryToShipment(entry: AddressBookEntry): ShipmentAddress {
 }
 
 function getInitialAddressSelections(entries: AddressBookEntry[]) {
-  const defaultOrigin = entries.find((entry) => entry.isDefault && (entry.role === "sender" || entry.role === "both")) ?? null;
-  const defaultDestination = entries.find((entry) => entry.isDefault && (entry.role === "recipient" || entry.role === "both")) ?? null;
+  const defaultOrigin =
+    entries.find((entry) => entry.isDefaultSender && (entry.role === "sender" || entry.role === "both")) ?? null;
+  const defaultDestination =
+    entries.find((entry) => entry.isDefaultRecipient && (entry.role === "recipient" || entry.role === "both")) ?? null;
   const lastUsed = readLastUsedAddress();
   const remembered = lastUsed?.id ? entries.find((entry) => entry.id === lastUsed.id) ?? null : null;
 

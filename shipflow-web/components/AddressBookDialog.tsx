@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { useRegionMode } from "@/contexts/RegionModeContext";
-import type { AddressBookEntry, AddressBookEntryDraft, AddressBookRole } from "@/lib/addressBook";
+import type { AddressBookCountry, AddressBookEntry, AddressBookEntryDraft, AddressBookRole } from "@/lib/addressBook";
 
 const DEFAULT_DRAFT: AddressBookEntryDraft = {
   label: "",
   country: "EC",
   role: "both",
   contactName: "",
+  company: "",
   addressLine1: "",
   addressLine2: "",
   city: "",
@@ -18,7 +19,10 @@ const DEFAULT_DRAFT: AddressBookEntryDraft = {
   phone: "",
   email: "",
   reference: "",
-  isDefault: false,
+  latitude: undefined,
+  longitude: undefined,
+  isDefaultSender: false,
+  isDefaultRecipient: false,
 };
 
 export function AddressBookDialog({
@@ -30,11 +34,12 @@ export function AddressBookDialog({
   open: boolean;
   initialValue?: AddressBookEntry | null;
   onClose: () => void;
-  onSave: (draft: AddressBookEntryDraft, existingId?: string) => void;
+  onSave: (draft: AddressBookEntryDraft, existingId?: string) => Promise<void>;
 }) {
   const { mode } = useRegionMode();
   const isEcuadorMode = mode === "ec";
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<AddressBookEntryDraft>(() =>
     initialValue
       ? {
@@ -42,6 +47,7 @@ export function AddressBookDialog({
           country: initialValue.country,
           role: initialValue.role,
           contactName: initialValue.contactName,
+          company: initialValue.company ?? "",
           addressLine1: initialValue.addressLine1,
           addressLine2: initialValue.addressLine2 ?? "",
           city: initialValue.city,
@@ -50,7 +56,10 @@ export function AddressBookDialog({
           phone: initialValue.phone,
           email: initialValue.email ?? "",
           reference: initialValue.reference ?? "",
-          isDefault: initialValue.isDefault,
+          latitude: initialValue.latitude,
+          longitude: initialValue.longitude,
+          isDefaultSender: initialValue.isDefaultSender,
+          isDefaultRecipient: initialValue.isDefaultRecipient,
         }
       : { ...DEFAULT_DRAFT, country: isEcuadorMode ? "EC" : "US" },
   );
@@ -98,7 +107,7 @@ export function AddressBookDialog({
         </div>
 
         <form
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             if (draft.phone.trim().length < 7) {
               setError(isEcuadorMode ? "Ingresa un teléfono válido con al menos 7 dígitos." : "Enter a valid phone number with at least 7 digits.");
@@ -109,8 +118,15 @@ export function AddressBookDialog({
               return;
             }
             setError("");
-            onSave(draft, initialValue?.id);
-            onClose();
+            setSaving(true);
+            try {
+              await onSave(draft, initialValue?.id);
+              onClose();
+            } catch (nextError) {
+              setError(nextError instanceof Error ? nextError.message : isEcuadorMode ? "No pudimos guardar la dirección." : "We could not save the address.");
+            } finally {
+              setSaving(false);
+            }
           }}
           className="grid gap-5 px-6 py-6"
         >
@@ -129,9 +145,10 @@ export function AddressBookDialog({
                 { value: "EC", label: isEcuadorMode ? "Ecuador" : "Ecuador" },
                 { value: "US", label: isEcuadorMode ? "Estados Unidos" : "United States" },
               ]}
-              onChange={(value) => setDraft((current) => ({ ...current, country: value }))}
+              onChange={(value) => setDraft((current) => ({ ...current, country: value as AddressBookCountry }))}
             />
             <TextField label={isEcuadorMode ? "Nombre / contacto" : "Contact name"} value={draft.contactName} onChange={(value) => setDraft((current) => ({ ...current, contactName: value }))} required />
+            <TextField label={isEcuadorMode ? "Empresa" : "Company"} value={draft.company ?? ""} onChange={(value) => setDraft((current) => ({ ...current, company: value }))} />
             <TextField label={isEcuadorMode ? "Teléfono" : "Phone"} value={draft.phone} onChange={(value) => setDraft((current) => ({ ...current, phone: value }))} required />
             <TextField label="Email" value={draft.email ?? ""} onChange={(value) => setDraft((current) => ({ ...current, email: value }))} />
           </div>
@@ -159,10 +176,29 @@ export function AddressBookDialog({
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <input
               type="checkbox"
-              checked={draft.isDefault}
-              onChange={(event) => setDraft((current) => ({ ...current, isDefault: event.target.checked }))}
+              checked={draft.isDefaultSender}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  isDefaultSender: event.target.checked,
+                }))
+              }
             />
-            <span>{isEcuadorMode ? "Marcar como dirección predeterminada" : "Mark as default address"}</span>
+            <span>{isEcuadorMode ? "Usar como remitente predeterminado" : "Use as default sender"}</span>
+          </label>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={draft.isDefaultRecipient}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  isDefaultRecipient: event.target.checked,
+                }))
+              }
+            />
+            <span>{isEcuadorMode ? "Usar como destinatario predeterminado" : "Use as default recipient"}</span>
           </label>
 
           {error ? (
@@ -175,15 +211,21 @@ export function AddressBookDialog({
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
             >
               {isEcuadorMode ? "Cancelar" : "Cancel"}
             </button>
             <button
               type="submit"
+              disabled={saving}
               className="inline-flex h-11 items-center justify-center rounded-2xl bg-sky-600 px-5 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700"
             >
-              {initialValue
+              {saving
+                ? isEcuadorMode
+                  ? "Guardando..."
+                  : "Saving..."
+                : initialValue
                 ? isEcuadorMode
                   ? "Guardar cambios"
                   : "Save changes"

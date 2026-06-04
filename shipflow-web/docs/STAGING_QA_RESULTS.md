@@ -1,6 +1,40 @@
 # Staging QA Results
 
-Last updated: 2026-06-04 (FASE 5.84 Ecuador UX QA and polish)
+Last updated: 2026-06-04 (FASE 5.85 Address Book Supabase Persistence)
+
+---
+
+## FASE 5.85 — Address Book Supabase Persistence
+
+Run timestamp: 2026-06-04 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Persist shared address book in Supabase
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Supabase persistence | READY FOR QA | Shared address book now persists in `user_addresses` with authenticated CRUD APIs and no payment/provider coupling. |
+| RLS safety | READY FOR QA | `user_addresses` policies restrict read/write/delete to the owning authenticated user only. |
+| Legacy browser migration | READY FOR QA | Existing localStorage addresses can be imported into the signed-in account and then cleared from the browser-only store. |
+| Ecuador quote integration | READY FOR QA | Ecuador quote wizard can select saved origin/destination addresses and prefills default sender/recipient when available. |
+| USA operational logic | NOT CHANGED | USA shipment creation, labels, wallet, tracking, and business logic remain untouched. |
+| Payments / provider ops | NOT CHANGED | No Stripe, wallet, Delivereo booking, real order creation, or Ecuador payment behavior was added. |
+
+### Manual QA checklist
+
+- [ ] Apply the new `user_addresses` migration in the test environment.
+- [ ] Sign in and confirm `/direcciones` loads saved addresses from Supabase instead of browser-only state.
+- [ ] Create, edit, delete, search, and mark sender/recipient defaults from `/direcciones`.
+- [ ] Confirm a second user cannot see or mutate another user's addresses.
+- [ ] If legacy localStorage data exists, confirm the import banner appears once and imports only missing addresses.
+- [ ] Confirm `/ecuador/crear-envio` can pick saved sender/recipient addresses and prefills default origin when configured.
+- [ ] Confirm signed-out users cannot call `/api/user-addresses` endpoints successfully.
+- [ ] Confirm no real Ecuador shipment, booking, payment, or USA label flow is triggered by address-book actions.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

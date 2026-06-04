@@ -2,17 +2,29 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BookMarked, MapPinned, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import { BookMarked, Download, MapPinned, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { AddressBookDialog } from "@/components/AddressBookDialog";
 import { DashboardShell } from "@/components/DashboardShell";
 import { useAddressBook } from "@/hooks/useAddressBook";
 import { useRegionMode } from "@/contexts/RegionModeContext";
-import { filterAddressEntries, formatAddressSummary, rememberLastUsedAddress, type AddressBookEntry } from "@/lib/addressBook";
+import { filterAddressEntries, formatAddressSummary, isDefaultForRole, rememberLastUsedAddress, type AddressBookEntry } from "@/lib/addressBook";
 
 export function AddressBookPage() {
   const { mode } = useRegionMode();
   const isEcuadorMode = mode === "ec";
-  const { entries, loaded, upsertEntry, deleteEntry, markDefault } = useAddressBook();
+  const {
+    entries,
+    loaded,
+    error,
+    saving,
+    importing,
+    hasLegacyEntriesToImport,
+    legacyEntries,
+    upsertEntry,
+    deleteEntry,
+    markDefault,
+    importLegacySavedAddresses,
+  } = useAddressBook();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AddressBookEntry | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -30,6 +42,38 @@ export function AddressBookPage() {
       }
     >
       <div className="grid gap-5">
+        {hasLegacyEntriesToImport ? (
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 shadow-sm shadow-slate-950/5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-700">
+                  {isEcuadorMode ? "Importación disponible" : "Import available"}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-amber-900">
+                  {isEcuadorMode
+                    ? `Encontramos ${legacyEntries.length} dirección(es) guardadas en este navegador. Puedes importarlas a tu cuenta para usarlas desde cualquier sesión.`
+                    : `We found ${legacyEntries.length} address(es) saved in this browser. You can import them into your account.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={() => void importLegacySavedAddresses()}
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-amber-600 px-5 text-sm font-bold text-white shadow-lg shadow-amber-600/20 transition hover:bg-amber-700 disabled:opacity-60"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {importing
+                  ? isEcuadorMode
+                    ? "Importando..."
+                    : "Importing..."
+                  : isEcuadorMode
+                    ? "Importar direcciones guardadas en este navegador"
+                    : "Import saved browser addresses"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
@@ -81,6 +125,12 @@ export function AddressBookPage() {
           </div>
         </section>
 
+        {error ? (
+          <section className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
+            {error}
+          </section>
+        ) : null}
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {!loaded ? (
             <AddressBookEmptyState
@@ -105,9 +155,19 @@ export function AddressBookPage() {
                       <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
                         {entry.label}
                       </span>
-                      {entry.isDefault ? (
+                      {isDefaultForRole(entry) ? (
                         <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
                           {isEcuadorMode ? "Predeterminada" : "Default"}
+                        </span>
+                      ) : null}
+                      {entry.isDefaultSender ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                          {isEcuadorMode ? "Remitente predet." : "Default sender"}
+                        </span>
+                      ) : null}
+                      {entry.isDefaultRecipient ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                          {isEcuadorMode ? "Destinatario predet." : "Default recipient"}
                         </span>
                       ) : null}
                     </div>
@@ -150,12 +210,13 @@ export function AddressBookPage() {
                     <Pencil className="mr-2 h-4 w-4" />
                     {isEcuadorMode ? "Editar" : "Edit"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => markDefault(entry.id)}
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-700 transition hover:bg-amber-100"
-                  >
-                    <Star className="mr-2 h-4 w-4" />
+                    <button
+                      type="button"
+                      disabled={saving}
+                    onClick={() => void markDefault(entry.id, entry.role === "both" ? "both" : entry.role)}
+                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-bold text-amber-700 transition hover:bg-amber-100"
+                    >
+                      <Star className="mr-2 h-4 w-4" />
                     {isEcuadorMode ? "Marcar predeterminada" : "Mark default"}
                   </button>
                   <Link
@@ -166,11 +227,12 @@ export function AddressBookPage() {
                     <MapPinned className="mr-2 h-4 w-4" />
                     {isEcuadorMode ? "Usar en cotización" : "Use in quote"}
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => deleteEntry(entry.id)}
-                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
-                  >
+                    <button
+                      type="button"
+                      disabled={saving}
+                    onClick={() => void deleteEntry(entry.id)}
+                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                    >
                     <Trash2 className="mr-2 h-4 w-4" />
                     {isEcuadorMode ? "Eliminar" : "Delete"}
                   </button>
@@ -190,7 +252,9 @@ export function AddressBookPage() {
             setDialogOpen(false);
             setEditing(null);
           }}
-          onSave={upsertEntry}
+          onSave={async (draft, existingId) => {
+            await upsertEntry(draft, existingId);
+          }}
         />
       ) : null}
     </DashboardShell>
