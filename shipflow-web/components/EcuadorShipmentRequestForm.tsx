@@ -36,11 +36,13 @@ import {
 } from "@/lib/services/apiClient";
 import { formatCurrency } from "@/lib/utils";
 
-type WizardStep = 1 | 2 | 3;
+type WizardStep = 1 | 2 | 3 | 4;
 
 type ShipmentAddress = {
   name: string;
   phone: string;
+  streetMain: string;
+  streetCrossing: string;
   address: string;
   city: string;
   reference: string;
@@ -124,6 +126,8 @@ const HAS_ECUADOR_GOOGLE_AUTOCOMPLETE = Boolean(GOOGLE_MAPS_KEY);
 const initialAddress = (): ShipmentAddress => ({
   name: "",
   phone: "",
+  streetMain: "",
+  streetCrossing: "",
   address: "",
   city: "",
   reference: "",
@@ -151,6 +155,8 @@ const createMultiDestinationDraft = (): MultiDestinationDraft => ({
   city: "",
   reference: "",
 });
+
+const STEP_LABELS = ["Origen y destino", "Productos / paquetes", "Transportadora", "Resumen"] as const;
 
 export function EcuadorShipmentRequestForm() {
   const router = useRouter();
@@ -202,11 +208,11 @@ export function EcuadorShipmentRequestForm() {
     Promise.resolve().then(() => {
       if (!selectedOriginAddressId && defaults.origin) {
         setSelectedOriginAddressId(defaults.origin.id);
-        setOrigin((current) => (current.address ? current : mapAddressEntryToShipment(defaults.origin as AddressBookEntry)));
+        setOrigin((current) => (current.city ? current : mapAddressEntryToShipment(defaults.origin as AddressBookEntry)));
       }
       if (!selectedDestinationAddressId && defaults.destination) {
         setSelectedDestinationAddressId(defaults.destination.id);
-        setDestination((current) => (current.address ? current : mapAddressEntryToShipment(defaults.destination as AddressBookEntry)));
+        setDestination((current) => (current.city ? current : mapAddressEntryToShipment(defaults.destination as AddressBookEntry)));
       }
     });
   }, [entries, selectedDestinationAddressId, selectedOriginAddressId]);
@@ -223,11 +229,9 @@ export function EcuadorShipmentRequestForm() {
         : null;
   const selectedQuoteResult = quoteResults.find((item) => item.ok && item.providerName === selectedOperatorName) ?? null;
 
-  const stepLabels = ["Origen y destino", "Paquetes", "Tarifas y cotizaciones"] as const;
-
   function updateAddress(target: "origin" | "destination", key: keyof ShipmentAddress, value: string | number | undefined) {
     const shouldClearCoordinates =
-      key === "address" || key === "city" || key === "region" || key === "postalCode";
+      key === "address" || key === "streetMain" || key === "streetCrossing" || key === "city" || key === "region" || key === "postalCode";
 
     if (target === "origin") {
       setOrigin((current) => ({
@@ -308,7 +312,7 @@ export function EcuadorShipmentRequestForm() {
     const nextError = validateStep(step, { origin, destination, packages });
     setFormError(nextError);
     if (nextError) return;
-    setStep((current) => Math.min(3, current + 1) as WizardStep);
+    setStep((current) => Math.min(4, current + 1) as WizardStep);
   }
 
   function previousStep() {
@@ -340,7 +344,7 @@ export function EcuadorShipmentRequestForm() {
   }
 
   async function submitRequest() {
-    const nextError = validateStep(3, { origin, destination, packages });
+    const nextError = validateStep(4, { origin, destination, packages });
     setFormError(nextError);
     if (nextError) return;
 
@@ -377,7 +381,7 @@ export function EcuadorShipmentRequestForm() {
               <Sparkles className="mr-2 h-3.5 w-3.5" />
               Cotización de envío
             </Badge>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Prepara tu solicitud Ecuador en tres pasos</h2>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Prepara tu solicitud Ecuador en cuatro pasos</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Organiza origen, destino, paquetes y cotizaciones disponibles desde una experiencia multicourier en español. Sin cobro y sin orden real todavía.
             </p>
@@ -393,8 +397,8 @@ export function EcuadorShipmentRequestForm() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-3">
-          {stepLabels.map((label, index) => {
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {STEP_LABELS.map((label, index) => {
             const currentStep = (index + 1) as WizardStep;
             const active = step === currentStep;
             const completed = step > currentStep;
@@ -403,7 +407,7 @@ export function EcuadorShipmentRequestForm() {
                 key={label}
                 type="button"
                 onClick={() => setStep(currentStep)}
-                className={`rounded-3xl border p-4 text-left transition ${
+                className={`rounded-3xl border p-3 text-left transition sm:p-4 ${
                   active
                     ? "border-sky-300 bg-sky-50"
                     : completed
@@ -411,17 +415,17 @@ export function EcuadorShipmentRequestForm() {
                       : "border-slate-200 bg-slate-50/70 hover:border-sky-200"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <span
-                    className={`grid h-8 w-8 place-items-center rounded-2xl text-sm font-black ${
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-xl text-xs font-black sm:h-8 sm:w-8 sm:rounded-2xl sm:text-sm ${
                       active ? "bg-sky-600 text-white" : completed ? "bg-emerald-600 text-white" : "bg-white text-slate-500"
                     }`}
                   >
-                    {completed ? <CheckCircle2 className="h-4 w-4" /> : currentStep}
+                    {completed ? <CheckCircle2 className="h-3.5 w-3.5" /> : currentStep}
                   </span>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Paso {currentStep}</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">{label}</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Paso {currentStep}</p>
+                    <p className="mt-0.5 truncate text-xs font-black text-slate-950 sm:text-sm">{label}</p>
                   </div>
                 </div>
               </button>
@@ -474,7 +478,7 @@ export function EcuadorShipmentRequestForm() {
       ) : null}
 
       {step === 3 ? (
-        <StepQuotes
+        <StepCarrier
           origin={origin}
           destination={destination}
           extraDestinations={extraDestinations}
@@ -489,10 +493,26 @@ export function EcuadorShipmentRequestForm() {
         />
       ) : null}
 
+      {step === 4 ? (
+        <StepSummary
+          origin={origin}
+          destination={destination}
+          packages={packages}
+          packageTotals={packageTotals}
+          extraDestinations={extraDestinations}
+          selectedOperatorName={selectedOperatorName}
+          selectedQuoteResult={selectedQuoteResult}
+          declaredValue={declaredValue}
+          customerNotes={customerNotes}
+          submitting={submitting}
+          onSubmit={submitRequest}
+        />
+      ) : null}
+
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-600">
-            {step === 3
+            {step === 4
               ? "Cuando confirmes, guardaremos tu solicitud Ecuador para revisión interna. No se crea orden real ni se procesa ningún pago."
               : "Puedes avanzar entre pasos, volver atrás y seguir preparando tu solicitud sin crear órdenes reales."}
           </p>
@@ -508,7 +528,7 @@ export function EcuadorShipmentRequestForm() {
               </button>
             ) : null}
 
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 type="button"
                 onClick={nextStep}
@@ -590,7 +610,7 @@ function StepAddresses({
               <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 1</p>
               <h3 className="mt-2 text-2xl font-black text-slate-950">Origen y destino</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Elige direcciones guardadas, completa los datos manualmente y prepara varios destinos si tu operación lo necesita.
+                Elige direcciones guardadas o completa los datos de remitente y destinatario con ciudad, calle y referencia.
               </p>
             </div>
             <button
@@ -663,7 +683,7 @@ function StepAddresses({
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <TextField label="Etiqueta" value={item.label} onChange={(value) => onUpdateMultiDestination(item.id, "label", value)} placeholder="Cliente frecuente" />
                     <TextField label="Nombre / contacto" value={item.name} onChange={(value) => onUpdateMultiDestination(item.id, "name", value)} placeholder="María Torres" />
-                    <TextField label="Ciudad" value={item.city} onChange={(value) => onUpdateMultiDestination(item.id, "city", value)} placeholder="Quito" />
+                    <TextField label="Ciudad / cantón" value={item.city} onChange={(value) => onUpdateMultiDestination(item.id, "city", value)} placeholder="Quito" />
                     <TextField label="Dirección" value={item.address} onChange={(value) => onUpdateMultiDestination(item.id, "address", value)} placeholder="Av. 6 de Diciembre y..." />
                   </div>
                   <label className="mt-4 block">
@@ -685,9 +705,9 @@ function StepAddresses({
       <aside className="grid content-start gap-5">
         <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Direcciones rápidas</p>
-          <h3 className="mt-2 text-xl font-black text-slate-950">Completa más rápido sin depender de un mapa falso</h3>
+          <h3 className="mt-2 text-xl font-black text-slate-950">Sin depender de código postal</h3>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Usa direcciones guardadas, ciudades frecuentes y dirección completa manual. Cuando el entorno tenga geocodificación habilitada, el autocomplete se conecta sin cambiar este flujo.
+            En Ecuador los envíos se identifican por ciudad, calle y referencia. Completa los campos manualmente o usa tu libreta guardada.
           </p>
           <div className="mt-4 grid gap-3">
             <MiniStat label="Libreta guardada" value={entries.length > 0 ? `${entries.length} dirección(es)` : "Vacía por ahora"} />
@@ -701,11 +721,11 @@ function StepAddresses({
               </span>
             ))}
           </div>
-          <p className="mt-4 text-xs leading-5 text-slate-500">
-            {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE
-              ? "Autocomplete activo para Ecuador. Si una dirección no aparece, puedes pegarla completa y completar ciudad y provincia manualmente."
-              : "El buscador con mapa se habilitará cuando el servicio de geocodificación esté configurado. Mientras tanto, puedes pegar la dirección completa y apoyarte en la libreta."}
-          </p>
+          {!HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? (
+            <p className="mt-4 text-xs leading-5 text-slate-500">
+              La selección por mapa se habilitará cuando el servicio esté configurado. Mientras tanto, puedes completar la dirección manualmente.
+            </p>
+          ) : null}
         </section>
       </aside>
     </div>
@@ -743,9 +763,9 @@ function StepPackages({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 2</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">Paquetes y multi-bulto</h3>
+            <h3 className="mt-2 text-2xl font-black text-slate-950">Productos / paquetes</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Usa centímetros y kilogramos para preparar cada paquete. Puedes añadir varios bultos antes de consultar cotizaciones.
+              Usa centímetros y kilogramos para preparar cada bulto. Puedes añadir varios paquetes antes de consultar tarifas.
             </p>
           </div>
           <button
@@ -771,7 +791,7 @@ function StepPackages({
                   <div>
                     <p className="text-sm font-black text-slate-950">Paquete {index + 1}</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {pkg.lengthCm}x{pkg.widthCm}x{pkg.heightCm} cm · {pkg.weightKg} kg · {pkg.quantity} unidad(es)
+                      {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm} cm · {pkg.weightKg} kg · {pkg.quantity} unidad(es)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -802,7 +822,7 @@ function StepPackages({
                         placeholder="Ropa, accesorios, repuestos..."
                       />
                       <NumberField
-                        label="Cantidad"
+                        label="Cantidad de paquetes"
                         value={pkg.quantity}
                         onChange={(value) => onUpdatePackage(pkg.id, "quantity", value)}
                         min={1}
@@ -865,7 +885,7 @@ function StepPackages({
               <div key={pkg.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Paquete {index + 1}</p>
                 <p className="mt-2 text-sm font-semibold text-slate-700">
-                  {pkg.lengthCm}x{pkg.widthCm}x{pkg.heightCm} cm · {pkg.weightKg} kg
+                  {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm} cm · {pkg.weightKg} kg
                 </p>
                 <p className="mt-1 text-sm text-slate-500">{pkg.content || "Contenido por definir"}</p>
               </div>
@@ -877,7 +897,7 @@ function StepPackages({
   );
 }
 
-function StepQuotes({
+function StepCarrier({
   origin,
   destination,
   extraDestinations,
@@ -913,16 +933,16 @@ function StepQuotes({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 3</p>
-            <h3 className="mt-2 text-2xl font-black text-slate-950">Tarifas y cotizaciones</h3>
+            <h3 className="mt-2 text-2xl font-black text-slate-950">Opciones de envío</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Consulta operadores disponibles para tus paquetes. La plataforma muestra resultados sin crear orden real y sin exponer detalles técnicos del proveedor.
+              Calcula las tarifas disponibles para tu ruta. Selecciona la transportadora que prefieras antes de continuar al resumen.
             </p>
           </div>
           <button
             type="button"
             onClick={onCalculateQuote}
             disabled={quoteLoading}
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-bold text-white shadow-xl shadow-orange-500/20 transition hover:bg-[#EA580C] disabled:opacity-60"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-bold text-white shadow-xl shadow-orange-500/20 transition hover:bg-[#EA580C] disabled:opacity-60"
           >
             {quoteLoading ? (
               <>
@@ -930,9 +950,9 @@ function StepQuotes({
                 Buscando mejores precios
               </>
             ) : quoteResults.length > 0 ? (
-              "Actualizar cotizaciones"
+              "Recalcular tarifas"
             ) : (
-              "Buscar cotizaciones"
+              "Calcular tarifas"
             )}
           </button>
         </div>
@@ -948,12 +968,12 @@ function StepQuotes({
           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">No crea orden real todavía</span>
           {quoteSummary ? (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-              {quoteSummary.realQuotesCount} cotización(es) reales · {quoteSummary.pendingProvidersCount} en preparación
+              {quoteSummary.realQuotesCount} cotización(es) disponible(s) · {quoteSummary.pendingProvidersCount} en preparación
             </span>
           ) : null}
           {extraDestinations.length > 0 ? (
             <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
-              {extraDestinations.length} destino(s) adicional(es) en preparación
+              {extraDestinations.length} destino(s) adicional(es)
             </span>
           ) : null}
         </div>
@@ -963,15 +983,17 @@ function StepQuotes({
 
       {quoteError ? (
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-          {quoteError}
+          No pudimos consultar cotizaciones en este momento. Por favor intenta de nuevo o avanza al resumen.
         </div>
       ) : null}
 
       <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-xl font-black text-slate-950">Operadores disponibles</h3>
-            <p className="mt-1 text-sm text-slate-500">SendiFlash presenta opciones disponibles y operadores en preparación para esta ruta.</p>
+            <h3 className="text-xl font-black text-slate-950">Transportadoras disponibles</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Tarifas disponibles y operadores en preparación para tu ruta.
+            </p>
           </div>
           <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
             Multicourier Ecuador
@@ -982,28 +1004,29 @@ function StepQuotes({
           {ECUADOR_OPERATORS.map((operator) => {
             const providerResult = quoteResults.find((item) => item.providerName === operator.name) ?? null;
             const hasLiveQuote = providerResult?.ok === true;
+            const failedResult = providerResult?.ok === false ? providerResult : null;
+            const isPendingActivation = failedResult?.reason === "provider_auth_failed";
+            const isContactRequired = failedResult?.reason === "contact_required";
             const selected = selectedOperatorName === operator.name;
-            const providerStateLabel = hasLiveQuote
+
+            const statusLabel = hasLiveQuote
               ? "Cotización disponible"
-              : providerResult?.reason === "provider_auth_failed"
+              : isPendingActivation
                 ? "Pendiente de activación"
-                : providerResult?.reason === "contact_required"
+                : isContactRequired
                   ? "Pendiente de contacto"
                   : "En preparación";
-            const statusValue = hasLiveQuote
-              ? "Sin cobro · solicitud disponible"
-              : providerResult?.userMessage ?? "Visible para preparación";
-            const etaValue = hasLiveQuote
-              ? providerResult.etaLabel || providerResult.estimatedDays || "Por confirmar"
-              : providerResult?.userMessage ?? "En preparación";
-            const amountValue = hasLiveQuote ? formatCurrency(providerResult.amount) : "En preparación";
+
+            const priceDisplay = hasLiveQuote ? formatCurrency(providerResult.amount) : "En preparación";
+            const etaDisplay = hasLiveQuote
+              ? (providerResult.etaLabel || providerResult.estimatedDays || "Por confirmar")
+              : "Por confirmar";
+
             const helperCopy = selected
               ? "Esta opción quedará asociada a tu solicitud."
               : hasLiveQuote
-                ? "Selecciona esta opción para guardar la solicitud Ecuador."
-                : providerResult?.reason === "provider_auth_failed"
-                  ? "El proveedor real está preparado, pero sigue pendiente de activación."
-                  : "Puedes dejarla marcada como preferencia para seguimiento interno.";
+                ? "Selecciona esta opción para incluirla en el resumen."
+                : "Puedes marcarla como preferencia para seguimiento interno.";
 
             return (
               <button
@@ -1030,42 +1053,36 @@ function StepQuotes({
                     <div className="min-w-0">
                       <p className="text-lg font-black text-slate-950">{operator.name}</p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {hasLiveQuote ? "Cotización disponible para esta ruta" : "Operador visible dentro del agregador SendiFlash"}
+                        {hasLiveQuote ? "Cotización disponible para esta ruta" : "Disponible para preparación de solicitud"}
                       </p>
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-black ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${
                       hasLiveQuote
                         ? "bg-emerald-50 text-emerald-700"
-                        : providerResult?.reason === "provider_auth_failed"
+                        : isPendingActivation
                           ? "bg-amber-50 text-amber-700"
                           : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {providerStateLabel}
+                    {statusLabel}
                   </span>
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <ResultInfo
-                    label="Precio estimado"
-                    value={amountValue}
-                  />
-                  <ResultInfo
-                    label="Tiempo estimado"
-                    value={etaValue}
-                  />
+                  <ResultInfo label="Precio estimado" value={priceDisplay} />
+                  <ResultInfo label="Tiempo estimado" value={String(etaDisplay)} />
                   <ResultInfo
                     label="Estado"
-                    value={statusValue}
+                    value={hasLiveQuote ? "Solicitud disponible" : "Visible para preparación"}
                   />
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <p className="text-sm text-slate-500">{helperCopy}</p>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700 shadow-sm">
-                    {selected ? "Seleccionada" : hasLiveQuote ? "Seleccionar" : "Solicitar esta opción"}
+                    {selected ? "Seleccionada" : hasLiveQuote ? "Seleccionar" : "Marcar preferencia"}
                   </span>
                 </div>
               </button>
@@ -1073,6 +1090,188 @@ function StepQuotes({
           })}
         </div>
       </section>
+    </div>
+  );
+}
+
+function StepSummary({
+  origin,
+  destination,
+  packages,
+  packageTotals,
+  extraDestinations,
+  selectedOperatorName,
+  selectedQuoteResult,
+  declaredValue,
+  customerNotes,
+  submitting,
+  onSubmit,
+}: {
+  origin: ShipmentAddress;
+  destination: ShipmentAddress;
+  packages: PackageDraft[];
+  packageTotals: { totalWeight: number; count: number };
+  extraDestinations: MultiDestinationDraft[];
+  selectedOperatorName: string | null;
+  selectedQuoteResult: EcuadorProviderQuoteResult | null;
+  declaredValue?: number;
+  customerNotes: string;
+  submitting: boolean;
+  onSubmit: () => void;
+}) {
+  const originAddress = buildFullAddress(origin);
+  const destinationAddress = buildFullAddress(destination);
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_340px]">
+      <div className="grid gap-5">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 4</p>
+          <h3 className="mt-2 text-2xl font-black text-slate-950">Resumen de tu solicitud</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Revisa los datos antes de guardar. Esta solicitud no crea ninguna orden real ni genera cobro.
+          </p>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-[1.6rem] border border-sky-100 bg-sky-50/60 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Origen · Remitente</p>
+              <p className="mt-2 text-sm font-black text-slate-950">{origin.name || "Sin nombre"}</p>
+              {origin.phone ? <p className="mt-1 text-sm text-slate-600">{origin.phone}</p> : null}
+              <p className="mt-1 text-sm text-slate-700">{originAddress || "Dirección incompleta"}</p>
+              {origin.city ? (
+                <p className="mt-1 text-sm text-slate-600">
+                  {origin.city}{origin.region ? `, ${origin.region}` : ""}
+                </p>
+              ) : null}
+              {origin.reference ? (
+                <p className="mt-1 text-xs text-slate-500">Ref: {origin.reference}</p>
+              ) : null}
+            </div>
+
+            <div className="rounded-[1.6rem] border border-orange-100 bg-orange-50/60 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-700">Destino · Destinatario</p>
+              <p className="mt-2 text-sm font-black text-slate-950">{destination.name || "Sin nombre"}</p>
+              {destination.phone ? <p className="mt-1 text-sm text-slate-600">{destination.phone}</p> : null}
+              <p className="mt-1 text-sm text-slate-700">{destinationAddress || "Dirección incompleta"}</p>
+              {destination.city ? (
+                <p className="mt-1 text-sm text-slate-600">
+                  {destination.city}{destination.region ? `, ${destination.region}` : ""}
+                </p>
+              ) : null}
+              {destination.reference ? (
+                <p className="mt-1 text-xs text-slate-500">Ref: {destination.reference}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Paquetes</p>
+            <div className="mt-3 grid gap-2">
+              {packages.map((pkg, index) => (
+                <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-700">
+                    Paquete {index + 1} · {pkg.content || "Sin contenido"}
+                  </span>
+                  <span className="text-slate-500">
+                    {pkg.lengthCm}×{pkg.widthCm}×{pkg.heightCm} cm · {pkg.weightKg} kg × {pkg.quantity}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3 border-t border-slate-200 pt-3">
+              <span className="text-sm font-black text-slate-700">{packageTotals.count} bulto(s)</span>
+              <span className="text-sm text-slate-500">{packageTotals.totalWeight.toFixed(2)} kg total</span>
+              {declaredValue ? <span className="text-sm text-slate-500">Valor declarado: ${declaredValue}</span> : null}
+            </div>
+          </div>
+
+          {selectedOperatorName ? (
+            <div className="mt-4 rounded-[1.6rem] border border-emerald-200 bg-emerald-50/60 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Transportadora seleccionada</p>
+              <p className="mt-2 text-sm font-black text-slate-950">{selectedOperatorName}</p>
+              {selectedQuoteResult?.ok ? (
+                <p className="mt-1 text-sm text-slate-600">
+                  Precio estimado: {formatCurrency(selectedQuoteResult.amount)} ·{" "}
+                  {selectedQuoteResult.etaLabel || selectedQuoteResult.estimatedDays || "ETA por confirmar"}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-500">Marcada como preferencia para seguimiento interno</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Transportadora</p>
+              <p className="mt-2 text-sm text-slate-600">
+                No seleccionada — puedes volver al paso anterior para elegir una opción.
+              </p>
+            </div>
+          )}
+
+          {extraDestinations.length > 0 ? (
+            <div className="mt-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Destinos adicionales</p>
+              <div className="mt-2 grid gap-1">
+                {extraDestinations.map((item, index) => (
+                  <p key={item.id} className="text-sm text-slate-600">
+                    {index + 1}. {item.label || item.name || "Destino sin nombre"} · {item.city || "Ciudad sin definir"}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {customerNotes ? (
+            <div className="mt-4 rounded-[1.6rem] border border-slate-200 bg-slate-50/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Notas de solicitud</p>
+              <p className="mt-2 text-sm text-slate-600">{customerNotes}</p>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-slate-950">¿Todo está correcto?</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Esta acción guarda una solicitud referencial interna. No genera cobro ni crea ninguna orden real.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting}
+              className="inline-flex h-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-6 text-sm font-bold text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando solicitud...
+                </>
+              ) : selectedOperatorName ? (
+                <>Solicitar opción {selectedOperatorName}</>
+              ) : (
+                <>Guardar solicitud</>
+              )}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <aside className="grid content-start gap-5">
+        <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Estado de solicitud</p>
+          <div className="mt-3 grid gap-3">
+            <MiniStat label="Tipo" value="Solicitud referencial" />
+            <MiniStat label="Cobro" value="Sin cobro" />
+            <MiniStat label="Orden real" value="No se crea todavía" />
+          </div>
+          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+            <p className="text-xs leading-5 text-sky-700">
+              Una vez guardada, la solicitud quedará visible en el panel de envíos Ecuador para revisión y seguimiento interno.
+            </p>
+          </div>
+        </section>
+      </aside>
     </div>
   );
 }
@@ -1108,6 +1307,7 @@ function AddressPanel({
   const [mapsReady, setMapsReady] = useState(false);
   const toneClasses =
     accent === "sky" ? "border-sky-100 bg-sky-50/50" : "border-orange-100 bg-orange-50/60";
+  const accentTextClass = accent === "sky" ? "text-sky-700" : "text-orange-700";
 
   useEffect(() => {
     if (!HAS_ECUADOR_GOOGLE_AUTOCOMPLETE) return;
@@ -1151,7 +1351,9 @@ function AddressPanel({
         undefined,
         "google_places",
       );
-      onAddressChange("address", parsed.street1?.trim() || place.formatted_address?.trim() || "");
+      const street = parsed.street1?.trim() || place.formatted_address?.trim() || "";
+      onAddressChange("address", street);
+      if (street) onAddressChange("streetMain", street);
       if (parsed.city) onAddressChange("city", parsed.city.trim());
       if (parsed.state) onAddressChange("region", parsed.state.trim());
       if (parsed.postalCode) onAddressChange("postalCode", parsed.postalCode.trim());
@@ -1160,6 +1362,8 @@ function AddressPanel({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsReady]);
+
+  const canSave = Boolean(address.city.trim() && (address.streetMain.trim() || address.address.trim()));
 
   return (
     <div className={`rounded-[1.8rem] border p-4 ${toneClasses}`}>
@@ -1194,10 +1398,10 @@ function AddressPanel({
         <button
           type="button"
           onClick={onSaveAddress}
-          disabled={!address.address.trim() || !address.city.trim()}
+          disabled={!canSave}
           className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Guardar esta dirección en libreta
+          Guardar en libreta
         </button>
         {!hasSavedAddresses ? (
           <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
@@ -1207,29 +1411,25 @@ function AddressPanel({
       </div>
 
       <div className="mt-4 grid gap-4">
-        <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-            <Search className="h-3.5 w-3.5" />
-            Dirección completa
-          </div>
-          <input
-            ref={searchRef}
-            value={address.address}
-            onChange={(event) => onAddressChange("address", event.target.value)}
-            placeholder="Pega una dirección completa o busca si el autocomplete está disponible"
-            className="mt-3 min-h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-          />
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE
-              ? "Puedes escribir, pegar o elegir una sugerencia real de autocomplete para Ecuador."
-              : "El buscador con mapa se habilitará cuando el servicio de geocodificación esté configurado."}
-          </p>
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2">
-          <TextField label="Nombre / contacto" value={address.name} onChange={(value) => onAddressChange("name", value)} placeholder="Andrea Torres" />
-          <TextField label="Teléfono" value={address.phone} onChange={(value) => onAddressChange("phone", value)} placeholder="+593 99 123 4567" />
-          <TextField label="Ciudad" value={address.city} onChange={(value) => onAddressChange("city", value)} placeholder="Quito" />
+          <TextField
+            label={role === "sender" ? "Nombre / empresa" : "Nombre y apellido / empresa"}
+            value={address.name}
+            onChange={(value) => onAddressChange("name", value)}
+            placeholder={role === "sender" ? "Tu empresa o nombre" : "Andrea Torres"}
+          />
+          <TextField
+            label="Teléfono"
+            value={address.phone}
+            onChange={(value) => onAddressChange("phone", value)}
+            placeholder="+593 99 123 4567"
+          />
+          <TextField
+            label="Ciudad / cantón"
+            value={address.city}
+            onChange={(value) => onAddressChange("city", value)}
+            placeholder="Quito"
+          />
           <SelectField
             label="Provincia"
             value={address.region}
@@ -1237,32 +1437,72 @@ function AddressPanel({
             options={ECUADOR_PROVINCES.map((province) => ({ value: province, label: province }))}
             placeholder="Selecciona una provincia"
           />
-          <TextField label="Código postal" value={address.postalCode} onChange={(value) => onAddressChange("postalCode", value)} placeholder="170150" />
         </div>
-      </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {CITY_OPTIONS.map((city) => (
-          <button
-            key={city}
-            type="button"
-            onClick={() => onAddressChange("city", city)}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600 transition hover:border-sky-200 hover:text-sky-700"
-          >
-            {city}
-          </button>
-        ))}
-      </div>
+        <div className="flex flex-wrap gap-2">
+          {CITY_OPTIONS.map((city) => (
+            <button
+              key={city}
+              type="button"
+              onClick={() => onAddressChange("city", city)}
+              className={`rounded-full border px-3 py-1 text-xs font-black transition ${
+                address.city === city
+                  ? `border-transparent ${accentTextClass} bg-white shadow-sm`
+                  : "border-slate-200 bg-white/60 text-slate-600 hover:border-sky-200 hover:text-sky-700"
+              }`}
+            >
+              {city}
+            </button>
+          ))}
+        </div>
 
-      <label className="mt-4 block">
-        <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
-        <textarea
-          value={address.reference}
-          onChange={(event) => onAddressChange("reference", event.target.value)}
-          className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-          placeholder="Edificio, barrio, puntos de referencia o indicaciones"
-        />
-      </label>
+        <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Dirección</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <TextField
+              label="Calle principal"
+              value={address.streetMain}
+              onChange={(value) => onAddressChange("streetMain", value)}
+              placeholder="Av. 6 de Diciembre"
+            />
+            <TextField
+              label="Numeración / intersección"
+              value={address.streetCrossing}
+              onChange={(value) => onAddressChange("streetCrossing", value)}
+              placeholder="N24-253 y Colón"
+            />
+          </div>
+          {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? (
+            <div className="mt-3">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <Search className="h-3.5 w-3.5" />
+                Buscar dirección (autocomplete)
+              </div>
+              <input
+                ref={searchRef}
+                value={address.address}
+                onChange={(event) => onAddressChange("address", event.target.value)}
+                placeholder="Escribe para buscar o pega una dirección completa"
+                className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              La selección por mapa se habilitará cuando el servicio esté configurado.
+            </p>
+          )}
+        </div>
+
+        <label className="block">
+          <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
+          <textarea
+            value={address.reference}
+            onChange={(event) => onAddressChange("reference", event.target.value)}
+            className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+            placeholder="Edificio, barrio, puntos de referencia o indicaciones al repartidor"
+          />
+        </label>
+      </div>
     </div>
   );
 }
@@ -1272,9 +1512,9 @@ function QuoteLoadingCard({ origin, destination }: { origin: string; destination
     <section className="rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm shadow-slate-950/5">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h3 className="text-xl font-black text-slate-950">Buscando mejores precios</h3>
+          <h3 className="text-xl font-black text-slate-950">Consultando operadores disponibles</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Consultando operadores disponibles para tus paquetes entre {origin || "origen"} y {destination || "destino"}.
+            Buscando mejores precios para {origin || "origen"} → {destination || "destino"}.
           </p>
           <p className="mt-2 text-sm font-semibold text-slate-500">Esto no genera cobro ni orden real.</p>
         </div>
@@ -1394,10 +1634,19 @@ function NumberField({
   );
 }
 
+function buildFullAddress(address: ShipmentAddress): string {
+  if (address.streetMain.trim()) {
+    return [address.streetMain.trim(), address.streetCrossing.trim()].filter(Boolean).join(" y ");
+  }
+  return address.address.trim();
+}
+
 function mapAddressEntryToShipment(entry: AddressBookEntry): ShipmentAddress {
   return {
     name: entry.contactName,
     phone: entry.phone,
+    streetMain: entry.addressLine1,
+    streetCrossing: entry.addressLine2 ?? "",
     address: entry.addressLine1,
     city: entry.city,
     reference: entry.reference ?? "",
@@ -1413,17 +1662,18 @@ function buildAddressBookDraftFromShipment(
   role: "sender" | "recipient",
 ): AddressBookEntryDraft {
   const labelBase = address.name.trim() || address.city.trim() || (role === "sender" ? "Remitente" : "Destinatario");
+  const line1 = buildFullAddress(address) || address.city.trim();
   return {
     label: labelBase,
     country: "EC",
     role,
     contactName: address.name.trim(),
     company: "",
-    addressLine1: address.address.trim(),
-    addressLine2: "",
+    addressLine1: line1,
+    addressLine2: address.reference.trim() || undefined,
     city: address.city.trim(),
     region: address.region.trim(),
-    postalCode: address.postalCode.trim(),
+    postalCode: address.postalCode.trim() || undefined,
     phone: address.phone.trim(),
     email: "",
     reference: address.reference.trim(),
@@ -1459,16 +1709,18 @@ function buildQuoteRequestBody(input: {
   declaredValue?: number;
 }) {
   const aggregate = aggregatePackages(input.packages);
+  const originAddr = buildFullAddress(input.origin) || input.origin.city;
+  const destinationAddr = buildFullAddress(input.destination) || input.destination.city;
 
   return {
     originName: input.origin.name || "Remitente Ecuador",
     originPhone: input.origin.phone || "+593000000000",
-    originAddress: input.origin.address || input.origin.city,
+    originAddress: originAddr,
     originCity: input.origin.city,
     originReference: input.origin.reference,
     destinationName: input.destination.name || "Destinatario Ecuador",
     destinationPhone: input.destination.phone || "+593000000000",
-    destinationAddress: input.destination.address || input.destination.city,
+    destinationAddress: destinationAddr,
     destinationCity: input.destination.city,
     destinationReference: input.destination.reference,
     originLatitude: input.origin.latitude,
@@ -1497,6 +1749,8 @@ function buildShipmentRequestBody(input: {
   extraDestinations: MultiDestinationDraft[];
 }): CreateEcuadorShipmentRequestBody {
   const aggregate = aggregatePackages(input.packages);
+  const originAddr = buildFullAddress(input.origin) || input.origin.city;
+  const destinationAddr = buildFullAddress(input.destination) || input.destination.city;
   const extraNotes = [
     input.customerNotes.trim(),
     input.selectedOperatorName ? `Operador solicitado: ${input.selectedOperatorName}.` : "",
@@ -1515,12 +1769,12 @@ function buildShipmentRequestBody(input: {
     status: "quote_requested",
     originName: input.origin.name,
     originPhone: input.origin.phone,
-    originAddress: input.origin.address || input.origin.city,
+    originAddress: originAddr,
     originCity: input.origin.city,
     originReference: joinReference(input.origin),
     destinationName: input.destination.name,
     destinationPhone: input.destination.phone,
-    destinationAddress: input.destination.address || input.destination.city,
+    destinationAddress: destinationAddr,
     destinationCity: input.destination.city,
     destinationReference: joinReference(input.destination),
     packageDescription: aggregate.description,
@@ -1553,20 +1807,11 @@ function aggregatePackages(packages: PackageDraft[]) {
 
 function validateStep(step: WizardStep, input: { origin: ShipmentAddress; destination: ShipmentAddress; packages: PackageDraft[] }) {
   if (step >= 1) {
-    if (!input.origin.city || (!input.origin.address && !input.origin.city)) {
-      return "Completa al menos ciudad y una referencia de dirección para el origen antes de continuar.";
+    if (!input.origin.city) {
+      return "Completa al menos la ciudad de origen antes de continuar.";
     }
-    if (!input.destination.city || (!input.destination.address && !input.destination.city)) {
-      return "Completa al menos ciudad y una referencia de dirección para el destino antes de continuar.";
-    }
-  }
-
-  if (step >= 3) {
-    if (!input.origin.name || !input.origin.phone || !input.origin.city) {
-      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del origen.";
-    }
-    if (!input.destination.name || !input.destination.phone || !input.destination.city) {
-      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del destino.";
+    if (!input.destination.city) {
+      return "Completa al menos la ciudad de destino antes de continuar.";
     }
   }
 
@@ -1582,7 +1827,16 @@ function validateStep(step: WizardStep, input: { origin: ShipmentAddress; destin
     );
 
     if (invalidPackage) {
-      return "Completa contenido, cantidad, peso y dimensiones de cada paquete antes de consultar cotizaciones.";
+      return "Completa contenido, cantidad, peso y dimensiones de cada paquete antes de continuar.";
+    }
+  }
+
+  if (step >= 4) {
+    if (!input.origin.name || !input.origin.phone || !input.origin.city) {
+      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del origen.";
+    }
+    if (!input.destination.name || !input.destination.phone || !input.destination.city) {
+      return "Antes de guardar la solicitud, completa nombre, teléfono y ciudad del destino.";
     }
   }
 
@@ -1590,7 +1844,11 @@ function validateStep(step: WizardStep, input: { origin: ShipmentAddress; destin
 }
 
 function joinReference(address: ShipmentAddress) {
-  return [address.reference, address.region ? `Provincia/estado: ${address.region}` : "", address.postalCode ? `Código postal: ${address.postalCode}` : ""]
+  return [
+    address.reference,
+    address.region ? `Provincia: ${address.region}` : "",
+    address.postalCode ? `CP: ${address.postalCode}` : "",
+  ]
     .filter(Boolean)
     .join(" · ");
 }

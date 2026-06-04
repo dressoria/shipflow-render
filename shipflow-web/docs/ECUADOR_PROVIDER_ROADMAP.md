@@ -1,8 +1,16 @@
 # Ecuador Provider Roadmap
 
-Last updated: 2026-06-04 (FASE 5.87)
+Last updated: 2026-06-04 (FASE 5.87 quote flow refinement)
 
 Purpose: staged roadmap for connecting Delivereo safely after credentials arrive, without prematurely activating Ecuador Shipping.
+
+## FASE 5.87 quote flow refinement note
+
+- Ecuador quote wizard refined to 4 steps: Origen/Destino → Productos/Paquetes → Transportadora → Resumen.
+- Address form now uses structured fields (calle principal, numeración/intersección) instead of a single address line. No ZIP code dependency.
+- Step 3 renamed to "Opciones de envío". Submit button moved to Step 4 (Resumen).
+- Delivereo remains pending activation (auth 401 from provider side). No further auth hacks until provider confirms credentials.
+- Pending providers show "Pendiente de activación" or "En preparación" — no fake prices, no raw error messages shown to users.
 
 ## FASE 5.87 multicourier note
 
@@ -11,7 +19,7 @@ Purpose: staged roadmap for connecting Delivereo safely after credentials arrive
 - Ecuador quote flow now advances through a multicourier provider framework:
   - Delivereo as real adapter prepared but pending activation
   - Servientrega, LaarCourier, Urbano, Tramaco, and Yobel as placeholder adapters
-- Customer quote UI should keep showing multicourier availability/preparation without implying live booking capability.
+- Customer quote UI keeps showing multicourier availability/preparation without implying live booking capability.
 
 ## UX checkpoint before provider activation
 

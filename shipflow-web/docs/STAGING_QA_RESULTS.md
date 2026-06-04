@@ -1,6 +1,44 @@
 # Staging QA Results
 
-Last updated: 2026-06-04 (FASE 5.87 Ecuador Provider Adapter Framework)
+Last updated: 2026-06-04 (FASE 5.87 Ecuador Quote Flow Refinement)
+
+---
+
+## FASE 5.87 — Ecuador Quote Flow Refinement (4-step wizard)
+
+Run timestamp: 2026-06-04 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Refine Ecuador quote flow
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| 4-step wizard | READY FOR QA | Ecuador quote flow updated to 4 steps: Origen/Destino, Productos/Paquetes, Transportadora, Resumen. |
+| Structured address fields | READY FOR QA | AddressPanel now separates calle principal, numeración/intersección, referencia. No dependency on ZIP codes. |
+| Carrier step (Paso 3) | READY FOR QA | Renamed to "Opciones de envío". Delivereo shows "Pendiente de activación". No fake prices for pending providers. |
+| Summary step (Paso 4) | READY FOR QA | New step shows origin, destination, packages, selected carrier, and pre-submit confirmation. |
+| Submit button | READY FOR QA | Submit button now only appears on Step 4 (Resumen). Steps 1–3 use "Continuar". |
+| Address book search | NOT CHANGED | filterAddressEntries already searches label, name, city, phone, address. |
+| Operational safety | NOT CHANGED | No bookings, no payments, no USA logic changes. |
+
+### Manual QA checklist
+
+- [ ] Complete all 4 steps and confirm the form navigates correctly between them.
+- [ ] Confirm city chips highlight the selected city in AddressPanel.
+- [ ] Confirm "Guardar en libreta" button uses streetMain + streetCrossing as addressLine1.
+- [ ] Confirm Step 3 shows "Calcular tarifas" before quoting and "Recalcular tarifas" after.
+- [ ] Confirm Delivereo shows "Pendiente de activación" status without raw error copy.
+- [ ] Confirm Step 4 (Resumen) shows all data and submit button works.
+- [ ] Test on mobile — 4-step header must fit in 2×2 grid without overflow.
+
+Final decision: READY FOR OPERATOR QA.
+
+---
+
+## FASE 5.87 — Ecuador Provider Adapter Framework
 
 ---
 
