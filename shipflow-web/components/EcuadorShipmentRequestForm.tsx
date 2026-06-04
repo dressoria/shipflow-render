@@ -13,7 +13,6 @@ import {
   Package,
   Plus,
   Search,
-  Sparkles,
   Truck,
   X,
 } from "lucide-react";
@@ -380,30 +379,8 @@ export function EcuadorShipmentRequestForm() {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-[2rem] border border-sky-100 bg-white p-6 shadow-sm shadow-slate-950/5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
-              <Sparkles className="mr-2 h-3.5 w-3.5" />
-              Cotización de envío
-            </Badge>
-            <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Prepara tu solicitud Ecuador en cuatro pasos</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              Organiza origen, destino, paquetes y cotizaciones disponibles desde una experiencia multicourier en español. Sin cobro y sin orden real todavía.
-            </p>
-          </div>
-          <div className="rounded-[1.6rem] border border-sky-100 bg-sky-50/70 p-4 text-sm text-slate-600">
-            <p className="font-black text-sky-700">Solicitud Ecuador</p>
-            <p className="mt-2 leading-6">
-              Puedes guardar una solicitud interna y seleccionar el operador que prefieras. Los operadores en preparación no muestran precios falsos.
-            </p>
-            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Cotización referencial · Sin cobro · Sin orden real
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {STEP_LABELS.map((label, index) => {
             const currentStep = (index + 1) as WizardStep;
             const active = step === currentStep;
@@ -413,32 +390,27 @@ export function EcuadorShipmentRequestForm() {
                 key={label}
                 type="button"
                 onClick={() => setStep(currentStep)}
-                className={`rounded-3xl border p-3 text-left transition sm:p-4 ${
+                className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition ${
                   active
                     ? "border-sky-300 bg-sky-50"
                     : completed
                       ? "border-emerald-200 bg-emerald-50/70"
-                      : "border-slate-200 bg-slate-50/70 hover:border-sky-200"
+                      : "border-slate-200 bg-slate-50/60 hover:border-sky-200"
                 }`}
               >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <span
-                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-xl text-xs font-black sm:h-8 sm:w-8 sm:rounded-2xl sm:text-sm ${
-                      active ? "bg-sky-600 text-white" : completed ? "bg-emerald-600 text-white" : "bg-white text-slate-500"
-                    }`}
-                  >
-                    {completed ? <CheckCircle2 className="h-3.5 w-3.5" /> : currentStep}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Paso {currentStep}</p>
-                    <p className="mt-0.5 truncate text-xs font-black text-slate-950 sm:text-sm">{label}</p>
-                  </div>
-                </div>
+                <span
+                  className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-black ${
+                    active ? "bg-sky-600 text-white" : completed ? "bg-emerald-600 text-white" : "border border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  {completed ? <CheckCircle2 className="h-3 w-3" /> : currentStep}
+                </span>
+                <p className="min-w-0 truncate text-xs font-black text-slate-950">{label}</p>
               </button>
             );
           })}
         </div>
-      </section>
+      </div>
 
       {formError ? (
         <div className="flex items-start gap-3 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -608,132 +580,97 @@ function StepAddresses({
   onOpenSaveAddress: (target: "origin" | "destination") => void;
 }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_360px]">
-      <div className="grid gap-5">
+    <div className="grid gap-5">
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-black text-slate-950">Remitente y destinatario</h3>
+            <p className="mt-1 text-sm text-slate-500">Selecciona de la libreta o completa los datos manualmente.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onAddMultiDestination}
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-4 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Multi-envío
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <AddressPanel
+            title="Origen"
+            label="Remitente"
+            address={origin}
+            hasSavedAddresses={entries.length > 0}
+            selectedAddressId={selectedOriginAddressId}
+            defaultEntry={defaultSenderAddress}
+            role="sender"
+            accent="sky"
+            onAddressSelect={onOriginSelect}
+            onAddressChange={(key, value) => onAddressChange("origin", key, value)}
+            onUseDefault={() => defaultSenderAddress && onOriginSelect(defaultSenderAddress)}
+            onSaveAddress={() => onOpenSaveAddress("origin")}
+          />
+          <AddressPanel
+            title="Destino"
+            label="Destinatario"
+            address={destination}
+            hasSavedAddresses={entries.length > 0}
+            selectedAddressId={selectedDestinationAddressId}
+            defaultEntry={defaultRecipientAddress}
+            role="recipient"
+            accent="orange"
+            onAddressSelect={onDestinationSelect}
+            onAddressChange={(key, value) => onAddressChange("destination", key, value)}
+            onUseDefault={() => defaultRecipientAddress && onDestinationSelect(defaultRecipientAddress)}
+            onSaveAddress={() => onOpenSaveAddress("destination")}
+          />
+        </div>
+      </section>
+
+      {extraDestinations.length > 0 ? (
         <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Paso 1</p>
-              <h3 className="mt-2 text-2xl font-black text-slate-950">Origen y destino</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Elige direcciones guardadas o completa los datos de remitente y destinatario con ciudad, calle y referencia.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onAddMultiDestination}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-sky-200 bg-sky-50 px-5 text-sm font-bold text-sky-700 transition hover:bg-sky-100"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Añadir multi-envío
-            </button>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-black text-slate-950">Destinos adicionales</h3>
+            <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
+              Preparación
+            </Badge>
           </div>
-
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            <AddressPanel
-              title="Origen"
-              label="Remitente"
-              address={origin}
-              hasSavedAddresses={entries.length > 0}
-              selectedAddressId={selectedOriginAddressId}
-              defaultEntry={defaultSenderAddress}
-              role="sender"
-              accent="sky"
-              onAddressSelect={onOriginSelect}
-              onAddressChange={(key, value) => onAddressChange("origin", key, value)}
-              onUseDefault={() => defaultSenderAddress && onOriginSelect(defaultSenderAddress)}
-              onSaveAddress={() => onOpenSaveAddress("origin")}
-            />
-            <AddressPanel
-              title="Destino"
-              label="Destinatario"
-              address={destination}
-              hasSavedAddresses={entries.length > 0}
-              selectedAddressId={selectedDestinationAddressId}
-              defaultEntry={defaultRecipientAddress}
-              role="recipient"
-              accent="orange"
-              onAddressSelect={onDestinationSelect}
-              onAddressChange={(key, value) => onAddressChange("destination", key, value)}
-              onUseDefault={() => defaultRecipientAddress && onDestinationSelect(defaultRecipientAddress)}
-              onSaveAddress={() => onOpenSaveAddress("destination")}
-            />
-          </div>
-        </section>
-
-        {extraDestinations.length > 0 ? (
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Multi-envío</p>
-                <h3 className="mt-2 text-xl font-black text-slate-950">Destinos adicionales preparados</h3>
-              </div>
-              <Badge tone="blue" className="border border-sky-100 bg-sky-50 text-sky-700 ring-sky-100">
-                Solo preparación
-              </Badge>
-            </div>
-            <div className="mt-4 grid gap-4">
-              {extraDestinations.map((item, index) => (
-                <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-slate-950">Destino adicional {index + 1}</p>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveMultiDestination(item.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
-                      aria-label="Eliminar destino adicional"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <TextField label="Etiqueta" value={item.label} onChange={(value) => onUpdateMultiDestination(item.id, "label", value)} placeholder="Cliente frecuente" />
-                    <TextField label="Nombre / contacto" value={item.name} onChange={(value) => onUpdateMultiDestination(item.id, "name", value)} placeholder="María Torres" />
-                    <TextField label="Ciudad / cantón" value={item.city} onChange={(value) => onUpdateMultiDestination(item.id, "city", value)} placeholder="Quito" />
-                    <TextField label="Dirección" value={item.address} onChange={(value) => onUpdateMultiDestination(item.id, "address", value)} placeholder="Av. 6 de Diciembre y..." />
-                  </div>
-                  <label className="mt-4 block">
-                    <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
-                    <textarea
-                      value={item.reference}
-                      onChange={(event) => onUpdateMultiDestination(item.id, "reference", event.target.value)}
-                      className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-                      placeholder="Observaciones para preparación operativa"
-                    />
-                  </label>
+          <div className="mt-4 grid gap-4">
+            {extraDestinations.map((item, index) => (
+              <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-slate-950">Destino adicional {index + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveMultiDestination(item.id)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
+                    aria-label="Eliminar destino adicional"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      <aside className="grid content-start gap-5">
-        <section className="rounded-[2rem] border border-sky-100 bg-white p-5 shadow-sm shadow-slate-950/5">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-700">Direcciones rápidas</p>
-          <h3 className="mt-2 text-xl font-black text-slate-950">Sin depender de código postal</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            En Ecuador los envíos se identifican por ciudad, calle y referencia. Completa los campos manualmente o usa tu libreta guardada.
-          </p>
-          <div className="mt-4 grid gap-3">
-            <MiniStat label="Libreta guardada" value={entries.length > 0 ? `${entries.length} dirección(es)` : "Vacía por ahora"} />
-            <MiniStat label="Autocomplete" value={HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? "Disponible" : "Pendiente de configuración"} />
-            <MiniStat label="País activo" value="Ecuador (EC)" />
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {CITY_OPTIONS.map((city) => (
-              <span key={city} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
-                {city}
-              </span>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <TextField label="Etiqueta" value={item.label} onChange={(value) => onUpdateMultiDestination(item.id, "label", value)} placeholder="Cliente frecuente" />
+                  <TextField label="Nombre / contacto" value={item.name} onChange={(value) => onUpdateMultiDestination(item.id, "name", value)} placeholder="María Torres" />
+                  <TextField label="Ciudad / cantón" value={item.city} onChange={(value) => onUpdateMultiDestination(item.id, "city", value)} placeholder="Quito" />
+                  <TextField label="Dirección" value={item.address} onChange={(value) => onUpdateMultiDestination(item.id, "address", value)} placeholder="Av. 6 de Diciembre y..." />
+                </div>
+                <label className="mt-4 block">
+                  <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
+                  <textarea
+                    value={item.reference}
+                    onChange={(event) => onUpdateMultiDestination(item.id, "reference", event.target.value)}
+                    className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                    placeholder="Observaciones para preparación operativa"
+                  />
+                </label>
+              </div>
             ))}
           </div>
-          {!HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? (
-            <p className="mt-4 text-xs leading-5 text-slate-500">
-              La selección por mapa se habilitará cuando el servicio esté configurado. Mientras tanto, puedes completar la dirección manualmente.
-            </p>
-          ) : null}
         </section>
-      </aside>
+      ) : null}
     </div>
   );
 }
@@ -1369,6 +1306,7 @@ function AddressPanel({
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [mapsReady, setMapsReady] = useState(false);
+  const [expandedDetails, setExpandedDetails] = useState(false);
   const toneClasses =
     accent === "sky" ? "border-sky-100 bg-sky-50/50" : "border-orange-100 bg-orange-50/60";
   const accentTextClass = accent === "sky" ? "text-sky-700" : "text-orange-700";
@@ -1474,8 +1412,9 @@ function AddressPanel({
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
+      {/* Always-visible fields: name, phone, city */}
+      <div className="mt-4 grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <TextField
             label={role === "sender" ? "Nombre / empresa" : "Nombre y apellido / empresa"}
             value={address.name}
@@ -1488,12 +1427,45 @@ function AddressPanel({
             onChange={(value) => onAddressChange("phone", value)}
             placeholder="+593 99 123 4567"
           />
+        </div>
+        <div>
           <TextField
             label="Ciudad / cantón"
             value={address.city}
             onChange={(value) => onAddressChange("city", value)}
             placeholder="Quito"
           />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {CITY_OPTIONS.map((city) => (
+              <button
+                key={city}
+                type="button"
+                onClick={() => onAddressChange("city", city)}
+                className={`rounded-full border px-3 py-1 text-xs font-black transition ${
+                  address.city === city
+                    ? `border-transparent ${accentTextClass} bg-white shadow-sm`
+                    : "border-slate-200 bg-white/60 text-slate-600 hover:border-sky-200 hover:text-sky-700"
+                }`}
+              >
+                {city}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Expand/collapse for detailed address fields */}
+      <button
+        type="button"
+        onClick={() => setExpandedDetails((prev) => !prev)}
+        className="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/70 px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-white hover:text-slate-950"
+      >
+        <span>Completar detalles de dirección</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${expandedDetails ? "rotate-180" : ""}`} />
+      </button>
+
+      <div className={`overflow-hidden transition-all duration-300 ease-out ${expandedDetails ? "max-h-[700px]" : "max-h-0"}`}>
+        <div className="mt-3 grid gap-3">
           <SelectField
             label="Provincia"
             value={address.region}
@@ -1501,71 +1473,52 @@ function AddressPanel({
             options={ECUADOR_PROVINCES.map((province) => ({ value: province, label: province }))}
             placeholder="Selecciona una provincia"
           />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {CITY_OPTIONS.map((city) => (
-            <button
-              key={city}
-              type="button"
-              onClick={() => onAddressChange("city", city)}
-              className={`rounded-full border px-3 py-1 text-xs font-black transition ${
-                address.city === city
-                  ? `border-transparent ${accentTextClass} bg-white shadow-sm`
-                  : "border-slate-200 bg-white/60 text-slate-600 hover:border-sky-200 hover:text-sky-700"
-              }`}
-            >
-              {city}
-            </button>
-          ))}
-        </div>
-
-        <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Dirección</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <TextField
-              label="Calle principal"
-              value={address.streetMain}
-              onChange={(value) => onAddressChange("streetMain", value)}
-              placeholder="Av. 6 de Diciembre"
-            />
-            <TextField
-              label="Numeración / intersección"
-              value={address.streetCrossing}
-              onChange={(value) => onAddressChange("streetCrossing", value)}
-              placeholder="N24-253 y Colón"
-            />
-          </div>
-          {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? (
-            <div className="mt-3">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                <Search className="h-3.5 w-3.5" />
-                Buscar dirección (autocomplete)
-              </div>
-              <input
-                ref={searchRef}
-                value={address.address}
-                onChange={(event) => onAddressChange("address", event.target.value)}
-                placeholder="Escribe para buscar o pega una dirección completa"
-                className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+          <div className="rounded-2xl border border-white/80 bg-white/80 p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Dirección</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <TextField
+                label="Calle principal"
+                value={address.streetMain}
+                onChange={(value) => onAddressChange("streetMain", value)}
+                placeholder="Av. 6 de Diciembre"
+              />
+              <TextField
+                label="Numeración / intersección"
+                value={address.streetCrossing}
+                onChange={(value) => onAddressChange("streetCrossing", value)}
+                placeholder="N24-253 y Colón"
               />
             </div>
-          ) : (
-            <p className="mt-3 text-xs leading-5 text-slate-400">
-              La selección por mapa se habilitará cuando el servicio esté configurado.
-            </p>
-          )}
+            {HAS_ECUADOR_GOOGLE_AUTOCOMPLETE ? (
+              <div className="mt-3">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  <Search className="h-3.5 w-3.5" />
+                  Buscar dirección (autocomplete)
+                </div>
+                <input
+                  ref={searchRef}
+                  value={address.address}
+                  onChange={(event) => onAddressChange("address", event.target.value)}
+                  placeholder="Escribe para buscar o pega una dirección completa"
+                  className="mt-2 min-h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                />
+              </div>
+            ) : (
+              <p className="mt-3 text-xs leading-5 text-slate-400">
+                Próximamente podrás seleccionar el punto exacto desde el mapa.
+              </p>
+            )}
+          </div>
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
+            <textarea
+              value={address.reference}
+              onChange={(event) => onAddressChange("reference", event.target.value)}
+              className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              placeholder="Edificio, barrio, puntos de referencia o indicaciones al repartidor"
+            />
+          </label>
         </div>
-
-        <label className="block">
-          <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Referencia</span>
-          <textarea
-            value={address.reference}
-            onChange={(event) => onAddressChange("reference", event.target.value)}
-            className="mt-2 min-h-20 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-            placeholder="Edificio, barrio, puntos de referencia o indicaciones al repartidor"
-          />
-        </label>
       </div>
     </div>
   );

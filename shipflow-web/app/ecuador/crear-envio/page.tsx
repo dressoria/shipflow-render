@@ -4,8 +4,8 @@ import { EcuadorShipmentRequestForm } from "@/components/EcuadorShipmentRequestF
 export default function EcuadorCreateShipmentPage() {
   return (
     <DashboardShell
-      title="Cotización Ecuador"
-      description="Prepara una solicitud Ecuador, revisa cotizaciones disponibles y organiza tus paquetes sin crear órdenes reales."
+      title="Nueva solicitud"
+      description="Completa origen, destino y paquetes para consultar operadores disponibles."
     >
       <EcuadorShipmentRequestForm />
     </DashboardShell>
