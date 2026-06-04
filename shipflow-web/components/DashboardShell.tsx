@@ -115,7 +115,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({ title, description, children }: DashboardShellProps) {
   const { user, logout, isAdmin } = useAuth();
-  const { mode } = useRegionMode();
+  const { mode, setMode } = useRegionMode();
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -186,15 +186,25 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             </span>
             <BrandName />
           </Link>
+          <button
+            type="button"
+            onClick={() => setMode(isEcuadorMode ? "us" : "ec")}
+            className="hidden shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black shadow-sm transition hover:border-sky-200 hover:bg-sky-50 sm:inline-flex"
+            title={isEcuadorMode ? "Cambiar a modo USA" : "Cambiar a modo Ecuador"}
+          >
+            <span className={isEcuadorMode ? "text-sky-700" : "text-slate-400"}>EC</span>
+            <span className="mx-0.5 text-slate-300">|</span>
+            <span className={!isEcuadorMode ? "text-[#2563EB]" : "text-slate-400"}>USA</span>
+          </button>
           <form
             onSubmit={(e) => { e.preventDefault(); router.push(trackQuery.trim() ? `/tracking?numero=${encodeURIComponent(trackQuery.trim())}` : "/tracking"); }}
-            className="hidden h-10 min-w-64 items-center gap-2 rounded-2xl border border-blue-100 bg-white/80 px-3 text-sm shadow-sm xl:flex"
+            className="hidden h-10 min-w-64 items-center gap-2 rounded-2xl border border-blue-100 bg-white/80 px-3 text-sm shadow-sm lg:flex"
           >
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               value={trackQuery}
               onChange={(e) => setTrackQuery(e.target.value)}
-              placeholder={isEcuadorMode ? "Buscar guía, código o tracking" : "Search shipment, customer, or city"}
+              placeholder={isEcuadorMode ? "Buscar guía, código o solicitud" : "Search shipment, customer, or city"}
               className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
             />
           </form>
@@ -289,8 +299,8 @@ export function DashboardShell({ title, description, children }: DashboardShellP
               </span>
               {!sidebarCollapsed ? (
                 <div className="min-w-0">
-                  <p className="text-sm font-bold">{isEcuadorMode ? "Modo Ecuador activo" : "System operational"}</p>
-                  <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? (isEcuadorMode ? "Solicitudes beta" : "Shipping balance")}</p>
+                  <p className="text-sm font-bold">{isEcuadorMode ? "SendiFlash Ecuador" : "System operational"}</p>
+                  <p className="truncate text-xs text-slate-300">{user?.businessName ?? user?.email ?? (isEcuadorMode ? "Tu cuenta" : "Shipping balance")}</p>
                 </div>
               ) : null}
             </div>
