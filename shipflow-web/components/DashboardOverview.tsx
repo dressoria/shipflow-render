@@ -9,13 +9,13 @@ import {
   BadgeCheck,
   BookMarked,
   Boxes,
+  Calculator,
   ClipboardList,
   CircleDollarSign,
   HelpCircle,
   MapPinned,
   PackageCheck,
   PlusCircle,
-  Search,
   Settings,
   ShieldCheck,
   Truck,
@@ -395,9 +395,7 @@ function EcuadorDashboardContent({
   return (
     <div className="grid gap-6">
       <div>
-        <h2 className="text-3xl font-black tracking-tight text-slate-950">
-          Hola, {greetingName}
-        </h2>
+        <h2 className="text-3xl font-black tracking-tight text-slate-950">Hola, {greetingName}</h2>
         <p className="mt-1 text-sm text-slate-500">¿Qué necesitas hacer hoy?</p>
       </div>
 
@@ -412,7 +410,7 @@ function EcuadorDashboardContent({
         </Link>
       )}
 
-      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-sky-600 to-sky-700 p-6 shadow-xl shadow-sky-700/20">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-sky-600 to-sky-700 p-6 shadow-md">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-200">Rastrear envío</p>
         <p className="mt-1 text-lg font-black text-white">¿Dónde está tu paquete?</p>
         <form
@@ -425,27 +423,51 @@ function EcuadorDashboardContent({
           <input
             value={trackQuery}
             onChange={(e) => setTrackQuery(e.target.value)}
-            placeholder="Ingresa tu guía, código o tracking"
+            placeholder="Ingresa guía, código o tracking"
             className="h-12 min-w-0 flex-1 rounded-2xl border border-sky-500/60 bg-white/15 px-4 text-sm text-white placeholder:text-sky-200 outline-none transition focus:border-white/50 focus:bg-white/20"
           />
           <button
             type="submit"
-            className="h-12 shrink-0 rounded-2xl bg-white px-5 text-sm font-black text-sky-700 shadow-sm transition hover:bg-sky-50"
+            className="h-12 shrink-0 rounded-2xl bg-white px-5 text-sm font-black text-sky-700 transition hover:bg-sky-50"
           >
             Buscar
           </button>
         </form>
+        <p className="mt-3 text-xs text-sky-200/80">
+          Consulta el estado de tus solicitudes y guías cuando estén disponibles.
+        </p>
       </section>
 
       <section>
         <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">Acciones rápidas</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <EcuadorShortcut href="/ecuador/crear-envio" icon={PlusCircle} label="Nueva solicitud" description="Iniciar envío" sky />
-          <EcuadorShortcut href="/tracking" icon={Search} label="Rastrear guía" description="Estado del paquete" sky />
-          <EcuadorShortcut href="/direcciones" icon={BookMarked} label="Mis direcciones" description="Libreta de contactos" />
-          <EcuadorShortcut href="/ecuador/envios" icon={PackageCheck} label="Mis solicitudes" description="Historial de envíos" />
+          <EcuadorShortcut href="/ecuador/crear-envio" icon={Calculator} label="Cotizar envío" description="Ver tarifas" sky />
+          <EcuadorShortcut href="/ecuador/envios" icon={PackageCheck} label="Mis envíos Ecuador" description="Historial" />
+          <EcuadorShortcut href="/direcciones" icon={BookMarked} label="Libreta de direcciones" description="Mis contactos" />
           <EcuadorShortcut href="/support" icon={HelpCircle} label="Soporte" description="Centro de ayuda" />
           <EcuadorShortcut href="/perfil" icon={Settings} label="Perfil" description="Tu cuenta" />
+        </div>
+      </section>
+
+      <section>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">Resumen</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <EcuadorMetric label="Solicitudes" value="–" detail="Ecuador" />
+          <EcuadorMetric label="Direcciones" value="–" detail="Guardadas" />
+          <EcuadorMetric label="Operadores" value="5" detail="En preparación" />
+          <EcuadorMetric label="Cotizaciones" value="–" detail="Referenciales" />
+        </div>
+      </section>
+
+      <section>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">Operadores Ecuador</p>
+        <div className="grid gap-2">
+          <OperatorRow name="Delivereo" status="Pendiente de activación" highlight />
+          <OperatorRow name="Servientrega" status="En preparación" />
+          <OperatorRow name="Laar Courier" status="En preparación" />
+          <OperatorRow name="Urbano" status="En preparación" />
+          <OperatorRow name="Tramaco" status="En preparación" />
         </div>
       </section>
 
@@ -489,5 +511,35 @@ function EcuadorShortcut({
         <p className="text-xs font-semibold text-slate-500">{description}</p>
       </div>
     </Link>
+  );
+}
+
+function EcuadorMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-0.5 text-xs font-semibold text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function OperatorRow({ name, status, highlight = false }: { name: string; status: string; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-100">
+          <Truck className="h-4 w-4 text-slate-500" />
+        </span>
+        <p className="text-sm font-black text-slate-950">{name}</p>
+      </div>
+      <span
+        className={`rounded-full px-2.5 py-1 text-xs font-black ${
+          highlight ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"
+        }`}
+      >
+        {status}
+      </span>
+    </div>
   );
 }
