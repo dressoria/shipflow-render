@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
+  BookMarked,
   Boxes,
   ClipboardList,
   CircleDollarSign,
@@ -13,6 +15,7 @@ import {
   MapPinned,
   PackageCheck,
   PlusCircle,
+  Search,
   Settings,
   ShieldCheck,
   Truck,
@@ -128,6 +131,10 @@ export function DashboardOverview() {
         </div>
       </div>
     );
+  }
+
+  if (isEcuadorMode) {
+    return <EcuadorDashboardContent user={user} profileIncomplete={profileIncomplete} />;
   }
 
   return (
@@ -371,5 +378,116 @@ function StatusLine({ label, value }: { label: string; value: string }) {
       <span className="text-slate-500">{label}</span>
       <span className="font-black text-slate-950">{value}</span>
     </div>
+  );
+}
+
+function EcuadorDashboardContent({
+  user,
+  profileIncomplete,
+}: {
+  user: { businessName?: string | null; email?: string | null } | null;
+  profileIncomplete: boolean;
+}) {
+  const [trackQuery, setTrackQuery] = useState("");
+  const router = useRouter();
+  const greetingName = user?.businessName || user?.email?.split("@")[0] || "bienvenido";
+
+  return (
+    <div className="grid gap-6">
+      <div>
+        <h2 className="text-3xl font-black tracking-tight text-slate-950">
+          Hola, {greetingName}
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">¿Qué necesitas hacer hoy?</p>
+      </div>
+
+      {profileIncomplete && (
+        <Link
+          href="/perfil"
+          className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Completa tu perfil para una mejor experiencia
+          <ArrowRight className="ml-auto h-4 w-4 shrink-0" />
+        </Link>
+      )}
+
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-sky-600 to-sky-700 p-6 shadow-xl shadow-sky-700/20">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-200">Rastrear envío</p>
+        <p className="mt-1 text-lg font-black text-white">¿Dónde está tu paquete?</p>
+        <form
+          className="mt-4 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            router.push(trackQuery.trim() ? `/tracking?numero=${encodeURIComponent(trackQuery.trim())}` : "/tracking");
+          }}
+        >
+          <input
+            value={trackQuery}
+            onChange={(e) => setTrackQuery(e.target.value)}
+            placeholder="Ingresa tu guía, código o tracking"
+            className="h-12 min-w-0 flex-1 rounded-2xl border border-sky-500/60 bg-white/15 px-4 text-sm text-white placeholder:text-sky-200 outline-none transition focus:border-white/50 focus:bg-white/20"
+          />
+          <button
+            type="submit"
+            className="h-12 shrink-0 rounded-2xl bg-white px-5 text-sm font-black text-sky-700 shadow-sm transition hover:bg-sky-50"
+          >
+            Buscar
+          </button>
+        </form>
+      </section>
+
+      <section>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-slate-400">Acciones rápidas</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <EcuadorShortcut href="/ecuador/crear-envio" icon={PlusCircle} label="Nueva solicitud" description="Iniciar envío" sky />
+          <EcuadorShortcut href="/tracking" icon={Search} label="Rastrear guía" description="Estado del paquete" sky />
+          <EcuadorShortcut href="/direcciones" icon={BookMarked} label="Mis direcciones" description="Libreta de contactos" />
+          <EcuadorShortcut href="/ecuador/envios" icon={PackageCheck} label="Mis solicitudes" description="Historial de envíos" />
+          <EcuadorShortcut href="/support" icon={HelpCircle} label="Soporte" description="Centro de ayuda" />
+          <EcuadorShortcut href="/perfil" icon={Settings} label="Perfil" description="Tu cuenta" />
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5">
+        <p className="shrink-0 text-xs font-black uppercase tracking-[0.18em] text-slate-400">También disponible</p>
+        <Link href="/envios" className="text-sm font-bold text-slate-500 transition hover:text-sky-600">Etiquetas USA</Link>
+        <Link href="/saldo" className="text-sm font-bold text-slate-500 transition hover:text-sky-600">Saldo</Link>
+        <Link href="/prep" className="text-sm font-bold text-slate-500 transition hover:text-sky-600">FBA Prep</Link>
+      </div>
+    </div>
+  );
+}
+
+function EcuadorShortcut({
+  href,
+  icon: Icon,
+  label,
+  description,
+  sky = false,
+}: {
+  href: string;
+  icon: typeof PlusCircle;
+  label: string;
+  description: string;
+  sky?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
+    >
+      <span
+        className={`grid h-10 w-10 place-items-center rounded-2xl border ${
+          sky ? "border-sky-100 bg-sky-50 text-sky-600" : "border-slate-200 bg-slate-50 text-slate-500"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <p className="text-sm font-black text-slate-950">{label}</p>
+        <p className="text-xs font-semibold text-slate-500">{description}</p>
+      </div>
+    </Link>
   );
 }

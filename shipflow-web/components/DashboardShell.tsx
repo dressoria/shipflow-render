@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
+  Bell,
   BookMarked,
   ClipboardList,
   CreditCard,
@@ -121,6 +122,8 @@ export function DashboardShell({ title, description, children }: DashboardShellP
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [trackQuery, setTrackQuery] = useState("");
+  const router = useRouter();
   const prepAccess = getPrepAccessState(user);
   const isEcuadorMode = mode === "ec";
 
@@ -183,21 +186,43 @@ export function DashboardShell({ title, description, children }: DashboardShellP
             </span>
             <BrandName />
           </Link>
-          <div className="hidden h-10 min-w-64 items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 px-4 text-sm text-slate-500 shadow-sm xl:flex">
-            <Search className="h-4 w-4" />
-            {isEcuadorMode ? "Buscar solicitud, ciudad o cliente" : "Search shipment, customer, or city"}
-          </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); router.push(trackQuery.trim() ? `/tracking?numero=${encodeURIComponent(trackQuery.trim())}` : "/tracking"); }}
+            className="hidden h-10 min-w-64 items-center gap-2 rounded-2xl border border-blue-100 bg-white/80 px-3 text-sm shadow-sm xl:flex"
+          >
+            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+            <input
+              value={trackQuery}
+              onChange={(e) => setTrackQuery(e.target.value)}
+              placeholder={isEcuadorMode ? "Buscar guía, código o tracking" : "Search shipment, customer, or city"}
+              className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
+            />
+          </form>
           <div className="ml-auto flex items-center gap-2">
             <Button href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} icon={<PlusCircle className="h-4 w-4" />} className="hidden rounded-2xl sm:inline-flex">
               {isEcuadorMode ? "Nueva cotización" : "Get rates"}
             </Button>
             <button
               type="button"
-              onClick={logout}
-              className="inline-flex h-10 items-center justify-center rounded-2xl border border-blue-100 bg-white/85 px-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-blue-50"
+              className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50"
+              aria-label={isEcuadorMode ? "Notificaciones" : "Notifications"}
             >
-              <LogOut className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{isEcuadorMode ? "Cerrar sesión" : "Sign out"}</span>
+              <Bell className="h-4 w-4" />
+            </button>
+            <Link
+              href="/perfil"
+              className={cn("grid h-9 w-9 place-items-center rounded-full text-sm font-black shadow-sm transition hover:opacity-80", isEcuadorMode ? "bg-sky-100 text-sky-700" : "bg-blue-100 text-[#2563EB]")}
+              aria-label={isEcuadorMode ? "Mi perfil" : "My profile"}
+            >
+              {(user?.businessName || user?.email || "U")[0].toUpperCase()}
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="grid h-10 w-10 place-items-center rounded-2xl border border-blue-100 bg-white/85 text-slate-700 shadow-sm transition hover:bg-blue-50"
+              aria-label={isEcuadorMode ? "Cerrar sesión" : "Sign out"}
+            >
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -303,6 +328,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           </button>
         </aside>
         <main className="min-w-0">
+          {(!isEcuadorMode || pathname !== "/dashboard") && (
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <p className={cn("text-xs font-bold uppercase tracking-[0.18em]", accentClass)}>
@@ -314,6 +340,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
               <p className="mt-1 text-sm text-slate-600">{description}</p>
             </div>
           </div>
+          )}
           {children}
         </main>
       </div>
