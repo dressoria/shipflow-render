@@ -1,6 +1,39 @@
 # Staging QA Results
 
-Last updated: 2026-06-03 (FASE 5.79 Delivereo auth validation)
+Last updated: 2026-06-04 (FASE 5.84 Ecuador UX QA and polish)
+
+---
+
+## FASE 5.84 — Ecuador UX QA And Polish
+
+Run timestamp: 2026-06-04 America/Guayaquil
+
+Commit tested:
+
+- Pending commit — Polish Ecuador internal UX
+
+### Result
+
+| Area | Result | Evidence / note |
+| --- | --- | --- |
+| Ecuador navigation | READY FOR QA | Ecuador sidebar keeps `Modo Ecuador activo`, primary links point to Ecuador quote flow, requests, address book, support, and profile. USA remains secondary/discreet. |
+| Ecuador login | READY FOR QA | Ecuador auth copy is Spanish-first, uses Ecuador visuals, includes a subtle `Ir a modo USA` switch, and avoids `Coming soon` / large English marketing copy. |
+| Address book UX | READY FOR QA | Shared localStorage address book supports create/edit/default/search/use-in-quote without adding Supabase persistence yet. |
+| Ecuador quote wizard | READY FOR QA | Three-step flow covers origin/destination, multi-bulto, and multicourier quote results with no real order creation. |
+| Safety posture | NOT CHANGED | No payments, no bookings, no Ecuador provider order creation, no migration, and no USA Shipping Labels logic changes. |
+
+### Manual QA checklist
+
+- [ ] In Ecuador mode, confirm sidebar primary nav stays Ecuador-first and USA items remain secondary.
+- [ ] Confirm `/login` and `/registro` show Spanish Ecuador copy, Ecuador visual, and a subtle USA mode switch.
+- [ ] Confirm `/direcciones` supports add, edit, default, search, and `Usar en cotización` in Ecuador mode.
+- [ ] Confirm `/ecuador/crear-envio` keeps the 3-step wizard responsive on mobile, tablet, and desktop.
+- [ ] Confirm multi-bulto add/remove/edit works and only shows `cm` / `kg` in Ecuador mode.
+- [ ] Confirm loading state says `Buscando mejores precios` / `Consultando operadores disponibles` and repeats that no charge or real order is created.
+- [ ] Confirm quote cards never invent prices for operators still in preparation.
+- [ ] Confirm USA login, dashboard, rate flow, labels, wallet, and tracking remain unchanged.
+
+Final decision: READY FOR OPERATOR QA.
 
 ---
 

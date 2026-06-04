@@ -1,8 +1,15 @@
 # Ecuador Provider Roadmap
 
-Last updated: 2026-06-03 (FASE 5.81)
+Last updated: 2026-06-04 (FASE 5.84)
 
 Purpose: staged roadmap for connecting Delivereo safely after credentials arrive, without prematurely activating Ecuador Shipping.
+
+## UX checkpoint before provider activation
+
+- Keep Ecuador customer experience Spanish-first and multicourier in presentation.
+- Keep `Sin cobro`, `No crea orden real`, and `Cotización referencial` visible until real operations are explicitly enabled.
+- Keep address book persistence local-only for now; do not imply account-synced address persistence yet.
+- Do not expose provider-internal wording like `solo Delivereo` in customer-facing quote UI.
 
 ## Phase A
 

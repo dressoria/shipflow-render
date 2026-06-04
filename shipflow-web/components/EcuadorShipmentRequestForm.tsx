@@ -96,6 +96,7 @@ export function EcuadorShipmentRequestForm() {
   const router = useRouter();
   const { entries } = useAddressBook();
   const initialSelections = getInitialAddressSelections(entries);
+  const firstPackage = useMemo(() => createPackageDraft(), []);
   const [step, setStep] = useState<WizardStep>(1);
   const [origin, setOrigin] = useState<ShipmentAddress>(() =>
     initialSelections.origin ? mapAddressEntryToShipment(initialSelections.origin) : initialAddress(),
@@ -110,8 +111,8 @@ export function EcuadorShipmentRequestForm() {
     initialSelections.destination?.id ?? null,
   );
   const [extraDestinations, setExtraDestinations] = useState<MultiDestinationDraft[]>([]);
-  const [packages, setPackages] = useState<PackageDraft[]>([createPackageDraft()]);
-  const [openPackageId, setOpenPackageId] = useState<string | null>(null);
+  const [packages, setPackages] = useState<PackageDraft[]>([firstPackage]);
+  const [openPackageId, setOpenPackageId] = useState<string | null>(firstPackage.id);
   const [customerNotes, setCustomerNotes] = useState("");
   const [declaredValue, setDeclaredValue] = useState<number | undefined>(undefined);
   const [quote, setQuote] = useState<EcuadorQuoteResult | null>(null);
@@ -156,7 +157,14 @@ export function EcuadorShipmentRequestForm() {
   }
 
   function removePackage(id: string) {
-    setPackages((current) => (current.length === 1 ? current : current.filter((item) => item.id !== id)));
+    setPackages((current) => {
+      if (current.length === 1) return current;
+      const next = current.filter((item) => item.id !== id);
+      if (openPackageId === id) {
+        setOpenPackageId(next[0]?.id ?? null);
+      }
+      return next;
+    });
     resetQuoteState();
   }
 
@@ -212,7 +220,7 @@ export function EcuadorShipmentRequestForm() {
     try {
       const result = await apiGetEcuadorDelivereoQuote(buildQuoteRequestBody({ origin, destination, packages, customerNotes, declaredValue }));
       setQuote(result.quote);
-      setSelectedOperatorName("Delivereo");
+      setSelectedOperatorName(null);
     } catch (nextError) {
       setQuote(null);
       setSelectedOperatorName(null);
@@ -269,6 +277,9 @@ export function EcuadorShipmentRequestForm() {
             <p className="font-black text-sky-700">Solicitud Ecuador</p>
             <p className="mt-2 leading-6">
               Puedes guardar una solicitud interna y seleccionar el operador que prefieras. Los operadores en preparación no muestran precios falsos.
+            </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Cotización referencial · Sin cobro · Sin orden real
             </p>
           </div>
         </div>
@@ -863,7 +874,7 @@ function StepQuotes({
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
                   <ResultInfo
                     label="Precio estimado"
-                    value={hasLiveQuote && quote.customerPrice != null ? formatCurrency(quote.customerPrice) : "Próximamente"}
+                    value={hasLiveQuote && quote.customerPrice != null ? formatCurrency(quote.customerPrice) : "En preparación"}
                   />
                   <ResultInfo
                     label="Tiempo estimado"

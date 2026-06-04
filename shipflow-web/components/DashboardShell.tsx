@@ -53,15 +53,15 @@ const usaMenu: NavItem[] = [
 
 const ecuadorMenu: NavItem[] = [
   { label: "Panel", href: "/dashboard", icon: Home },
-  { label: "Cotizar envío", href: "/ecuador/crear-envio", icon: PlusCircle },
-  { label: "Libreta de direcciones", href: "/direcciones", icon: BookMarked },
+  { label: "Nueva solicitud", href: "/ecuador/crear-envio", icon: PlusCircle },
+  { label: "Libreta de Direcciones", href: "/direcciones", icon: BookMarked },
   { label: "Mis solicitudes", href: "/ecuador/envios", icon: MapPinned },
   { label: "Soporte", href: "/support", icon: HelpCircle },
   { label: "Perfil", href: "/perfil", icon: Settings },
   { label: "Etiquetas USA", href: "/shipping-labels", icon: Truck, badge: "USA", secondary: true },
   { label: "Envíos USA", href: "/envios", icon: Truck, secondary: true },
   { label: "Saldo", href: "/saldo", icon: CreditCard, secondary: true },
-  { label: "FBA Prep", href: "/prep", icon: ClipboardList, badge: "Soon", secondary: true },
+  { label: "FBA Prep", href: "/prep", icon: ClipboardList, badge: "Próx.", secondary: true },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sendiflash-sidebar-collapsed";
@@ -93,7 +93,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
   }
 
   const baseNavItems = (isEcuadorMode ? ecuadorMenu : usaMenu).map((item) =>
-    item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge: "Soon" } : item,
+    item.href === "/prep" && !prepAccess.canUsePrep ? { ...item, badge: isEcuadorMode ? "Próx." : "Soon" } : item,
   );
   const navItems = isAdmin ? [...baseNavItems, { label: "Admin", href: "/admin", icon: ShieldCheck }] : baseNavItems;
   const primaryNavItems = navItems.filter((item) => !item.secondary);

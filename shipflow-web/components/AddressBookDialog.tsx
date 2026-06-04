@@ -34,6 +34,7 @@ export function AddressBookDialog({
 }) {
   const { mode } = useRegionMode();
   const isEcuadorMode = mode === "ec";
+  const [error, setError] = useState("");
   const [draft, setDraft] = useState<AddressBookEntryDraft>(() =>
     initialValue
       ? {
@@ -99,6 +100,15 @@ export function AddressBookDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault();
+            if (draft.phone.trim().length < 7) {
+              setError(isEcuadorMode ? "Ingresa un teléfono válido con al menos 7 dígitos." : "Enter a valid phone number with at least 7 digits.");
+              return;
+            }
+            if (draft.email && !draft.email.includes("@")) {
+              setError(isEcuadorMode ? "Ingresa un email válido o deja el campo vacío." : "Enter a valid email or leave it blank.");
+              return;
+            }
+            setError("");
             onSave(draft, initialValue?.id);
             onClose();
           }}
@@ -112,7 +122,15 @@ export function AddressBookDialog({
               options={roleOptions}
               onChange={(value) => setDraft((current) => ({ ...current, role: value as AddressBookRole }))}
             />
-            <TextField label={isEcuadorMode ? "País" : "Country"} value={draft.country} onChange={(value) => setDraft((current) => ({ ...current, country: value.toUpperCase() }))} required />
+            <SelectField
+              label={isEcuadorMode ? "País" : "Country"}
+              value={draft.country}
+              options={[
+                { value: "EC", label: isEcuadorMode ? "Ecuador" : "Ecuador" },
+                { value: "US", label: isEcuadorMode ? "Estados Unidos" : "United States" },
+              ]}
+              onChange={(value) => setDraft((current) => ({ ...current, country: value }))}
+            />
             <TextField label={isEcuadorMode ? "Nombre / contacto" : "Contact name"} value={draft.contactName} onChange={(value) => setDraft((current) => ({ ...current, contactName: value }))} required />
             <TextField label={isEcuadorMode ? "Teléfono" : "Phone"} value={draft.phone} onChange={(value) => setDraft((current) => ({ ...current, phone: value }))} required />
             <TextField label="Email" value={draft.email ?? ""} onChange={(value) => setDraft((current) => ({ ...current, email: value }))} />
@@ -146,6 +164,12 @@ export function AddressBookDialog({
             />
             <span>{isEcuadorMode ? "Marcar como dirección predeterminada" : "Mark as default address"}</span>
           </label>
+
+          {error ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              {error}
+            </div>
+          ) : null}
 
           <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
             <button

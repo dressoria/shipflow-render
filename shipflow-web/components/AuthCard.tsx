@@ -50,6 +50,7 @@ const businessTypes = [
 ];
 
 const markets = [
+  { code: "EC", label: "Ecuador" },
   { code: "US", label: "United States" },
   { code: "CA", label: "Canada" },
   { code: "ES", label: "Spain" },
@@ -119,7 +120,7 @@ async function verifyCaptchaToken(token: string | null) {
   }
 }
 
-function AuthFormError({ message }: { message: string }) {
+function AuthFormError({ message, isEcuadorMode }: { message: string; isEcuadorMode: boolean }) {
   const lower = message.toLowerCase();
   const showHelp =
     lower.includes("invalid") ||
@@ -134,13 +135,13 @@ function AuthFormError({ message }: { message: string }) {
       {showHelp ? (
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
           <Link href="/login" className="font-bold text-[#2563EB] hover:underline">
-            Sign in
+            {isEcuadorMode ? "Iniciar sesión" : "Sign in"}
           </Link>
           <Link href="/forgot-password" className="font-bold text-[#2563EB] hover:underline">
-            Forgot password?
+            {isEcuadorMode ? "¿Olvidaste tu contraseña?" : "Forgot password?"}
           </Link>
           <Link href="/verifica-tu-correo?resend=true" className="font-bold text-[#2563EB] hover:underline">
-            Resend verification
+            {isEcuadorMode ? "Reenviar verificación" : "Resend verification"}
           </Link>
         </div>
       ) : null}
@@ -185,24 +186,24 @@ export function AuthCard({ mode }: AuthCardProps) {
     const businessName = required(form.get("businessName"));
     const email = required(form.get("email"));
     const phone = required(form.get("phone"));
-    const country = required(form.get("country")) || "US";
+    const country = required(form.get("country")) || (isEcuadorMode ? "EC" : "US");
     const businessType = required(form.get("businessType"));
     const password = required(form.get("password"));
     const confirmPassword = required(form.get("confirmPassword"));
     const acceptedTerms = form.get("acceptedTerms") === "on";
     const nextErrors: Record<string, string> = {};
 
-    if (!isLogin && !firstName) nextErrors.firstName = "Enter your first name.";
-    if (!isLogin && !lastName) nextErrors.lastName = "Enter your last name.";
-    if (!isLogin && !businessName) nextErrors.businessName = "Enter your business or company name.";
-    if (!isLogin && phone && !isPhone(phone)) nextErrors.phone = "Enter a valid phone number.";
-    if (!isLogin && !businessType) nextErrors.businessType = "Select a business type.";
-    if (!isLogin && !acceptedTerms) nextErrors.acceptedTerms = "Accept the terms to create an account.";
-    if (!email) nextErrors.email = "Enter your email.";
-    if (email && !isEmail(email)) nextErrors.email = "Enter a valid email.";
-    if (!password) nextErrors.password = "Enter your password.";
-    if (password && password.length < 6) nextErrors.password = "Use at least 6 characters.";
-    if (!isLogin && password !== confirmPassword) nextErrors.confirmPassword = "Passwords do not match.";
+    if (!isLogin && !firstName) nextErrors.firstName = isEcuadorMode ? "Ingresa tu nombre." : "Enter your first name.";
+    if (!isLogin && !lastName) nextErrors.lastName = isEcuadorMode ? "Ingresa tu apellido." : "Enter your last name.";
+    if (!isLogin && !businessName) nextErrors.businessName = isEcuadorMode ? "Ingresa el nombre de tu negocio o empresa." : "Enter your business or company name.";
+    if (!isLogin && phone && !isPhone(phone)) nextErrors.phone = isEcuadorMode ? "Ingresa un teléfono válido." : "Enter a valid phone number.";
+    if (!isLogin && !businessType) nextErrors.businessType = isEcuadorMode ? "Selecciona un tipo de negocio." : "Select a business type.";
+    if (!isLogin && !acceptedTerms) nextErrors.acceptedTerms = isEcuadorMode ? "Debes aceptar los términos para crear tu cuenta." : "Accept the terms to create an account.";
+    if (!email) nextErrors.email = isEcuadorMode ? "Ingresa tu email." : "Enter your email.";
+    if (email && !isEmail(email)) nextErrors.email = isEcuadorMode ? "Ingresa un email válido." : "Enter a valid email.";
+    if (!password) nextErrors.password = isEcuadorMode ? "Ingresa tu contraseña." : "Enter your password.";
+    if (password && password.length < 6) nextErrors.password = isEcuadorMode ? "Usa al menos 6 caracteres." : "Use at least 6 characters.";
+    if (!isLogin && password !== confirmPassword) nextErrors.confirmPassword = isEcuadorMode ? "Las contraseñas no coinciden." : "Passwords do not match.";
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -216,7 +217,7 @@ export function AuthCard({ mode }: AuthCardProps) {
       }
 
       if (user) {
-        setErrors({ form: "You are already signed in. Sign out before creating another account." });
+        setErrors({ form: isEcuadorMode ? "Ya tienes una sesión activa. Cierra sesión antes de crear otra cuenta." : "You are already signed in. Sign out before creating another account." });
         setLoading(false);
         return;
       }
@@ -240,8 +241,8 @@ export function AuthCard({ mode }: AuthCardProps) {
         setExistingAccountEmail(email);
         setErrors({});
       } else {
-        setErrors({
-          form: error instanceof Error ? error.message : "We could not complete this action.",
+      setErrors({
+          form: error instanceof Error ? error.message : isEcuadorMode ? "No pudimos completar esta acción." : "We could not complete this action.",
         });
       }
       setLoading(false);
@@ -249,25 +250,25 @@ export function AuthCard({ mode }: AuthCardProps) {
   }
 
   if (authLoading) {
-    return <AuthLoadingState />;
+    return <AuthLoadingState isEcuadorMode={isEcuadorMode} />;
   }
 
   if (!isLogin && existingAccountEmail) {
     return (
       <AuthFrame mode={mode}>
         <StatusCard
-          title="Account may already exist"
-          body="That email may already have an account or may still need verification."
+          title={isEcuadorMode ? "La cuenta ya podría existir" : "Account may already exist"}
+          body={isEcuadorMode ? "Ese email puede tener una cuenta creada o puede seguir pendiente de verificación." : "That email may already have an account or may still need verification."}
           email={existingAccountEmail}
           primaryHref="/login"
-          primaryLabel="Go to login"
+          primaryLabel={isEcuadorMode ? "Ir al inicio de sesión" : "Go to login"}
           secondaryHref={`/verifica-tu-correo?resend=true&email=${encodeURIComponent(existingAccountEmail)}`}
-          secondaryLabel="Resend verification email"
+          secondaryLabel={isEcuadorMode ? "Reenviar email de verificación" : "Resend verification email"}
           tertiaryAction={() => {
             setExistingAccountEmail(null);
             setErrors({});
           }}
-          tertiaryLabel="Try a different email"
+          tertiaryLabel={isEcuadorMode ? "Probar con otro email" : "Try a different email"}
         />
       </AuthFrame>
     );
@@ -277,13 +278,13 @@ export function AuthCard({ mode }: AuthCardProps) {
     return (
       <AuthFrame mode={mode}>
         <StatusCard
-          title="Already signed in"
-          body="You are currently authenticated. Sign out before creating another account."
+          title={isEcuadorMode ? "Ya tienes una sesión activa" : "Already signed in"}
+          body={isEcuadorMode ? "Tu cuenta ya está autenticada. Cierra sesión antes de crear otra cuenta." : "You are currently authenticated. Sign out before creating another account."}
           email={user.email}
           primaryHref="/dashboard"
-          primaryLabel="Go to dashboard"
+          primaryLabel={isEcuadorMode ? "Ir al panel" : "Go to dashboard"}
           secondaryAction={handleSignOutForRegistration}
-          secondaryLabel={signOutLoading ? "Signing out..." : "Sign out"}
+          secondaryLabel={isEcuadorMode ? (signOutLoading ? "Cerrando sesión..." : "Cerrar sesión") : signOutLoading ? "Signing out..." : "Sign out"}
         />
       </AuthFrame>
     );
@@ -353,25 +354,37 @@ export function AuthCard({ mode }: AuthCardProps) {
                 <Field name="firstName" label={isEcuadorMode ? "Nombre" : "First name"} placeholder="Andrea" error={errors.firstName} />
                 <Field name="lastName" label={isEcuadorMode ? "Apellido" : "Last name"} placeholder="Martinez" error={errors.lastName} />
               </div>
-              <Field name="businessName" label={isEcuadorMode ? "Negocio / empresa" : "Business / company name"} placeholder="Northstar Market" error={errors.businessName} />
+              <Field name="businessName" label={isEcuadorMode ? "Negocio / empresa" : "Business / company name"} placeholder={isEcuadorMode ? "Bodega Norte" : "Northstar Market"} error={errors.businessName} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field name="phone" label={isEcuadorMode ? "Telefono" : "Phone"} placeholder="+1 555 000 0000" error={errors.phone} />
-                <SelectField name="country" label={isEcuadorMode ? "Mercado predeterminado" : "Default market"} options={markets} error={errors.country} />
+                <Field name="phone" label={isEcuadorMode ? "Teléfono" : "Phone"} placeholder={isEcuadorMode ? "+593 99 123 4567" : "+1 555 000 0000"} error={errors.phone} />
+                <SelectField name="country" label={isEcuadorMode ? "Mercado predeterminado" : "Default market"} options={markets} error={errors.country} defaultValue={isEcuadorMode ? "EC" : undefined} />
               </div>
               <SelectField
                 name="businessType"
                 label={isEcuadorMode ? "Tipo de negocio" : "Business type"}
-                options={businessTypes.map((value) => ({ code: value, label: value }))}
+                options={businessTypes.map((value) => ({
+                  code: value,
+                  label: isEcuadorMode
+                    ? ({
+                        "Online store": "Tienda online",
+                        "Marketplace seller": "Seller de marketplace",
+                        "Small business": "Pequeño negocio",
+                        "Warehouse / fulfillment": "Bodega / fulfillment",
+                        Agency: "Agencia",
+                        Other: "Otro",
+                      }[value] ?? value)
+                    : value,
+                }))}
                 error={errors.businessType}
               />
             </>
           ) : null}
 
-          <Field name="email" label="Email" type="email" placeholder="hello@store.com" error={errors.email} />
-          <Field name="password" label={isEcuadorMode ? "Contrasena" : "Password"} type="password" placeholder="••••••••" error={errors.password} />
+          <Field name="email" label={isEcuadorMode ? "Email" : "Email"} type="email" placeholder={isEcuadorMode ? "operaciones@negocio.com" : "hello@store.com"} error={errors.email} />
+          <Field name="password" label={isEcuadorMode ? "Contraseña" : "Password"} type="password" placeholder="••••••••" error={errors.password} />
           {!isLogin ? (
             <>
-              <Field name="confirmPassword" label={isEcuadorMode ? "Confirmar contrasena" : "Confirm password"} type="password" placeholder="••••••••" error={errors.confirmPassword} />
+              <Field name="confirmPassword" label={isEcuadorMode ? "Confirmar contraseña" : "Confirm password"} type="password" placeholder="••••••••" error={errors.confirmPassword} />
               <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                 <input name="acceptedTerms" type="checkbox" className="mt-1" />
                 <span>
@@ -408,10 +421,10 @@ export function AuthCard({ mode }: AuthCardProps) {
             disabled={loading}
             className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#F97316] px-5 text-sm font-black text-white shadow-xl shadow-orange-500/20 transition hover:-translate-y-0.5 hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Checking..." : isEcuadorMode ? (isLogin ? "Entrar al panel" : "Crear cuenta") : isLogin ? "Enter dashboard" : "Create account"}
+            {loading ? (isEcuadorMode ? "Validando acceso..." : "Checking...") : isEcuadorMode ? (isLogin ? "Entrar al panel" : "Crear cuenta") : isLogin ? "Enter dashboard" : "Create account"}
             {!loading ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
           </button>
-          {errors.form ? <AuthFormError message={errors.form} /> : null}
+          {errors.form ? <AuthFormError message={errors.form} isEcuadorMode={isEcuadorMode} /> : null}
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-600">
@@ -635,7 +648,7 @@ function StatusCard({
   );
 }
 
-function AuthLoadingState() {
+function AuthLoadingState({ isEcuadorMode }: { isEcuadorMode: boolean }) {
   return (
     <main className="grid min-h-screen place-items-center bg-[#0F172A] px-4 py-10">
       <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-white p-8 text-center shadow-2xl">
@@ -643,7 +656,7 @@ function AuthLoadingState() {
           <PackageCheck className="h-5 w-5" />
         </span>
         <RefreshCw className="mx-auto mt-4 h-6 w-6 animate-spin text-[#F97316]" />
-        <p className="mt-3 text-sm text-slate-500">Checking session...</p>
+        <p className="mt-3 text-sm text-slate-500">{isEcuadorMode ? "Validando sesión..." : "Checking session..."}</p>
       </div>
     </main>
   );
@@ -681,18 +694,20 @@ function SelectField({
   name,
   options,
   error,
+  defaultValue,
 }: {
   label: string;
   name: string;
   options: Array<{ code: string; label: string }>;
   error?: string;
+  defaultValue?: string;
 }) {
   return (
     <label className="grid gap-2 text-sm font-bold text-slate-700">
       {label}
       <select
         name={name}
-        defaultValue={options[0]?.code}
+        defaultValue={defaultValue ?? options[0]?.code}
         className="h-11 rounded-2xl border border-slate-200 bg-slate-50 px-4 outline-none transition focus:border-[#2563EB] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
       >
         {options.map((option) => (
