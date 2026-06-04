@@ -16,7 +16,15 @@ async function getToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
-type ApiEnvelope<T> = { success: boolean; data: T | null; error: string | null };
+type ApiEnvelope<T> = {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+  details?: string | null;
+  stage?: string | null;
+  status?: number | null;
+  providerMessage?: string | null;
+};
 
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
@@ -25,7 +33,15 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const existingHeaders = (init.headers ?? {}) as Record<string, string>;
   const res = await fetch(path, { ...init, headers: { ...headers, ...existingHeaders } });
   const json = (await res.json()) as ApiEnvelope<T>;
-  if (!res.ok || !json.success) throw new Error(json.error ?? `API error (${res.status})`);
+  if (!res.ok || !json.success) {
+    const parts = [
+      json.error,
+      json.stage ? `Etapa: ${json.stage}.` : null,
+      json.details,
+      json.providerMessage ? `Mensaje proveedor: ${json.providerMessage}.` : null,
+    ].filter(Boolean);
+    throw new Error(parts.join(" ") || `API error (${res.status})`);
+  }
   return json.data as T;
 }
 

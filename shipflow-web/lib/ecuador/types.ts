@@ -107,6 +107,10 @@ export type EcuadorQuoteResult = {
 export type EcuadorQuoteRequestBody = CreateEcuadorShipmentRequestBody & {
   language?: "es" | "en";
   category?: "SMALL" | "MEDIUM" | "LARGE";
+  originLatitude?: number;
+  originLongitude?: number;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
 };
 
 export type EcuadorCreateShipmentInput = EcuadorShipmentDraft & {

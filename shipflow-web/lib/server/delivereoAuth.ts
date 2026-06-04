@@ -1,13 +1,22 @@
 import "server-only";
 
 import type { EcuadorProviderDiagnosticsSnapshot } from "@/lib/ecuador/providerHealth";
-import { getDelivereoCredentialStatus, readDelivereoServerConfig, type DelivereoServerConfig } from "@/lib/server/delivereoConfig";
+import {
+  getDelivereoCredentialStatus,
+  getDelivereoMissingConfigFields,
+  readDelivereoServerConfig,
+  type DelivereoServerConfig,
+} from "@/lib/server/delivereoConfig";
 import { delivereoPostJson, safeDelivereoFailure } from "@/lib/server/delivereoHttp";
 
 export type DelivereoAuthTestStatus = "success" | "fail" | "not_tested";
 
 type DelivereoTokenResponse = {
+  code?: number;
   jwtToken?: string | null;
+  message?: string | null;
+  result?: string | null;
+  status?: boolean;
 };
 
 type LastAuthCheck = {
@@ -23,12 +32,23 @@ let lastAuthCheck: LastAuthCheck = {
 };
 
 function requireDelivereoCredentials(config: DelivereoServerConfig) {
-  if (!config.baseUrl || !config.username || !config.password) {
-    throw safeDelivereoFailure("Delivereo credentials are not configured.", 503);
+  const missingFields = getDelivereoMissingConfigFields(config);
+  if (missingFields.length > 0) {
+    throw safeDelivereoFailure(
+      "Delivereo is not configured",
+      "business_login",
+      503,
+      `Missing ${missingFields[0]}`,
+    );
   }
 
   if (!config.enabled) {
-    throw safeDelivereoFailure("Delivereo is disabled in server configuration.", 503);
+    throw safeDelivereoFailure(
+      "Delivereo is not configured",
+      "business_login",
+      503,
+      "DELIVEREO_ENABLED is false",
+    );
   }
 }
 
@@ -38,11 +58,19 @@ export async function loginToDelivereo() {
 
   const payload = await delivereoPostJson<DelivereoTokenResponse>(
     config,
-    "/api/protected/login/business-user",
+    "/api/protected/login/business",
     {
+      apiKey: config.apiKey,
       email: config.username,
-      password: config.password,
-      lang: "en",
+      ruc: config.ruc,
+      lang: "es",
+    },
+    undefined,
+    {
+      stage: "business_login",
+      summary: {
+        loginMode: "business",
+      },
     },
   );
 
@@ -55,18 +83,37 @@ export async function renewDelivereoToken(token: string) {
   const config = readDelivereoServerConfig();
   requireDelivereoCredentials(config);
   if (!token.trim()) {
-    throw safeDelivereoFailure("Delivereo token renewal requires an existing token.", 400);
+    throw safeDelivereoFailure(
+      "Delivereo token renewal failed",
+      "token_renewal",
+      400,
+      "Delivereo token renewal requires an existing token.",
+    );
   }
 
   const payload = await delivereoPostJson<DelivereoTokenResponse>(
     config,
-    "/api/protected/token-renewal/business-user",
-    {},
-    token.trim(),
+    "/api/protected/token-renewal/business",
+    {
+      email: config.username,
+      lang: "es",
+      oldJwtToken: token.trim(),
+    },
+    undefined,
+    {
+      stage: "token_renewal",
+      summary: {
+        loginMode: "business",
+      },
+    },
   );
 
   return {
-    token: typeof payload.jwtToken === "string" && payload.jwtToken.trim() ? payload.jwtToken.trim() : null,
+    token: typeof payload.result === "string" && payload.result?.trim()
+      ? payload.result.trim()
+      : typeof payload.jwtToken === "string" && payload.jwtToken.trim()
+        ? payload.jwtToken.trim()
+        : null,
   };
 }
 
@@ -101,7 +148,12 @@ export async function testDelivereoAuthentication() {
       tokenReceived: false,
       lastCheckedAt: new Date().toISOString(),
     };
-    throw safeDelivereoFailure("Delivereo credentials are not configured.", 503);
+    throw safeDelivereoFailure(
+      "Delivereo is not configured",
+      "business_login",
+      503,
+      credentials.missingFields.length > 0 ? `Missing ${credentials.missingFields[0]}` : "Missing Delivereo credentials",
+    );
   }
 
   if (!credentials.enabled) {
@@ -110,7 +162,12 @@ export async function testDelivereoAuthentication() {
       tokenReceived: false,
       lastCheckedAt: new Date().toISOString(),
     };
-    throw safeDelivereoFailure("Delivereo is disabled in server configuration.", 503);
+    throw safeDelivereoFailure(
+      "Delivereo is not configured",
+      "business_login",
+      503,
+      "DELIVEREO_ENABLED is false",
+    );
   }
 
   try {

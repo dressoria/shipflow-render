@@ -1,6 +1,7 @@
 import { apiError, apiSuccess } from "@/lib/server/apiResponse";
 import { getDelivereoCredentialStatus } from "@/lib/server/delivereoConfig";
 import { getDelivereoQuoteForEcuador, toSafeDelivereoQuoteError } from "@/lib/server/ecuadorQuotes";
+import { delivereoErrorResponse } from "@/lib/server/delivereoHttp";
 import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/supabaseServer";
 
 export async function POST(request: Request) {
@@ -10,11 +11,15 @@ export async function POST(request: Request) {
 
   const credentials = getDelivereoCredentialStatus();
   if (!credentials.enabled) {
-    return apiError("Delivereo beta quote is disabled right now.", 503);
+    return apiError("Delivereo is not configured", 503, "DELIVEREO_ENABLED is false");
   }
 
   if (!credentials.credentialsPresent) {
-    return apiError("Delivereo beta quote is not configured yet.", 503);
+    return apiError(
+      "Delivereo is not configured",
+      503,
+      credentials.missingFields.length > 0 ? `Missing ${credentials.missingFields[0]}` : "Missing Delivereo credentials",
+    );
   }
 
   try {
@@ -28,6 +33,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const safeError = toSafeDelivereoQuoteError(error);
-    return apiError(await safeError.text(), safeError.status);
+    const payload = await safeError.json().catch(() => null);
+    return delivereoErrorResponse(
+      payload && typeof payload === "object"
+        ? {
+            ...(payload as Record<string, unknown>),
+          }
+        : error,
+    );
   }
 }

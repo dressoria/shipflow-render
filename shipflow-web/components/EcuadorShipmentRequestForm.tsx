@@ -46,6 +46,8 @@ type ShipmentAddress = {
   reference: string;
   region: string;
   postalCode: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 type EcuadorGoogleAddressComponent = {
@@ -57,6 +59,12 @@ type EcuadorGoogleAddressComponent = {
 type EcuadorGooglePlace = {
   address_components?: EcuadorGoogleAddressComponent[];
   formatted_address?: string;
+  geometry?: {
+    location?: {
+      lat(): number;
+      lng(): number;
+    };
+  };
 };
 
 type EcuadorGoogleAutocomplete = {
@@ -121,6 +129,8 @@ const initialAddress = (): ShipmentAddress => ({
   reference: "",
   region: "",
   postalCode: "",
+  latitude: undefined,
+  longitude: undefined,
 });
 
 const createPackageDraft = (): PackageDraft => ({
@@ -208,12 +218,23 @@ export function EcuadorShipmentRequestForm() {
 
   const stepLabels = ["Origen y destino", "Paquetes", "Tarifas y cotizaciones"] as const;
 
-  function updateAddress(target: "origin" | "destination", key: keyof ShipmentAddress, value: string) {
+  function updateAddress(target: "origin" | "destination", key: keyof ShipmentAddress, value: string | number | undefined) {
+    const shouldClearCoordinates =
+      key === "address" || key === "city" || key === "region" || key === "postalCode";
+
     if (target === "origin") {
-      setOrigin((current) => ({ ...current, [key]: value }));
+      setOrigin((current) => ({
+        ...current,
+        [key]: value,
+        ...(shouldClearCoordinates ? { latitude: undefined, longitude: undefined } : {}),
+      }));
       if (key !== "reference") setSelectedOriginAddressId(null);
     } else {
-      setDestination((current) => ({ ...current, [key]: value }));
+      setDestination((current) => ({
+        ...current,
+        [key]: value,
+        ...(shouldClearCoordinates ? { latitude: undefined, longitude: undefined } : {}),
+      }));
       if (key !== "reference") setSelectedDestinationAddressId(null);
     }
 
@@ -543,7 +564,7 @@ function StepAddresses({
   extraDestinations: MultiDestinationDraft[];
   onOriginSelect: (entry: AddressBookEntry) => void;
   onDestinationSelect: (entry: AddressBookEntry) => void;
-  onAddressChange: (target: "origin" | "destination", key: keyof ShipmentAddress, value: string) => void;
+  onAddressChange: (target: "origin" | "destination", key: keyof ShipmentAddress, value: string | number | undefined) => void;
   onAddMultiDestination: () => void;
   onUpdateMultiDestination: (id: string, key: keyof MultiDestinationDraft, value: string) => void;
   onRemoveMultiDestination: (id: string) => void;
@@ -1036,7 +1057,7 @@ function AddressPanel({
   role: "sender" | "recipient";
   accent: "sky" | "orange";
   onAddressSelect: (entry: AddressBookEntry) => void;
-  onAddressChange: (key: keyof ShipmentAddress, value: string) => void;
+  onAddressChange: (key: keyof ShipmentAddress, value: string | number | undefined) => void;
   onUseDefault: () => void;
   onSaveAddress: () => void;
 }) {
@@ -1072,17 +1093,27 @@ function AddressPanel({
 
     const autocomplete = new googleWindow.google.maps.places.Autocomplete(searchRef.current, {
       types: ["geocode"],
-      fields: ["address_components", "formatted_address"],
+      fields: ["address_components", "formatted_address", "geometry"],
       componentRestrictions: { country: "ec" },
     });
 
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
-      const parsed = parseAddressComponents(place.address_components ?? [], undefined, place.formatted_address, undefined, "google_places");
+      const lat = place.geometry?.location?.lat();
+      const lng = place.geometry?.location?.lng();
+      const parsed = parseAddressComponents(
+        place.address_components ?? [],
+        lat != null && lng != null ? { lat, lng } : undefined,
+        place.formatted_address,
+        undefined,
+        "google_places",
+      );
       onAddressChange("address", parsed.street1?.trim() || place.formatted_address?.trim() || "");
       if (parsed.city) onAddressChange("city", parsed.city.trim());
       if (parsed.state) onAddressChange("region", parsed.state.trim());
       if (parsed.postalCode) onAddressChange("postalCode", parsed.postalCode.trim());
+      if (parsed.latitude != null) onAddressChange("latitude", parsed.latitude);
+      if (parsed.longitude != null) onAddressChange("longitude", parsed.longitude);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapsReady]);
@@ -1329,6 +1360,8 @@ function mapAddressEntryToShipment(entry: AddressBookEntry): ShipmentAddress {
     reference: entry.reference ?? "",
     region: entry.region,
     postalCode: entry.postalCode ?? "",
+    latitude: entry.latitude,
+    longitude: entry.longitude,
   };
 }
 
@@ -1351,8 +1384,8 @@ function buildAddressBookDraftFromShipment(
     phone: address.phone.trim(),
     email: "",
     reference: address.reference.trim(),
-    latitude: undefined,
-    longitude: undefined,
+    latitude: address.latitude,
+    longitude: address.longitude,
     isDefaultSender: role === "sender",
     isDefaultRecipient: role === "recipient",
   };
@@ -1395,6 +1428,10 @@ function buildQuoteRequestBody(input: {
     destinationAddress: input.destination.address || input.destination.city,
     destinationCity: input.destination.city,
     destinationReference: input.destination.reference,
+    originLatitude: input.origin.latitude,
+    originLongitude: input.origin.longitude,
+    destinationLatitude: input.destination.latitude,
+    destinationLongitude: input.destination.longitude,
     packageDescription: aggregate.description,
     packageWeight: aggregate.totalWeight,
     packageLength: aggregate.lengthCm,

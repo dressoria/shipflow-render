@@ -58,7 +58,12 @@ type DelivereoCalculatePayload = {
   categoryType: "SMALL" | "MEDIUM" | "LARGE";
   cityType: DelivereoCityType;
   lang: "es" | "en";
-  addresses: DelivereoCalculateAddress[];
+  addresses?: DelivereoCalculateAddress[];
+  points?: Array<{
+    pointLatitude: number;
+    pointLongitude: number;
+    pointOrder: number;
+  }>;
 };
 
 type DelivereoCalculateResponse = {
@@ -132,11 +137,21 @@ function resolveCityType(originCity?: string, destinationCity?: string): Deliver
   const destination = CITY_ALIAS_MAP[destinationKey];
 
   if (!origin && !destination) {
-    throw safeDelivereoFailure("No pudimos calcular esta cotización beta con Delivereo para las ciudades indicadas.", 400);
+    throw safeDelivereoFailure(
+      "Delivereo quote failed",
+      "calculate",
+      400,
+      "Delivereo todavía no soporta esta ciudad para cotización.",
+    );
   }
 
   if (origin && destination && origin !== destination) {
-    throw safeDelivereoFailure("La cotización beta automática de Delivereo por ahora solo está disponible para rutas dentro de la misma ciudad soportada.", 400);
+    throw safeDelivereoFailure(
+      "Delivereo quote failed",
+      "calculate",
+      400,
+      "La cotización automática de Delivereo por ahora solo está disponible dentro de la misma ciudad soportada.",
+    );
   }
 
   return origin ?? destination!;
@@ -165,24 +180,39 @@ function buildFullAddress(address?: string, city?: string, reference?: string) {
 function deriveCategory(input: EcuadorQuoteInput): "SMALL" | "MEDIUM" | "LARGE" {
   if (input.category) return input.category;
   const weight = input.packageWeight ?? 0;
-  if (weight <= 2) return "SMALL";
-  if (weight <= 10) return "MEDIUM";
+  const dims = input.packageDimensions ?? {};
+  const maxDimension = Math.max(dims.length ?? 0, dims.width ?? 0, dims.height ?? 0);
+  if (weight <= 5 && maxDimension <= 35) return "SMALL";
+  if (weight <= 20) return "MEDIUM";
   return "LARGE";
+}
+
+function hasPointCoordinates(input: EcuadorQuoteInput) {
+  const originHasPoint = Number.isFinite(input.origin.lat) && Number.isFinite(input.origin.lng);
+  const destinationHasPoint = Number.isFinite(input.destination.lat) && Number.isFinite(input.destination.lng);
+  return originHasPoint && destinationHasPoint;
 }
 
 export function mapEcuadorQuoteInputToDelivereoCalculatePayload(input: EcuadorQuoteInput): DelivereoCalculatePayload {
   const originFull = buildFullAddress(input.origin.addressLine, input.origin.city, input.origin.reference);
   const destinationFull = buildFullAddress(input.destination.addressLine, input.destination.city, input.destination.reference);
   if (!originFull || !destinationFull) {
-    throw safeDelivereoFailure("La cotización beta requiere dirección y ciudad de origen y destino.", 400);
+    throw safeDelivereoFailure(
+      "Delivereo quote failed",
+      "calculate",
+      400,
+      "La cotización beta requiere dirección y ciudad de origen y destino.",
+    );
   }
 
   const originSplit = splitAddress(input.origin.addressLine, input.origin.reference ?? input.origin.city ?? null);
   const destinationSplit = splitAddress(input.destination.addressLine, input.destination.reference ?? input.destination.city ?? null);
 
-  return {
-    categoryType: deriveCategory(input),
-    cityType: resolveCityType(input.origin.city, input.destination.city),
+  const categoryType = deriveCategory(input);
+  const cityType = resolveCityType(input.origin.city, input.destination.city);
+  const payload: DelivereoCalculatePayload = {
+    categoryType,
+    cityType,
     lang: input.language ?? "es",
     addresses: [
       {
@@ -201,6 +231,23 @@ export function mapEcuadorQuoteInputToDelivereoCalculatePayload(input: EcuadorQu
       },
     ],
   };
+
+  if (hasPointCoordinates(input)) {
+    payload.points = [
+      {
+        pointLatitude: Number(input.origin.lat),
+        pointLongitude: Number(input.origin.lng),
+        pointOrder: 1,
+      },
+      {
+        pointLatitude: Number(input.destination.lat),
+        pointLongitude: Number(input.destination.lng),
+        pointOrder: 2,
+      },
+    ];
+  }
+
+  return payload;
 }
 
 export function normalizeDelivereoQuoteResponse(response: DelivereoCalculateResponse): EcuadorQuoteResult {
@@ -230,7 +277,7 @@ export function normalizeDelivereoQuoteResponse(response: DelivereoCalculateResp
 
 function assertDelivereoQuoteConfig() {
   const config = readDelivereoServerConfig();
-  if (!config.enabled || !config.baseUrl || !config.username || !config.password) {
+  if (!config.enabled || !config.baseUrl || !config.apiKey || !config.username || !config.ruc) {
     throw new Error(DELIVEREO_NOT_CONFIGURED_MESSAGE);
   }
   return config;
@@ -242,7 +289,12 @@ export class DelivereoEcuadorShippingProvider implements EcuadorShippingProvider
     const payload = mapEcuadorQuoteInputToDelivereoCalculatePayload(input);
     const auth = await loginToDelivereo();
     if (!auth.token) {
-      throw safeDelivereoFailure("Delivereo authentication succeeded without a usable token.", 502);
+      throw safeDelivereoFailure(
+        "Delivereo quote failed",
+        "business_login",
+        502,
+        "Delivereo autenticó la cuenta, pero no devolvió un jwtToken utilizable.",
+      );
     }
 
     const response = await delivereoPostJson<DelivereoCalculateResponse>(
@@ -250,6 +302,15 @@ export class DelivereoEcuadorShippingProvider implements EcuadorShippingProvider
       "/api/private/business-bookings/calculate",
       payload,
       auth.token,
+      {
+        stage: "calculate",
+        summary: {
+          cityType: payload.cityType,
+          categoryType: payload.categoryType,
+          addressCount: payload.addresses?.length ?? 0,
+          hasPoints: Boolean(payload.points?.length),
+        },
+      },
     );
 
     return normalizeDelivereoQuoteResponse(response);
