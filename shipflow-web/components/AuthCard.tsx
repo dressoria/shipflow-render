@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -150,7 +151,7 @@ function AuthFormError({ message }: { message: string }) {
 export function AuthCard({ mode }: AuthCardProps) {
   const router = useRouter();
   const { user, loading: authLoading, login, register } = useAuth();
-  const { mode: regionMode } = useRegionMode();
+  const { mode: regionMode, setMode } = useRegionMode();
   const isLogin = mode === "login";
   const isEcuadorMode = regionMode === "ec";
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -291,6 +292,17 @@ export function AuthCard({ mode }: AuthCardProps) {
   return (
     <AuthFrame mode={mode}>
       <section className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-950/10 sm:p-7">
+        {isEcuadorMode ? (
+          <div className="mb-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setMode("us")}
+              className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-[#2563EB]"
+            >
+              Ir a modo USA
+            </button>
+          </div>
+        ) : null}
         <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#2563EB] text-white">
             <PackageCheck className="h-5 w-5" />
@@ -306,18 +318,18 @@ export function AuthCard({ mode }: AuthCardProps) {
                 : "border-orange-100 bg-orange-50 text-[#F97316]"
             }`}
           >
-            {isEcuadorMode ? "Modo Ecuador · En preparación" : "Shipping Labels USA · Disponible"}
+            {isEcuadorMode ? "Modo Ecuador · Sin cobro" : "Shipping Labels USA · Disponible"}
           </span>
         </div>
 
         <div className="mt-5">
           <p className={`text-xs font-black uppercase tracking-[0.18em] ${isEcuadorMode ? "text-sky-700" : "text-[#F97316]"}`}>
-            {isEcuadorMode ? "Acceso beta Ecuador" : isLogin ? "Welcome back" : "Beta access"}
+            {isEcuadorMode ? "Acceso Ecuador" : isLogin ? "Welcome back" : "Beta access"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             {isEcuadorMode
               ? isLogin
-                ? "Ingresa a tu cuenta SendiFlash Ecuador"
+                ? "Accede a SendiFlash Ecuador"
                 : "Crea tu cuenta SendiFlash Ecuador"
               : isLogin
                 ? "Welcome back"
@@ -326,8 +338,8 @@ export function AuthCard({ mode }: AuthCardProps) {
           <p className="mt-2 text-sm leading-6 text-slate-600">
             {isEcuadorMode
               ? isLogin
-                ? "Accede a SendiFlash Ecuador para revisar solicitudes beta, cotizaciones en preparación y el avance de tu operación multicourier."
-                : "Crea una sola cuenta para SendiFlash Ecuador y Shipping Labels USA. Ecuador sigue en preparación y sin cobro por ahora."
+                ? "Cotiza, organiza solicitudes y prepara tus envíos nacionales. Una sola cuenta para Ecuador y USA, sin cobro ni orden real hasta confirmar disponibilidad."
+                : "Una sola cuenta para cotizar, organizar solicitudes y preparar tus envíos nacionales en Ecuador. Sin cobro ni orden real hasta confirmar disponibilidad."
               : isLogin
                 ? "Create labels, compare rates, and manage shipments from one workspace."
                 : "Start comparing rates and generating labels in minutes. Domestic shipping in selected markets; international shipping is coming later."}
@@ -432,12 +444,12 @@ function AuthPreview({ mode }: { mode: "login" | "registro" }) {
       <div className="max-w-xl">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
           <ShieldCheck className="h-3.5 w-3.5 text-[#FB923C]" />
-          {isEcuadorMode ? "Modo Ecuador en preparación" : "Secure beta shipping workspace"}
+          {isEcuadorMode ? "SendiFlash Ecuador" : "Secure beta shipping workspace"}
         </div>
         <h2 className="mt-6 text-5xl font-black tracking-tight">
           {isEcuadorMode
             ? mode === "login"
-              ? "Accede a SendiFlash Ecuador."
+              ? "Accede a una experiencia logística pensada para Ecuador."
               : "Una sola cuenta para Ecuador y USA."
             : mode === "login"
               ? "Everything after checkout, handled."
@@ -445,7 +457,7 @@ function AuthPreview({ mode }: { mode: "login" | "registro" }) {
         </h2>
         <p className="mt-4 max-w-lg text-base leading-7 text-slate-300">
           {isEcuadorMode
-            ? "Solicitudes beta, cotizaciones y seguimiento en preparación para operadores como Servientrega, LaarCourier, Tramaco y Delivereo. Sin cobro por ahora."
+            ? "Cotiza, organiza solicitudes y prepara envíos nacionales con una vista multicourier en español. Sin cobro ni orden real hasta confirmar disponibilidad."
             : "Compare domestic rates, pay securely, and let SendiFlash prepare the label automatically after payment."}
         </p>
       </div>
@@ -453,36 +465,53 @@ function AuthPreview({ mode }: { mode: "login" | "registro" }) {
       <div className="mt-8 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-black/20 backdrop-blur">
         {isEcuadorMode ? (
           <>
-            <div className="grid gap-3 rounded-3xl bg-white p-4 text-slate-950">
-              <div className="flex items-center justify-between">
-                <div>
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white text-slate-950 shadow-xl">
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/images/ecuador/maps/ecuador-map-coverage.webp"
+                  alt="Visual Ecuador con rutas, cobertura y cotización sin cobro"
+                  fill
+                  sizes="640px"
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(15,23,42,0.14)_100%)]" />
+                <div className="absolute left-4 top-4 rounded-2xl border border-white/70 bg-white/92 px-4 py-3 shadow-lg backdrop-blur">
                   <p className="text-xs font-black uppercase tracking-widest text-sky-700">SendiFlash Ecuador</p>
-                  <p className="mt-1 text-sm font-bold text-slate-500">Quito · Guayaquil · Cuenca · Manta · Loja</p>
+                  <p className="mt-1 text-sm font-bold text-slate-600">Quito · Guayaquil · Cuenca · Manta · Loja</p>
                 </div>
-                <Route className="h-5 w-5 text-sky-700" />
+                <div className="absolute bottom-4 right-4 rounded-2xl border border-sky-100 bg-white/92 px-4 py-3 shadow-lg backdrop-blur">
+                  <div className="flex items-center gap-2 text-xs font-black text-sky-700">
+                    <Route className="h-4 w-4" />
+                    Cotización de envío
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Sin cobro ni orden real hasta confirmar disponibilidad</p>
+                </div>
               </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 rounded-3xl bg-white p-4 text-slate-950">
               {[
-                ["Servientrega", "Integración en preparación"],
-                ["LaarCourier", "Cobertura en validación"],
-                ["Tramaco", "Operador futuro"],
+                ["Cotiza y organiza", "Solicitudes, tarifas y seguimiento en preparación"],
+                ["Operadores disponibles", "Servientrega, LaarCourier, Tramaco, Delivereo y más"],
+                ["Una sola cuenta", "Ecuador primero con acceso sutil a Shipping Labels USA"],
               ].map(([name, badge]) => (
                 <div key={name} className="flex items-center justify-between rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-slate-950">{name}</p>
                     <p className="mt-0.5 text-xs font-semibold text-slate-500">{badge}</p>
                   </div>
-                  <p className="text-xs font-black text-sky-700">Beta</p>
+                  <p className="text-xs font-black text-sky-700">Ecuador</p>
                 </div>
               ))}
               <div className="flex items-center gap-2 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">
                 <CheckCircle2 className="h-4 w-4" />
-                Sin cobro y sin orden real por ahora
+                Sin cobro y sin orden real hasta confirmar disponibilidad
               </div>
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {[
-                [Truck, "Solicitudes beta"],
+                [Truck, "Cotización de envío"],
                 [CreditCard, "Sin cobro"],
                 [LockKeyhole, "Una cuenta USA + Ecuador"],
               ].map(([Icon, label]) => {

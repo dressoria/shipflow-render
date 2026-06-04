@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BarChart3,
+  BookMarked,
   ClipboardList,
   CreditCard,
   Home,
@@ -41,6 +42,7 @@ type NavItem = {
 const usaMenu: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Get rates", href: "/crear-guia", icon: PlusCircle },
+  { label: "Address book", href: "/direcciones", icon: MapPinned },
   { label: "Shipments", href: "/envios", icon: Truck },
   { label: "FBA Prep", href: "/prep", icon: ClipboardList },
   { label: "Tracking", href: "/tracking", icon: MapPinned },
@@ -51,7 +53,8 @@ const usaMenu: NavItem[] = [
 
 const ecuadorMenu: NavItem[] = [
   { label: "Panel", href: "/dashboard", icon: Home },
-  { label: "Nueva solicitud beta", href: "/ecuador/crear-envio", icon: PlusCircle },
+  { label: "Cotizar envío", href: "/ecuador/crear-envio", icon: PlusCircle },
+  { label: "Libreta de direcciones", href: "/direcciones", icon: BookMarked },
   { label: "Mis solicitudes", href: "/ecuador/envios", icon: MapPinned },
   { label: "Soporte", href: "/support", icon: HelpCircle },
   { label: "Perfil", href: "/perfil", icon: Settings },
@@ -125,7 +128,7 @@ export function DashboardShell({ title, description, children }: DashboardShellP
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button href={isEcuadorMode ? "/ecuador/crear-envio" : "/crear-guia"} icon={<PlusCircle className="h-4 w-4" />} className="hidden rounded-2xl sm:inline-flex">
-              {isEcuadorMode ? "Solicitud beta" : "Get rates"}
+              {isEcuadorMode ? "Nueva cotización" : "Get rates"}
             </Button>
             <button
               type="button"
