@@ -3,6 +3,7 @@ import { isServerSupabaseConfigured, requireVerifiedUser } from "@/lib/server/su
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { aggregateRates } from "@/lib/logistics/rateAggregator";
 import { InvalidPayloadError } from "@/lib/logistics/errors";
+import { shouldBlockMediaMailRate } from "@/lib/logistics/mediaMail";
 import { validateDomesticShipmentCountries } from "@/lib/domesticMarkets";
 import type { Address, Parcel, RateInput } from "@/lib/logistics/types";
 
@@ -11,6 +12,7 @@ type ShipStationRateBody = {
   origin: Address;
   destination: Address;
   parcel: Parcel;
+  productDescription?: string;
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;
@@ -21,10 +23,18 @@ type AggregatedRateBody = {
   origin: Address;
   destination: Address;
   parcel: Parcel;
+  productDescription?: string;
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;
 };
+
+function filterBlockedRates<T extends { serviceCode: string }>(
+  rates: T[],
+  productDescription?: string,
+): T[] {
+  return rates.filter((rate) => !shouldBlockMediaMailRate(rate.serviceCode, productDescription));
+}
 
 function isShipStationRequest(body: unknown): body is ShipStationRateBody {
   return (
@@ -97,13 +107,14 @@ export async function POST(request: Request) {
     if (isAggregatedRequest(body)) {
       const rateInput = parseExternalRateInput(body);
       const { rates, outcomes, queriedProviders, configuredCount } = await aggregateRates(rateInput);
+      const visibleRates = filterBlockedRates(rates, body.productDescription);
       const failedCount = outcomes.filter((o) => !o.ok).length;
 
       if (configuredCount === 0) {
         return apiError("No real rate integrations are configured yet.", 503);
       }
 
-      if (rates.length === 0) {
+      if (visibleRates.length === 0) {
         return apiSuccess({
           mode: "best_available",
           rates: [],
@@ -116,7 +127,7 @@ export async function POST(request: Request) {
 
       return apiSuccess({
         mode: "best_available",
-        rates,
+        rates: visibleRates,
         configuredCount,
         queriedProvidersCount: queriedProviders.length,
         message: "Rates available.",
@@ -127,7 +138,7 @@ export async function POST(request: Request) {
     if (isShipStationRequest(body)) {
       const rateInput = parseExternalRateInput(body);
       const adapter = getLogisticsAdapter("shipstation");
-      const rates = await adapter.getRates(rateInput);
+      const rates = filterBlockedRates(await adapter.getRates(rateInput), body.productDescription);
 
       if (rates.length === 0) {
         return apiSuccess({

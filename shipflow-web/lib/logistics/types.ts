@@ -109,6 +109,7 @@ export type LabelResult = {
   providerShipmentId?: string | null;
   providerLabelId?: string | null;
   providerServiceCode?: string | null;
+  purchaseMethod?: "rate_id" | "direct_fallback";
 };
 
 export type VoidLabelInput = {

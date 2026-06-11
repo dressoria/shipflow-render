@@ -407,6 +407,7 @@ export function BatchGuideForm() {
           height: Number(pkg.height),
           dimensionUnit: pkg.dimensionUnit,
         },
+        productDescription: productDescription(pkg),
       });
 
       if (!result.rates.length) {

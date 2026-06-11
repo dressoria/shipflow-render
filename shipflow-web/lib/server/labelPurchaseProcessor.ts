@@ -16,6 +16,11 @@
 import { createServiceSupabaseClient } from "@/lib/server/supabaseServer";
 import { getLogisticsAdapter } from "@/lib/logistics/registry";
 import { ShipEngineLabelAdapter } from "@/lib/logistics/adapters/ShipEngineLabelAdapter";
+import {
+  MEDIA_MAIL_ACTION_REQUIRED_MESSAGE,
+  RATE_EXPIRED_ACTION_REQUIRED_MESSAGE,
+  shouldBlockMediaMailRate,
+} from "@/lib/logistics/mediaMail";
 import { calculateCustomerPrice } from "@/lib/logistics/pricing";
 import {
   getPendingLabelOrderByIdForAdmin,
@@ -288,6 +293,41 @@ function getSnapshotNumber(order: PendingLabelOrder, key: string): number | null
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function hasPersistedLabelArtifacts(order: PendingLabelOrder): boolean {
+  return Boolean(order.labelId || order.shipmentId || order.trackingNumber);
+}
+
+function isCompatibleRateIncreaseWithinGuard(
+  originalProviderCost: number,
+  currentProviderCost: number,
+): boolean {
+  if (originalProviderCost <= 0 || currentProviderCost <= 0) return false;
+  if (currentProviderCost <= originalProviderCost) return true;
+
+  const delta = currentProviderCost - originalProviderCost;
+  return delta <= 1 || delta / originalProviderCost <= 0.1;
+}
+
+function isRateExpiredMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized.includes("selected rate is no longer available") ||
+    normalized.includes("rate no longer available") ||
+    normalized.includes("rate expired") ||
+    normalized.includes("rate changed before the label could be completed")
+  );
+}
+
+function actionRequiredMessageForFailure(message: string): string {
+  if (message === MEDIA_MAIL_ACTION_REQUIRED_MESSAGE) {
+    return MEDIA_MAIL_ACTION_REQUIRED_MESSAGE;
+  }
+  if (isRateExpiredMessage(message)) {
+    return RATE_EXPIRED_ACTION_REQUIRED_MESSAGE;
+  }
+  return `Automatic label purchase failed: ${message}`;
+}
+
 function getBatchMetadata(order: PendingLabelOrder): Record<string, unknown> {
   const batchId = getSnapshotString(order, "batchId", 120);
   if (!batchId) return {};
@@ -440,6 +480,26 @@ async function purchaseLabelFromPendingOrder(
     throw new Error(`Order marked action_required: ${msg}`);
   }
 
+  const productDescription = getSnapshotString(order, "productDescription");
+  if (shouldBlockMediaMailRate(order.serviceCode ?? order.rateSnapshot.serviceCode, productDescription)) {
+    await markPendingLabelOrderActionRequired(order.id, MEDIA_MAIL_ACTION_REQUIRED_MESSAGE);
+    await createAuditLog({
+      userId: order.userId,
+      eventType: "label_purchase_media_mail_guard_blocked",
+      severity: "warning",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: "Label purchase blocked because USPS Media Mail is not eligible for this product.",
+      metadata: {
+        ...logMeta,
+        productDescription,
+        serviceCode: order.serviceCode ?? order.rateSnapshot.serviceCode,
+      },
+    });
+    throw new Error(`Order marked action_required: ${MEDIA_MAIL_ACTION_REQUIRED_MESSAGE}`);
+  }
+
   // Only shipstation/ShipEngine supports server-side label purchase in this phase.
   const isShipEngine =
     order.provider === "shipstation" &&
@@ -482,19 +542,52 @@ async function purchaseLabelFromPendingOrder(
     throw new Error(`Order marked action_required: ${msg}`);
   }
 
+  const originalProviderCost = order.rateSnapshot.providerCost;
+  const currentProviderCost = revalidatedRate.pricing.providerCost;
+  if (!isCompatibleRateIncreaseWithinGuard(originalProviderCost, currentProviderCost)) {
+    await markPendingLabelOrderActionRequired(order.id, RATE_EXPIRED_ACTION_REQUIRED_MESSAGE);
+    await createAuditLog({
+      userId: order.userId,
+      eventType: "label_purchase_rate_guard_blocked",
+      severity: "warning",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: "Label purchase blocked because the refreshed provider cost exceeded the allowed guardrail.",
+      metadata: {
+        ...logMeta,
+        originalProviderCost,
+        currentProviderCost,
+      },
+    });
+    throw new Error(`Order marked action_required: ${RATE_EXPIRED_ACTION_REQUIRED_MESSAGE}`);
+  }
+
   // Call ShipEngine label API.
   const labelInput = buildLabelInput(order, revalidatedRate);
   let labelResult: LabelResult;
   try {
+    await createAuditLog({
+      userId: order.userId,
+      eventType: "label_purchase_direct_fallback_started",
+      severity: "info",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: "ShipEngine label purchase started with direct shipment fallback enabled.",
+      metadata: {
+        ...logMeta,
+        providerRateId: labelInput.providerRateId ?? null,
+        carrierCode: labelInput.carrierCode ?? null,
+        serviceCode: labelInput.serviceCode ?? null,
+      },
+    });
     labelResult = await new ShipEngineLabelAdapter().createLabel(labelInput);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err ?? "Carrier call failed.");
     const shouldMarkActionRequired = opts?.carrierFailureStatus === "action_required";
     if (shouldMarkActionRequired) {
-      await markPendingLabelOrderActionRequired(
-        order.id,
-        `Automatic label purchase failed: ${msg}`,
-      );
+      await markPendingLabelOrderActionRequired(order.id, actionRequiredMessageForFailure(msg));
     } else {
       // Payment was captured — mark refund_needed so support can process a Stripe refund.
       await markPendingLabelOrderRefundNeeded(order.id, msg);
@@ -513,11 +606,57 @@ async function purchaseLabelFromPendingOrder(
         : "Label purchase failed: carrier returned an error. Order marked refund_needed.",
       metadata: { ...logMeta, reason: msg },
     });
+    await createAuditLog({
+      userId: order.userId,
+      eventType: isRateExpiredMessage(msg)
+        ? "label_purchase_rate_id_failed_retrying_direct"
+        : "label_purchase_direct_fallback_failed",
+      severity: "error",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: isRateExpiredMessage(msg)
+        ? "ShipEngine rate ID purchase failed and direct fallback did not complete."
+        : "ShipEngine direct label fallback failed.",
+      metadata: { ...logMeta, reason: msg },
+    });
     throw new Error(
       shouldMarkActionRequired
         ? `Order marked action_required: ${msg}`
         : `Order marked refund_needed: ${msg}`,
     );
+  }
+
+  if (labelResult.purchaseMethod === "direct_fallback") {
+    await createAuditLog({
+      userId: order.userId,
+      eventType: "label_purchase_rate_id_failed_retrying_direct",
+      severity: "warning",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: "ShipEngine rate ID purchase failed and the processor retried with a direct label request.",
+      metadata: {
+        ...logMeta,
+        attemptedProviderRateId: labelInput.providerRateId ?? null,
+        finalProviderRateId: labelResult.rate.providerRateId ?? null,
+      },
+    });
+    await createAuditLog({
+      userId: order.userId,
+      eventType: "label_purchase_direct_fallback_succeeded",
+      severity: "info",
+      entityType: "shipment",
+      entityId: order.id,
+      provider: order.provider,
+      message: "ShipEngine direct label fallback succeeded after the original rate ID failed.",
+      metadata: {
+        ...logMeta,
+        attemptedProviderRateId: labelInput.providerRateId,
+        finalProviderRateId: labelResult.rate.providerRateId,
+        providerLabelId: labelResult.providerLabelId ?? null,
+      },
+    });
   }
 
   // Persist shipment — no wallet debit.
@@ -652,9 +791,7 @@ export async function purchaseLabelForPendingOrder(
   const canRetryActionRequired =
     opts?.allowActionRequiredRetry &&
     order.status === "action_required" &&
-    !order.labelId &&
-    !order.shipmentId &&
-    !order.trackingNumber;
+    !hasPersistedLabelArtifacts(order);
 
   if (
     order.status !== "paid_waiting_label_purchase" &&
@@ -678,7 +815,7 @@ export async function purchaseLabelForPendingOrder(
   }
 
   // Guard against ambiguous state: label data present but status not terminal.
-  if (order.labelId || order.shipmentId || order.trackingNumber) {
+  if (hasPersistedLabelArtifacts(order)) {
     throw new Error(
       "Order already has label or shipment data but status is not label_purchased. " +
         "This needs manual review — do not re-purchase.",

@@ -699,6 +699,7 @@ export type SSRatesBody = {
   origin: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
   destination: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
   parcel: { weight: number; weightUnit?: string; length?: number; width?: number; height?: number; dimensionUnit?: string };
+  productDescription?: string;
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;
@@ -709,6 +710,7 @@ export type AggregatedRatesBody = {
   origin: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
   destination: { line1?: string; line2?: string; city: string; postalCode?: string; state?: string; country?: string };
   parcel: { weight: number; weightUnit?: string; length?: number; width?: number; height?: number; dimensionUnit?: string };
+  productDescription?: string;
   courier?: string;
   cashOnDelivery?: boolean;
   cashAmount?: number;

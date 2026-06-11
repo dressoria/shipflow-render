@@ -155,6 +155,10 @@ function resolvedProductType(form: FormState) {
   return form.productType;
 }
 
+function orderSupportMessage(order: UserLabelOrderStatus): string {
+  return order.errorMessage?.trim() || getUserFacingLabelOrderMessage(order.status);
+}
+
 function LabelPaymentSuccessBanner({
   order,
   labelPurchaseEnabled,
@@ -184,7 +188,7 @@ function LabelPaymentSuccessBanner({
       title = "Payment confirmed. Review needed.";
       body = (
         <>
-          {getUserFacingLabelOrderMessage(status)}{" "}
+          {order ? orderSupportMessage(order) : getUserFacingLabelOrderMessage(status)}{" "}
           <Link href="/support" className="underline font-medium">
             See what happens next
           </Link>
@@ -193,7 +197,7 @@ function LabelPaymentSuccessBanner({
       );
     } else if (status === "refund_needed") {
       title = "Label could not be generated.";
-      body = getUserFacingLabelOrderMessage(status);
+      body = order ? orderSupportMessage(order) : getUserFacingLabelOrderMessage(status);
     } else if (status === "refund_pending") {
       title = "Refund in progress.";
       body = getUserFacingLabelOrderMessage(status);
@@ -589,6 +593,7 @@ export function CreateGuideForm() {
           height: Number(form.height),
           dimensionUnit: form.dimensionUnit,
         },
+        productDescription: resolvedProductType(form),
       });
       const visibleRates = result.rates.filter(isCustomerVisibleRate);
       if (!visibleRates.length) {
