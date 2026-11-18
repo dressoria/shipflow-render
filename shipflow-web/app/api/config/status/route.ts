@@ -7,7 +7,7 @@ import { isStripeConfigured, isStripeWebhookConfigured } from "@/lib/server/stri
 // Used by the UI to determine whether real quoting and label creation are available.
 // Also used as a build-env diagnostic to verify NEXT_PUBLIC_* vars were baked correctly.
 export async function GET() {
-  const aggregationProviders = (["shipstation", "shippo", "easypost", "easyship"] as const).filter(
+  const aggregationProviders = (["ups", "fedex", "usps", "shipstation", "shippo", "easypost", "easyship"] as const).filter(
     (p) => PROVIDER_CAPABILITIES[p].configured && PROVIDER_CAPABILITIES[p].supportsRates,
   );
 
