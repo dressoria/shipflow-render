@@ -1,3 +1,4 @@
+import { directCarrierConfigured } from "@/lib/logistics/directCarriers/auth";
 import type { LogisticsProvider } from "@/lib/logistics/types";
 
 export type ProviderCapabilities = {
@@ -7,7 +8,7 @@ export type ProviderCapabilities = {
   supportsVoid: boolean;
   supportsTracking: boolean;
   supportsAddressValidation: boolean;
-  apiMode?: "internal" | "mock" | "shipengine" | "shipstation_legacy" | "shippo" | "easypost" | "easyship";
+  apiMode?: "internal" | "mock" | "shipengine" | "shipstation_legacy" | "shippo" | "easypost" | "easyship" | "direct";
   labelImplementation: "available" | "planned" | "rates_only" | "legacy" | "none";
   environment?: "sandbox" | "test" | "live" | "unknown";
   configured: boolean;
@@ -38,6 +39,24 @@ function isEasyshipConfigured(): boolean {
 }
 
 export const PROVIDER_CAPABILITIES: Record<LogisticsProvider, ProviderCapabilities> = {
+  ups: {
+    displayName: "UPS Direct", supportsRates: true, supportsLabels: false, supportsVoid: false,
+    supportsTracking: false, supportsAddressValidation: false, apiMode: "direct",
+    labelImplementation: "rates_only", environment: process.env.DIRECT_CARRIER_ENV === "production" ? "live" : "sandbox",
+    configured: process.env.ENABLE_DIRECT_CARRIER_API === "true" && directCarrierConfigured("ups"), priority: 1,
+  },
+  fedex: {
+    displayName: "FedEx Direct", supportsRates: true, supportsLabels: false, supportsVoid: false,
+    supportsTracking: false, supportsAddressValidation: false, apiMode: "direct",
+    labelImplementation: "rates_only", environment: process.env.DIRECT_CARRIER_ENV === "production" ? "live" : "sandbox",
+    configured: process.env.ENABLE_DIRECT_CARRIER_API === "true" && directCarrierConfigured("fedex") && Boolean(process.env.FEDEX_ACCOUNT_NUMBER), priority: 2,
+  },
+  usps: {
+    displayName: "USPS Direct", supportsRates: true, supportsLabels: false, supportsVoid: false,
+    supportsTracking: false, supportsAddressValidation: false, apiMode: "direct",
+    labelImplementation: "rates_only", environment: process.env.DIRECT_CARRIER_ENV === "production" ? "live" : "sandbox",
+    configured: process.env.ENABLE_DIRECT_CARRIER_API === "true" && directCarrierConfigured("usps"), priority: 3,
+  },
   internal: {
     displayName: "Internal",
     supportsRates: true,
