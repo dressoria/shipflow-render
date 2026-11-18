@@ -1,0 +1,36 @@
+name: SendiFlash direct-carrier checks
+
+on:
+  pull_request:
+    paths:
+      - 'shipflow-web/**'
+      - '.github/workflows/direct-carriers-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shipflow-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: shipflow-web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-placeholder-no-production-access
+          NEXT_PUBLIC_APP_URL: https://example.invalid
+          ENABLE_REAL_LABEL_PURCHASE: "false"
+          ENABLE_REAL_LABEL_VOID: "false"
+          ENABLE_DIRECT_CARRIER_API: "false"

@@ -1,6 +1,6 @@
 import type { TrackingResult as AppTrackingResult } from "@/lib/types";
 
-export type LogisticsProvider = "internal" | "mock" | "shipstation" | "shippo" | "easypost" | "easyship";
+export type LogisticsProvider = "internal" | "mock" | "shipstation" | "shippo" | "easypost" | "easyship" | "ups" | "fedex" | "usps";
 
 export type LogisticsServiceCode = string;
 

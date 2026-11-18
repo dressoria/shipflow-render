@@ -3,6 +3,7 @@ import { ShipStationAdapter } from "@/lib/logistics/adapters/ShipStationAdapter"
 import { ShippoAdapter } from "@/lib/logistics/adapters/ShippoAdapter";
 import { EasyPostAdapter } from "@/lib/logistics/adapters/EasyPostAdapter";
 import { EasyshipAdapter } from "@/lib/logistics/adapters/EasyshipAdapter";
+import { DirectCarrierAdapter } from "@/lib/logistics/directCarriers/adapter";
 import { UnsupportedProviderError } from "@/lib/logistics/errors";
 import type { LogisticsAdapter } from "@/lib/logistics/adapters/LogisticsAdapter";
 import type { LogisticsProvider } from "@/lib/logistics/types";
@@ -19,6 +20,7 @@ export function normalizeProvider(provider?: string): LogisticsProvider {
   if (provider === "shippo") return "shippo";
   if (provider === "easypost") return "easypost";
   if (provider === "easyship") return "easyship";
+  if (provider === "ups" || provider === "fedex" || provider === "usps") return provider;
 
   throw new UnsupportedProviderError(`Unsupported logistics provider: ${provider}`);
 }
@@ -40,6 +42,10 @@ export function getLogisticsAdapter(provider?: string, options: LogisticsRegistr
   }
   if (normalizedProvider === "easyship") {
     return new EasyshipAdapter();
+  }
+
+  if (normalizedProvider === "ups" || normalizedProvider === "fedex" || normalizedProvider === "usps") {
+    return new DirectCarrierAdapter(normalizedProvider);
   }
 
   throw new UnsupportedProviderError();
