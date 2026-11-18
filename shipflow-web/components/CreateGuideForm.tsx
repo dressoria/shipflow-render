@@ -99,7 +99,7 @@ const productTypes = [
   "Other",
 ];
 
-const LABELS_NOT_IMPLEMENTED_PROVIDERS = new Set(["shippo", "easypost", "easyship"]);
+const LABELS_NOT_IMPLEMENTED_PROVIDERS = new Set(["shippo", "easypost", "easyship", "ups", "fedex", "usps"]);
 const SHIPMENT_DRAFT_KEY = "sendiflash-create-guide-draft-v1";
 
 function restoreDraftForm(): FormState {
