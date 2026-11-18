@@ -26,3 +26,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-placeholder-no-production-access
+          NEXT_PUBLIC_APP_URL: https://example.invalid
+          ENABLE_REAL_LABEL_PURCHASE: "false"
+          ENABLE_REAL_LABEL_VOID: "false"
+          ENABLE_DIRECT_CARRIER_API: "false"
