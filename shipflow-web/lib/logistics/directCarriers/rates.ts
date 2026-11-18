@@ -69,14 +69,14 @@ async function upsRates(input: RateInput): Promise<RateResult[]> {
     RateRequest: {
       Request: { RequestOption: "Shop", TransactionReference: { CustomerContext: "SendiFlash rate quote" } },
       Shipment: {
-        Shipper: address(input.origin), ShipFrom: address(input.origin), ShipTo: address(input.destination),
+        Shipper: { ...address(input.origin), ...(process.env.UPS_SHIPPER_NUMBER?.trim() ? { ShipperNumber: process.env.UPS_SHIPPER_NUMBER.trim() } : {}) },
+        ShipFrom: address(input.origin), ShipTo: address(input.destination),
         Package: {
           PackagingType: { Code: "02" },
           Dimensions: { UnitOfMeasurement: { Code: "IN" }, Length: inches(input, "length").toFixed(2),
             Width: inches(input, "width").toFixed(2), Height: inches(input, "height").toFixed(2) },
           PackageWeight: { UnitOfMeasurement: { Code: "LBS" }, Weight: pounds(input).toFixed(2) },
         },
-        ...(process.env.UPS_SHIPPER_NUMBER?.trim() ? { ShipperNumber: process.env.UPS_SHIPPER_NUMBER.trim() } : {}),
       },
     },
   };
