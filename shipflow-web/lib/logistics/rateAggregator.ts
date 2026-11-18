@@ -6,7 +6,7 @@ import { rankRates } from "@/lib/logistics/rateRanking";
 import type { LogisticsProvider, RateInput, RateResult } from "@/lib/logistics/types";
 
 // Providers eligible for aggregation — internal/mock are excluded (fallback only).
-const AGGREGATION_PROVIDERS: LogisticsProvider[] = ["shipstation", "shippo", "easypost", "easyship"];
+const AGGREGATION_PROVIDERS: LogisticsProvider[] = ["ups", "fedex", "usps", "shipstation", "shippo", "easypost", "easyship"];
 const PROVIDER_RATE_TIMEOUT_MS = 15000;
 
 type ProviderOutcome =
