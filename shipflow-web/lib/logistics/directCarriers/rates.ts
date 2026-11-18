@@ -67,7 +67,7 @@ async function upsRates(input: RateInput): Promise<RateResult[]> {
   });
   const payload = {
     RateRequest: {
-      Request: { RequestOption: "Shoptimeintransit", TransactionReference: { CustomerContext: "SendiFlash rate quote" } },
+      Request: { RequestOption: "Shop", TransactionReference: { CustomerContext: "SendiFlash rate quote" } },
       Shipment: {
         Shipper: address(input.origin), ShipFrom: address(input.origin), ShipTo: address(input.destination),
         Package: {
